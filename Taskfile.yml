@@ -1,0 +1,97 @@
+# Single entry point for dev tasks. Install go-task: https://taskfile.dev (e.g. `scoop install task`).
+version: "3"
+
+dotenv: [".env"]
+output: prefixed
+
+vars:
+  COMPOSE: docker compose -f deploy/compose/compose.yaml --env-file .env
+
+tasks:
+  default:
+    cmds: [task --list]
+    silent: true
+
+  db-up:
+    desc: Start PostgreSQL 18 (compose) and wait until healthy
+    cmds:
+      - "{{.COMPOSE}} up -d --wait postgres"
+
+  db-down:
+    desc: Stop PostgreSQL (data volume kept; add `-- -v` to drop it)
+    cmds:
+      - "{{.COMPOSE}} down {{.CLI_ARGS}}"
+
+  migrate:
+    desc: Apply goose migrations
+    dir: apps/api
+    cmds:
+      - go run github.com/pressly/goose/v3/cmd/goose@v3.29.0 -dir db/migrations postgres "$DATABASE_URL" up
+
+  seed:
+    desc: Seed dev users (viewer / editor / maintainer)
+    dir: apps/api
+    cmds:
+      - go run ./cmd/seed
+
+  gen:
+    desc: Regenerate Go server stubs, sqlc code and the TS API client from contracts/openapi.yaml
+    cmds:
+      - task: gen-api
+      - task: gen-client
+
+  gen-api:
+    dir: apps/api
+    cmds:
+      - go generate ./...
+      - go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate
+
+  gen-client:
+    cmds:
+      - pnpm --filter @archmap/api-client generate
+
+  dev:
+    desc: Run API and web together
+    deps: [dev-api, dev-web]
+
+  dev-api:
+    desc: Run the API with live reload (air)
+    dir: apps/api
+    cmds:
+      - go run github.com/air-verse/air@v1.67.4
+
+  dev-web:
+    desc: Run the TanStack Start dev server
+    cmds:
+      - pnpm --filter web dev
+
+  test:
+    desc: Run all tests
+    cmds:
+      - task: test-api
+      - pnpm -r --if-present test
+
+  test-api:
+    dir: apps/api
+    cmds:
+      - go test ./...
+
+  lint:
+    desc: Lint and format-check everything
+    cmds:
+      - cd apps/api && go vet ./...
+      - pnpm -r --if-present lint
+      - pnpm -r --if-present typecheck
+      - pnpm -r --if-present check
+
+  hooks:
+    desc: Install git pre-commit hooks (lefthook, see lefthook.yml)
+    dir: apps/api
+    cmds:
+      - go tool lefthook install
+
+  gen-check:
+    desc: Fail if generated code is out of date (used in CI)
+    cmds:
+      - task: gen
+      - git diff --exit-code -- apps/api packages/api-client

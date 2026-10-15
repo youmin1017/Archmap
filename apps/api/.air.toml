@@ -1,0 +1,9 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/api.exe ./cmd/api"
+  entrypoint = ["./tmp/api.exe"]
+  include_ext = ["go", "yaml"]
+  exclude_dir = ["tmp", "db"]
+  delay = 500

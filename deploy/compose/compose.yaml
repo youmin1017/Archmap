@@ -1,0 +1,23 @@
+# Local dev only: PostgreSQL 18. API and web run natively on the host.
+services:
+  postgres:
+    image: postgres:18
+    container_name: archmap-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-archmap}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-archmap}
+      POSTGRES_DB: ${POSTGRES_DB:-archmap}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # postgres:18+ moved VOLUME to /var/lib/postgresql (PGDATA is /var/lib/postgresql/18/docker)
+      - archmap-pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  archmap-pgdata:

@@ -1,0 +1,25 @@
+# Pre-commit: format + lint staged files only. Full checks: `task lint` / `task test`.
+pre-commit:
+  parallel: true
+  jobs:
+    - name: web format (oxfmt)
+      root: apps/web/
+      glob: "*.{ts,tsx,js,jsx,json,css,md}"
+      run: pnpm exec oxfmt {staged_files}
+      stage_fixed: true
+
+    - name: web lint (eslint)
+      root: apps/web/
+      glob: "*.{ts,tsx,js,jsx}"
+      run: pnpm exec eslint --max-warnings=0 {staged_files}
+
+    - name: api format (gofmt)
+      glob: "apps/api/**/*.go"
+      exclude: "**/*.gen.go|**/sqlcgen/*"
+      run: gofmt -w {staged_files}
+      stage_fixed: true
+
+    - name: api vet
+      glob: "apps/api/**/*.go"
+      root: apps/api/
+      run: go vet ./...

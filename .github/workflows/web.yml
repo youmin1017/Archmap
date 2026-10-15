@@ -1,0 +1,22 @@
+name: web
+on:
+  push:
+    branches: [main]
+    paths: ["apps/web/**", "packages/**", "contracts/**", "pnpm-workspace.yaml", "pnpm-lock.yaml", ".github/workflows/web.yml"]
+  pull_request:
+    paths: ["apps/web/**", "packages/**", "contracts/**", "pnpm-workspace.yaml", "pnpm-lock.yaml", ".github/workflows/web.yml"]
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r typecheck
+      - run: pnpm -r --if-present lint
+      - run: pnpm -r --if-present check
+      - run: pnpm --filter web build
