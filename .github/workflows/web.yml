@@ -19,4 +19,5 @@ jobs:
       - run: pnpm -r typecheck
       - run: pnpm -r --if-present lint
       - run: pnpm -r --if-present check
+      - run: pnpm --filter web test
       - run: pnpm --filter web build
