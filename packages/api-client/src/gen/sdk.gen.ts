@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetHealthData, GetHealthErrors, GetHealthResponses } from './types.gen';
-import { zGetHealthResponse } from './zod.gen';
+import type { AbandonChangesetData, AbandonChangesetErrors, AbandonChangesetResponses, AddChangesData, AddChangesErrors, AddChangesResponses, ApproveChangesetData, ApproveChangesetErrors, ApproveChangesetResponses, CreateChangesetData, CreateChangesetErrors, CreateChangesetResponses, CreateViewData, CreateViewErrors, CreateViewResponses, DeleteViewData, DeleteViewErrors, DeleteViewResponses, GetChangesetConflictsData, GetChangesetConflictsErrors, GetChangesetConflictsResponses, GetChangesetData, GetChangesetDiffData, GetChangesetDiffErrors, GetChangesetDiffResponses, GetChangesetErrors, GetChangesetLintData, GetChangesetLintErrors, GetChangesetLintResponses, GetChangesetModelData, GetChangesetModelErrors, GetChangesetModelResponses, GetChangesetResponses, GetElementData, GetElementErrors, GetElementResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetRelationData, GetRelationErrors, GetRelationResponses, GetVersionDiffData, GetVersionDiffErrors, GetVersionDiffResponses, GetVersionModelData, GetVersionModelErrors, GetVersionModelResponses, GetViewModelData, GetViewModelErrors, GetViewModelResponses, ListChangesetsData, ListChangesetsErrors, ListChangesetsResponses, ListElementsData, ListElementsErrors, ListElementsResponses, ListLayerRulesData, ListLayerRulesErrors, ListLayerRulesResponses, ListRelationsData, ListRelationsErrors, ListRelationsResponses, ListUsersData, ListUsersErrors, ListUsersResponses, ListVersionsData, ListVersionsErrors, ListVersionsResponses, ListViewsData, ListViewsErrors, ListViewsResponses, MergeChangesetData, MergeChangesetErrors, MergeChangesetResponses, RedoChangeData, RedoChangeErrors, RedoChangeResponses, RejectChangesetData, RejectChangesetErrors, RejectChangesetResponses, ReplaceLayerRulesData, ReplaceLayerRulesErrors, ReplaceLayerRulesResponses, ResolveChangesetData, ResolveChangesetErrors, ResolveChangesetResponses, SetUserRoleData, SetUserRoleErrors, SetUserRoleResponses, SetViewLayoutData, SetViewLayoutErrors, SetViewLayoutResponses, SubmitChangesetData, SubmitChangesetErrors, SubmitChangesetResponses, UndoChangeData, UndoChangeErrors, UndoChangeResponses, UpdateViewData, UpdateViewErrors, UpdateViewResponses } from './types.gen';
+import { zAbandonChangesetPath, zAbandonChangesetResponse, zAddChangesBody, zAddChangesPath, zAddChangesResponse, zApproveChangesetPath, zApproveChangesetResponse, zCreateChangesetBody, zCreateChangesetResponse, zCreateViewBody, zCreateViewResponse, zDeleteViewPath, zDeleteViewResponse, zGetChangesetConflictsPath, zGetChangesetConflictsResponse, zGetChangesetDiffPath, zGetChangesetDiffResponse, zGetChangesetLintPath, zGetChangesetLintResponse, zGetChangesetModelPath, zGetChangesetModelResponse, zGetChangesetPath, zGetChangesetResponse, zGetElementPath, zGetElementResponse, zGetHealthResponse, zGetMeResponse, zGetRelationPath, zGetRelationResponse, zGetVersionDiffPath, zGetVersionDiffResponse, zGetVersionModelPath, zGetVersionModelResponse, zGetViewModelPath, zGetViewModelQuery, zGetViewModelResponse, zListChangesetsQuery, zListChangesetsResponse, zListElementsQuery, zListElementsResponse, zListLayerRulesResponse, zListRelationsQuery, zListRelationsResponse, zListUsersResponse, zListVersionsResponse, zListViewsResponse, zMergeChangesetPath, zMergeChangesetResponse, zRedoChangePath, zRedoChangeResponse, zRejectChangesetPath, zRejectChangesetResponse, zReplaceLayerRulesBody, zReplaceLayerRulesResponse, zResolveChangesetBody, zResolveChangesetPath, zResolveChangesetResponse, zSetUserRoleBody, zSetUserRolePath, zSetUserRoleResponse, zSetViewLayoutBody, zSetViewLayoutPath, zSetViewLayoutResponse, zSubmitChangesetPath, zSubmitChangesetResponse, zUndoChangePath, zUndoChangeResponse, zUpdateViewBody, zUpdateViewPath, zUpdateViewResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -32,5 +32,526 @@ export const getHealth = <ThrowOnError extends boolean = false>(options?: Option
     }).parseAsync(data),
     responseValidator: async (data) => await zGetHealthResponse.parseAsync(data),
     url: '/api/v1/health',
+    ...options
+});
+
+/**
+ * The authenticated user
+ */
+export const getMe = <ThrowOnError extends boolean = false>(options?: Options<GetMeData, ThrowOnError>): RequestResult<GetMeResponses, GetMeErrors, ThrowOnError> => (options?.client ?? client).get<GetMeResponses, GetMeErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetMeResponse.parseAsync(data),
+    url: '/api/v1/me',
+    ...options
+});
+
+/**
+ * All users with their roles (maintainers only)
+ */
+export const listUsers = <ThrowOnError extends boolean = false>(options?: Options<ListUsersData, ThrowOnError>): RequestResult<ListUsersResponses, ListUsersErrors, ThrowOnError> => (options?.client ?? client).get<ListUsersResponses, ListUsersErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListUsersResponse.parseAsync(data),
+    url: '/api/v1/users',
+    ...options
+});
+
+/**
+ * Change a user's role (maintainers only; the last maintainer cannot be demoted)
+ */
+export const setUserRole = <ThrowOnError extends boolean = false>(options: Options<SetUserRoleData, ThrowOnError>): RequestResult<SetUserRoleResponses, SetUserRoleErrors, ThrowOnError> => (options.client ?? client).put<SetUserRoleResponses, SetUserRoleErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zSetUserRoleBody,
+        path: zSetUserRolePath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zSetUserRoleResponse.parseAsync(data),
+    url: '/api/v1/users/{id}/role',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Elements of main
+ */
+export const listElements = <ThrowOnError extends boolean = false>(options?: Options<ListElementsData, ThrowOnError>): RequestResult<ListElementsResponses, ListElementsErrors, ThrowOnError> => (options?.client ?? client).get<ListElementsResponses, ListElementsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: zListElementsQuery.optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListElementsResponse.parseAsync(data),
+    url: '/api/v1/model/elements',
+    ...options
+});
+
+/**
+ * One element of main
+ */
+export const getElement = <ThrowOnError extends boolean = false>(options: Options<GetElementData, ThrowOnError>): RequestResult<GetElementResponses, GetElementErrors, ThrowOnError> => (options.client ?? client).get<GetElementResponses, GetElementErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zGetElementPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetElementResponse.parseAsync(data),
+    url: '/api/v1/model/elements/{id}',
+    ...options
+});
+
+/**
+ * Relations of main
+ */
+export const listRelations = <ThrowOnError extends boolean = false>(options?: Options<ListRelationsData, ThrowOnError>): RequestResult<ListRelationsResponses, ListRelationsErrors, ThrowOnError> => (options?.client ?? client).get<ListRelationsResponses, ListRelationsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: zListRelationsQuery.optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListRelationsResponse.parseAsync(data),
+    url: '/api/v1/model/relations',
+    ...options
+});
+
+/**
+ * One relation of main
+ */
+export const getRelation = <ThrowOnError extends boolean = false>(options: Options<GetRelationData, ThrowOnError>): RequestResult<GetRelationResponses, GetRelationErrors, ThrowOnError> => (options.client ?? client).get<GetRelationResponses, GetRelationErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zGetRelationPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetRelationResponse.parseAsync(data),
+    url: '/api/v1/model/relations/{id}',
+    ...options
+});
+
+/**
+ * List changesets
+ */
+export const listChangesets = <ThrowOnError extends boolean = false>(options?: Options<ListChangesetsData, ThrowOnError>): RequestResult<ListChangesetsResponses, ListChangesetsErrors, ThrowOnError> => (options?.client ?? client).get<ListChangesetsResponses, ListChangesetsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: zListChangesetsQuery.optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListChangesetsResponse.parseAsync(data),
+    url: '/api/v1/changesets',
+    ...options
+});
+
+/**
+ * Open a new draft based on the current main version (editor+)
+ */
+export const createChangeset = <ThrowOnError extends boolean = false>(options: Options<CreateChangesetData, ThrowOnError>): RequestResult<CreateChangesetResponses, CreateChangesetErrors, ThrowOnError> => (options.client ?? client).post<CreateChangesetResponses, CreateChangesetErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zCreateChangesetBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zCreateChangesetResponse.parseAsync(data),
+    url: '/api/v1/changesets',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * A changeset with its change log (undone changes included)
+ */
+export const getChangeset = <ThrowOnError extends boolean = false>(options: Options<GetChangesetData, ThrowOnError>): RequestResult<GetChangesetResponses, GetChangesetErrors, ThrowOnError> => (options.client ?? client).get<GetChangesetResponses, GetChangesetErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zGetChangesetPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetChangesetResponse.parseAsync(data),
+    url: '/api/v1/changesets/{id}',
+    ...options
+});
+
+/**
+ * Effective model of a draft (main + its active changes)
+ */
+export const getChangesetModel = <ThrowOnError extends boolean = false>(options: Options<GetChangesetModelData, ThrowOnError>): RequestResult<GetChangesetModelResponses, GetChangesetModelErrors, ThrowOnError> => (options.client ?? client).get<GetChangesetModelResponses, GetChangesetModelErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zGetChangesetModelPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetChangesetModelResponse.parseAsync(data),
+    url: '/api/v1/changesets/{id}/model',
+    ...options
+});
+
+/**
+ * Record one batch of changes (one GUI edit) in a draft
+ */
+export const addChanges = <ThrowOnError extends boolean = false>(options: Options<AddChangesData, ThrowOnError>): RequestResult<AddChangesResponses, AddChangesErrors, ThrowOnError> => (options.client ?? client).post<AddChangesResponses, AddChangesErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zAddChangesBody,
+        path: zAddChangesPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zAddChangesResponse.parseAsync(data),
+    url: '/api/v1/changesets/{id}/changes',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Undo the latest batch
+ */
+export const undoChange = <ThrowOnError extends boolean = false>(options: Options<UndoChangeData, ThrowOnError>): RequestResult<UndoChangeResponses, UndoChangeErrors, ThrowOnError> => (options.client ?? client).delete<UndoChangeResponses, UndoChangeErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zUndoChangePath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zUndoChangeResponse.parseAsync(data),
+    url: '/api/v1/changesets/{id}/changes/last',
+    ...options
+});
+
+/**
+ * Redo the most recently undone batch
+ */
+export const redoChange = <ThrowOnError extends boolean = false>(options: Options<RedoChangeData, ThrowOnError>): RequestResult<RedoChangeResponses, RedoChangeErrors, ThrowOnError> => (options.client ?? client).post<RedoChangeResponses, RedoChangeErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zRedoChangePath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zRedoChangeResponse.parseAsync(data),
+    url: '/api/v1/changesets/{id}/changes/redo',
+    ...options
+});
+
+/**
+ * Structured diff of a draft against the main version it is based on
+ */
+export const getChangesetDiff = <ThrowOnError extends boolean = false>(options: Options<GetChangesetDiffData, ThrowOnError>): RequestResult<GetChangesetDiffResponses, GetChangesetDiffErrors, ThrowOnError> => (options.client ?? client).get<GetChangesetDiffResponses, GetChangesetDiffErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zGetChangesetDiffPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetChangesetDiffResponse.parseAsync(data),
+    url: '/api/v1/changesets/{id}/diff',
+    ...options
+});
+
+/**
+ * Lint report for the draft's effective model (errors block merge)
+ */
+export const getChangesetLint = <ThrowOnError extends boolean = false>(options: Options<GetChangesetLintData, ThrowOnError>): RequestResult<GetChangesetLintResponses, GetChangesetLintErrors, ThrowOnError> => (options.client ?? client).get<GetChangesetLintResponses, GetChangesetLintErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zGetChangesetLintPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetChangesetLintResponse.parseAsync(data),
+    url: '/api/v1/changesets/{id}/lint',
+    ...options
+});
+
+/**
+ * Conflicts that block merging into the current main (empty when none)
+ */
+export const getChangesetConflicts = <ThrowOnError extends boolean = false>(options: Options<GetChangesetConflictsData, ThrowOnError>): RequestResult<GetChangesetConflictsResponses, GetChangesetConflictsErrors, ThrowOnError> => (options.client ?? client).get<GetChangesetConflictsResponses, GetChangesetConflictsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zGetChangesetConflictsPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetChangesetConflictsResponse.parseAsync(data),
+    url: '/api/v1/changesets/{id}/conflicts',
+    ...options
+});
+
+/**
+ * Record conflict resolutions (mine / theirs); returns the remaining conflicts
+ */
+export const resolveChangeset = <ThrowOnError extends boolean = false>(options: Options<ResolveChangesetData, ThrowOnError>): RequestResult<ResolveChangesetResponses, ResolveChangesetErrors, ThrowOnError> => (options.client ?? client).post<ResolveChangesetResponses, ResolveChangesetErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zResolveChangesetBody,
+        path: zResolveChangesetPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zResolveChangesetResponse.parseAsync(data),
+    url: '/api/v1/changesets/{id}/resolve',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Submit a draft for review (author or maintainer)
+ */
+export const submitChangeset = <ThrowOnError extends boolean = false>(options: Options<SubmitChangesetData, ThrowOnError>): RequestResult<SubmitChangesetResponses, SubmitChangesetErrors, ThrowOnError> => (options.client ?? client).post<SubmitChangesetResponses, SubmitChangesetErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zSubmitChangesetPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zSubmitChangesetResponse.parseAsync(data),
+    url: '/api/v1/changesets/{id}/submit',
+    ...options
+});
+
+/**
+ * Approve a changeset in review (maintainer; not the author unless self-merge is enabled)
+ */
+export const approveChangeset = <ThrowOnError extends boolean = false>(options: Options<ApproveChangesetData, ThrowOnError>): RequestResult<ApproveChangesetResponses, ApproveChangesetErrors, ThrowOnError> => (options.client ?? client).post<ApproveChangesetResponses, ApproveChangesetErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zApproveChangesetPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zApproveChangesetResponse.parseAsync(data),
+    url: '/api/v1/changesets/{id}/approve',
+    ...options
+});
+
+/**
+ * Reject a changeset in review (maintainer)
+ */
+export const rejectChangeset = <ThrowOnError extends boolean = false>(options: Options<RejectChangesetData, ThrowOnError>): RequestResult<RejectChangesetResponses, RejectChangesetErrors, ThrowOnError> => (options.client ?? client).post<RejectChangesetResponses, RejectChangesetErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zRejectChangesetPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zRejectChangesetResponse.parseAsync(data),
+    url: '/api/v1/changesets/{id}/reject',
+    ...options
+});
+
+/**
+ * Abandon a draft or a changeset in review (author or maintainer)
+ */
+export const abandonChangeset = <ThrowOnError extends boolean = false>(options: Options<AbandonChangesetData, ThrowOnError>): RequestResult<AbandonChangesetResponses, AbandonChangesetErrors, ThrowOnError> => (options.client ?? client).post<AbandonChangesetResponses, AbandonChangesetErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zAbandonChangesetPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zAbandonChangesetResponse.parseAsync(data),
+    url: '/api/v1/changesets/{id}/abandon',
+    ...options
+});
+
+/**
+ * Merge an approved changeset into main as a new version (maintainer)
+ *
+ * Fast-forwards when main has not moved since the draft's base version,
+ * otherwise rebases with a field-level 3-way merge. Unresolved conflicts
+ * answer 409 with the conflict list and change nothing. Lint errors and
+ * other rule violations answer a problem+json 409 / 403.
+ *
+ */
+export const mergeChangeset = <ThrowOnError extends boolean = false>(options: Options<MergeChangesetData, ThrowOnError>): RequestResult<MergeChangesetResponses, MergeChangesetErrors, ThrowOnError> => (options.client ?? client).post<MergeChangesetResponses, MergeChangesetErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zMergeChangesetPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zMergeChangesetResponse.parseAsync(data),
+    url: '/api/v1/changesets/{id}/merge',
+    ...options
+});
+
+/**
+ * Which layers each element class may be placed on
+ */
+export const listLayerRules = <ThrowOnError extends boolean = false>(options?: Options<ListLayerRulesData, ThrowOnError>): RequestResult<ListLayerRulesResponses, ListLayerRulesErrors, ThrowOnError> => (options?.client ?? client).get<ListLayerRulesResponses, ListLayerRulesErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListLayerRulesResponse.parseAsync(data),
+    url: '/api/v1/layer-rules',
+    ...options
+});
+
+/**
+ * Replace all layer rules (maintainer). Existing elements are not changed; edits that put an element on a disallowed layer are rejected.
+ */
+export const replaceLayerRules = <ThrowOnError extends boolean = false>(options: Options<ReplaceLayerRulesData, ThrowOnError>): RequestResult<ReplaceLayerRulesResponses, ReplaceLayerRulesErrors, ThrowOnError> => (options.client ?? client).put<ReplaceLayerRulesResponses, ReplaceLayerRulesErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zReplaceLayerRulesBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zReplaceLayerRulesResponse.parseAsync(data),
+    url: '/api/v1/layer-rules',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Saved views (perspectives over the model)
+ */
+export const listViews = <ThrowOnError extends boolean = false>(options?: Options<ListViewsData, ThrowOnError>): RequestResult<ListViewsResponses, ListViewsErrors, ThrowOnError> => (options?.client ?? client).get<ListViewsResponses, ListViewsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListViewsResponse.parseAsync(data),
+    url: '/api/v1/views',
+    ...options
+});
+
+/**
+ * Create a view (editor+). Views are not part of the changeset workflow.
+ */
+export const createView = <ThrowOnError extends boolean = false>(options: Options<CreateViewData, ThrowOnError>): RequestResult<CreateViewResponses, CreateViewErrors, ThrowOnError> => (options.client ?? client).post<CreateViewResponses, CreateViewErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zCreateViewBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zCreateViewResponse.parseAsync(data),
+    url: '/api/v1/views',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a view and its saved layout (creator or maintainer)
+ */
+export const deleteView = <ThrowOnError extends boolean = false>(options: Options<DeleteViewData, ThrowOnError>): RequestResult<DeleteViewResponses, DeleteViewErrors, ThrowOnError> => (options.client ?? client).delete<DeleteViewResponses, DeleteViewErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zDeleteViewPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zDeleteViewResponse.parseAsync(data),
+    url: '/api/v1/views/{id}',
+    ...options
+});
+
+/**
+ * Replace a view's name, kind, scope and description (creator or maintainer)
+ *
+ * For custom views, `elements` replaces the member list when present and leaves it unchanged when omitted.
+ */
+export const updateView = <ThrowOnError extends boolean = false>(options: Options<UpdateViewData, ThrowOnError>): RequestResult<UpdateViewResponses, UpdateViewErrors, ThrowOnError> => (options.client ?? client).put<UpdateViewResponses, UpdateViewErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zUpdateViewBody,
+        path: zUpdateViewPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zUpdateViewResponse.parseAsync(data),
+    url: '/api/v1/views/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * What a view shows, with its saved layout
+ *
+ * Computed from main, or from a draft's effective model when `changeset_id` is given.
+ * `elements` holds every root of the view plus all their descendants; a root's parent is
+ * not included, so the client shows it at the top level.
+ *
+ */
+export const getViewModel = <ThrowOnError extends boolean = false>(options: Options<GetViewModelData, ThrowOnError>): RequestResult<GetViewModelResponses, GetViewModelErrors, ThrowOnError> => (options.client ?? client).get<GetViewModelResponses, GetViewModelErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zGetViewModelPath,
+        query: zGetViewModelQuery.optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetViewModelResponse.parseAsync(data),
+    url: '/api/v1/views/{id}/model',
+    ...options
+});
+
+/**
+ * Replace a view's saved layout (editor+). Creates no changes and no versions.
+ */
+export const setViewLayout = <ThrowOnError extends boolean = false>(options: Options<SetViewLayoutData, ThrowOnError>): RequestResult<SetViewLayoutResponses, SetViewLayoutErrors, ThrowOnError> => (options.client ?? client).put<SetViewLayoutResponses, SetViewLayoutErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zSetViewLayoutBody,
+        path: zSetViewLayoutPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zSetViewLayoutResponse.parseAsync(data),
+    url: '/api/v1/views/{id}/layout',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Merged model versions, newest first
+ */
+export const listVersions = <ThrowOnError extends boolean = false>(options?: Options<ListVersionsData, ThrowOnError>): RequestResult<ListVersionsResponses, ListVersionsErrors, ThrowOnError> => (options?.client ?? client).get<ListVersionsResponses, ListVersionsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListVersionsResponse.parseAsync(data),
+    url: '/api/v1/versions',
+    ...options
+});
+
+/**
+ * What changed between two merged versions (`from` is the base, `to` the newer or older one to compare with)
+ */
+export const getVersionDiff = <ThrowOnError extends boolean = false>(options: Options<GetVersionDiffData, ThrowOnError>): RequestResult<GetVersionDiffResponses, GetVersionDiffErrors, ThrowOnError> => (options.client ?? client).get<GetVersionDiffResponses, GetVersionDiffErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zGetVersionDiffPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetVersionDiffResponse.parseAsync(data),
+    url: '/api/v1/versions/{from}/diff/{to}',
+    ...options
+});
+
+/**
+ * Main as of a merged version (read-only)
+ */
+export const getVersionModel = <ThrowOnError extends boolean = false>(options: Options<GetVersionModelData, ThrowOnError>): RequestResult<GetVersionModelResponses, GetVersionModelErrors, ThrowOnError> => (options.client ?? client).get<GetVersionModelResponses, GetVersionModelErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zGetVersionModelPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetVersionModelResponse.parseAsync(data),
+    url: '/api/v1/versions/{n}/model',
     ...options
 });

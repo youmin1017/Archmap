@@ -10,7 +10,7 @@ export type Health = {
 };
 
 /**
- * RFC 7807 problem details
+ * RFC 9457 problem details
  */
 export type Problem = {
     type?: string;
@@ -19,6 +19,380 @@ export type Problem = {
     detail?: string;
     instance?: string;
 };
+
+export type Role = 'viewer' | 'editor' | 'maintainer';
+
+export type Me = {
+    id: string;
+    email: string;
+    name: string;
+    role: Role;
+};
+
+export type User = {
+    id: string;
+    email: string;
+    name: string;
+    role: Role;
+    created_at: string;
+};
+
+export type UserList = {
+    users: Array<User>;
+};
+
+export type SetRoleRequest = {
+    role: Role;
+};
+
+export type ElementKind = 'person' | 'system' | 'container' | 'component' | 'node' | 'database';
+
+export type RelationKind = 'uses' | 'deployed_on';
+
+export type Element = {
+    id: string;
+    parent_id: string | null;
+    kind: ElementKind;
+    name: string;
+    description: string;
+    technology: string;
+    tags: Array<string>;
+    protected: boolean;
+    /**
+     * Layer in layers views, e.g. Services or Physical. Empty = unassigned.
+     */
+    layer: string;
+    /**
+     * Projects the element belongs to (may be several). Views can highlight the elements of a project.
+     */
+    projects: Array<string>;
+    /**
+     * How many instances the element stands for (1 = a single one).
+     */
+    replicas: number;
+    /**
+     * Free-form facts such as ip, port or namespace (key to value).
+     */
+    properties: {
+        [key: string]: string;
+    };
+    version: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type Relation = {
+    id: string;
+    source_id: string;
+    target_id: string;
+    kind: RelationKind;
+    description: string;
+    technology: string;
+    version: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type ElementList = {
+    elements: Array<Element>;
+};
+
+export type RelationList = {
+    relations: Array<Relation>;
+};
+
+export type Model = {
+    elements: Array<Element>;
+    relations: Array<Relation>;
+};
+
+export type ChangesetStatus = 'draft' | 'in_review' | 'merged' | 'rejected' | 'abandoned';
+
+export type Changeset = {
+    id: string;
+    title: string;
+    description: string;
+    author_id: string;
+    base_version: number;
+    status: ChangesetStatus;
+    created_at: string;
+    merged_at: string | null;
+    approved_by?: string | null;
+    approved_at?: string | null;
+};
+
+export type ChangesetList = {
+    changesets: Array<Changeset>;
+};
+
+export type CreateChangesetRequest = {
+    title: string;
+    description?: string;
+};
+
+export type ChangeOp = 'add' | 'update' | 'delete';
+
+export type ChangeTarget = 'element' | 'relation';
+
+export type Change = {
+    id: string;
+    changeset_id: string;
+    seq: number;
+    batch_id: string;
+    op: ChangeOp;
+    target_type: ChangeTarget;
+    target_id: string;
+    patch: {
+        [key: string]: unknown;
+    };
+    before: {
+        [key: string]: unknown;
+    } | null;
+    undone_at: string | null;
+    created_at: string;
+};
+
+export type ChangeList = {
+    changes: Array<Change>;
+};
+
+export type ChangesetDetail = {
+    changeset: Changeset;
+    changes: Array<Change>;
+};
+
+export type ChangeInput = {
+    op: ChangeOp;
+    target_type: ChangeTarget;
+    /**
+     * Required for update / delete. For add it is optional (server generates one); supply it to reference the new entity later in the same batch.
+     */
+    target_id?: string;
+    /**
+     * add: the entity fields (element - kind, name, parent_id, description, technology, tags, protected;
+     * relation - source_id, target_id, kind, description, technology).
+     * update: only the fields to change (null clears parent_id).
+     * delete: omitted.
+     *
+     */
+    patch?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Delete an element that has children together with all its descendants.
+     */
+    cascade?: boolean;
+};
+
+export type AddChangesRequest = {
+    changes: Array<ChangeInput>;
+};
+
+export type FieldChange = {
+    field: string;
+    before: unknown;
+    after: unknown;
+};
+
+export type ElementModification = {
+    before: Element;
+    after: Element;
+    fields: Array<FieldChange>;
+};
+
+export type RelationModification = {
+    before: Relation;
+    after: Relation;
+    fields: Array<FieldChange>;
+};
+
+export type Diff = {
+    base_version: number;
+    main_version: number;
+    /**
+     * Main has moved since the draft's base version (merging rebases)
+     */
+    stale: boolean;
+    elements: {
+        added: Array<Element>;
+        removed: Array<Element>;
+        modified: Array<ElementModification>;
+    };
+    relations: {
+        added: Array<Relation>;
+        removed: Array<Relation>;
+        modified: Array<RelationModification>;
+    };
+};
+
+export type LintSeverity = 'error' | 'warning';
+
+export type LintFinding = {
+    rule: string;
+    severity: LintSeverity;
+    message: string;
+    target_type: ChangeTarget;
+    target_id: string;
+};
+
+export type LintReport = {
+    errors: number;
+    warnings: number;
+    findings: Array<LintFinding>;
+};
+
+export type ConflictKind = 'field' | 'delete_vs_update' | 'dangling_reference';
+
+export type Conflict = {
+    kind: ConflictKind;
+    target_type: ChangeTarget;
+    target_id: string;
+    /**
+     * Field name, or "*" when the conflict concerns the whole target
+     */
+    field: string;
+    label: string;
+    message: string;
+    /**
+     * Field value (or entity fields / null for whole-target conflicts) at the draft's base version
+     */
+    base: unknown;
+    /**
+     * The draft's value
+     */
+    mine: unknown;
+    /**
+     * Main's current value
+     */
+    theirs: unknown;
+};
+
+export type ConflictList = {
+    conflicts: Array<Conflict>;
+};
+
+export type ResolutionChoice = 'mine' | 'theirs';
+
+export type Resolution = {
+    target_type: ChangeTarget;
+    target_id: string;
+    field: string;
+    choice: ResolutionChoice;
+};
+
+export type ResolveRequest = {
+    resolutions: Array<Resolution>;
+};
+
+export type MergeResult = {
+    version: number;
+    changeset: Changeset;
+};
+
+export type Version = {
+    number: number;
+    changeset_id: string;
+    merged_by: string;
+    merged_at: string;
+    summary: string;
+};
+
+export type VersionList = {
+    versions: Array<Version>;
+};
+
+export type ViewKind = 'landscape' | 'context' | 'container' | 'component' | 'deployment' | 'custom' | 'layers';
+
+export type View = {
+    id: string;
+    name: string;
+    kind: ViewKind;
+    scope_element_id: string | null;
+    description: string;
+    /**
+     * Ordered layer names of a layers view, top to bottom (empty for other kinds).
+     */
+    layers: Array<string>;
+    created_by: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type ViewList = {
+    views: Array<View>;
+};
+
+export type LayerRule = {
+    /**
+     * An element kind: person, system, container, component, node or database.
+     */
+    element_class: string;
+    /**
+     * Layers (names, matched ignoring case) the class may be placed on. Elements without a layer are always allowed.
+     */
+    layers: Array<string>;
+};
+
+export type LayerRules = {
+    rules: Array<LayerRule>;
+};
+
+export type ViewInput = {
+    name: string;
+    kind: ViewKind;
+    /**
+     * Required for context / container / component, optional for deployment, not allowed otherwise.
+     */
+    scope_element_id?: string | null;
+    description?: string;
+    /**
+     * Layer names of a layers view, top to bottom (required for layers views, not allowed otherwise).
+     */
+    layers?: Array<string>;
+    /**
+     * Members of a custom view.
+     */
+    elements?: Array<string>;
+};
+
+export type ViewElement = {
+    element_id: string;
+    x?: number | null;
+    y?: number | null;
+    w?: number | null;
+    h?: number | null;
+    collapsed: boolean;
+    /**
+     * Custom-view membership (response only; ignored when saving a layout).
+     */
+    included?: boolean;
+};
+
+export type ViewLayout = {
+    elements: Array<ViewElement>;
+};
+
+export type SetLayoutRequest = {
+    elements: Array<ViewElement>;
+};
+
+export type ViewModel = {
+    view: View;
+    elements: Array<Element>;
+    relations: Array<Relation>;
+    roots: Array<string>;
+    /**
+     * Elements that start expanded when the view has no saved layout for them.
+     */
+    expanded: Array<string>;
+    layout: Array<ViewElement>;
+    /**
+     * The view's scope element does not exist in the model being shown.
+     */
+    scope_missing: boolean;
+};
+
+export type Id = string;
 
 export type GetHealthData = {
     body?: never;
@@ -44,3 +418,918 @@ export type GetHealthResponses = {
 };
 
 export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
+
+export type GetMeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me';
+};
+
+export type GetMeErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type GetMeError = GetMeErrors[keyof GetMeErrors];
+
+export type GetMeResponses = {
+    /**
+     * Current user
+     */
+    200: Me;
+};
+
+export type GetMeResponse = GetMeResponses[keyof GetMeResponses];
+
+export type ListUsersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/users';
+};
+
+export type ListUsersErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type ListUsersError = ListUsersErrors[keyof ListUsersErrors];
+
+export type ListUsersResponses = {
+    /**
+     * Users
+     */
+    200: UserList;
+};
+
+export type ListUsersResponse = ListUsersResponses[keyof ListUsersResponses];
+
+export type SetUserRoleData = {
+    body: SetRoleRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/users/{id}/role';
+};
+
+export type SetUserRoleErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type SetUserRoleError = SetUserRoleErrors[keyof SetUserRoleErrors];
+
+export type SetUserRoleResponses = {
+    /**
+     * The updated user
+     */
+    200: User;
+};
+
+export type SetUserRoleResponse = SetUserRoleResponses[keyof SetUserRoleResponses];
+
+export type ListElementsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        parent_id?: string;
+        /**
+         * Case-insensitive substring match on the name
+         */
+        q?: string;
+    };
+    url: '/api/v1/model/elements';
+};
+
+export type ListElementsErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type ListElementsError = ListElementsErrors[keyof ListElementsErrors];
+
+export type ListElementsResponses = {
+    /**
+     * Matching elements
+     */
+    200: ElementList;
+};
+
+export type ListElementsResponse = ListElementsResponses[keyof ListElementsResponses];
+
+export type GetElementData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/model/elements/{id}';
+};
+
+export type GetElementErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type GetElementError = GetElementErrors[keyof GetElementErrors];
+
+export type GetElementResponses = {
+    /**
+     * The element
+     */
+    200: Element;
+};
+
+export type GetElementResponse = GetElementResponses[keyof GetElementResponses];
+
+export type ListRelationsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        source_id?: string;
+        target_id?: string;
+    };
+    url: '/api/v1/model/relations';
+};
+
+export type ListRelationsErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type ListRelationsError = ListRelationsErrors[keyof ListRelationsErrors];
+
+export type ListRelationsResponses = {
+    /**
+     * Matching relations
+     */
+    200: RelationList;
+};
+
+export type ListRelationsResponse = ListRelationsResponses[keyof ListRelationsResponses];
+
+export type GetRelationData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/model/relations/{id}';
+};
+
+export type GetRelationErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type GetRelationError = GetRelationErrors[keyof GetRelationErrors];
+
+export type GetRelationResponses = {
+    /**
+     * The relation
+     */
+    200: Relation;
+};
+
+export type GetRelationResponse = GetRelationResponses[keyof GetRelationResponses];
+
+export type ListChangesetsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        status?: ChangesetStatus;
+        author_id?: string;
+    };
+    url: '/api/v1/changesets';
+};
+
+export type ListChangesetsErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type ListChangesetsError = ListChangesetsErrors[keyof ListChangesetsErrors];
+
+export type ListChangesetsResponses = {
+    /**
+     * Changesets, newest first
+     */
+    200: ChangesetList;
+};
+
+export type ListChangesetsResponse = ListChangesetsResponses[keyof ListChangesetsResponses];
+
+export type CreateChangesetData = {
+    body: CreateChangesetRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/changesets';
+};
+
+export type CreateChangesetErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type CreateChangesetError = CreateChangesetErrors[keyof CreateChangesetErrors];
+
+export type CreateChangesetResponses = {
+    /**
+     * The new draft
+     */
+    201: Changeset;
+};
+
+export type CreateChangesetResponse = CreateChangesetResponses[keyof CreateChangesetResponses];
+
+export type GetChangesetData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/changesets/{id}';
+};
+
+export type GetChangesetErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type GetChangesetError = GetChangesetErrors[keyof GetChangesetErrors];
+
+export type GetChangesetResponses = {
+    /**
+     * The changeset
+     */
+    200: ChangesetDetail;
+};
+
+export type GetChangesetResponse = GetChangesetResponses[keyof GetChangesetResponses];
+
+export type GetChangesetModelData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/changesets/{id}/model';
+};
+
+export type GetChangesetModelErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type GetChangesetModelError = GetChangesetModelErrors[keyof GetChangesetModelErrors];
+
+export type GetChangesetModelResponses = {
+    /**
+     * The effective model
+     */
+    200: Model;
+};
+
+export type GetChangesetModelResponse = GetChangesetModelResponses[keyof GetChangesetModelResponses];
+
+export type AddChangesData = {
+    body: AddChangesRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/changesets/{id}/changes';
+};
+
+export type AddChangesErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type AddChangesError = AddChangesErrors[keyof AddChangesErrors];
+
+export type AddChangesResponses = {
+    /**
+     * The recorded changes (cascades are expanded into explicit changes)
+     */
+    201: ChangeList;
+};
+
+export type AddChangesResponse = AddChangesResponses[keyof AddChangesResponses];
+
+export type UndoChangeData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/changesets/{id}/changes/last';
+};
+
+export type UndoChangeErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type UndoChangeError = UndoChangeErrors[keyof UndoChangeErrors];
+
+export type UndoChangeResponses = {
+    /**
+     * The changes that were undone
+     */
+    200: ChangeList;
+};
+
+export type UndoChangeResponse = UndoChangeResponses[keyof UndoChangeResponses];
+
+export type RedoChangeData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/changesets/{id}/changes/redo';
+};
+
+export type RedoChangeErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type RedoChangeError = RedoChangeErrors[keyof RedoChangeErrors];
+
+export type RedoChangeResponses = {
+    /**
+     * The changes that were restored
+     */
+    200: ChangeList;
+};
+
+export type RedoChangeResponse = RedoChangeResponses[keyof RedoChangeResponses];
+
+export type GetChangesetDiffData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/changesets/{id}/diff';
+};
+
+export type GetChangesetDiffErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type GetChangesetDiffError = GetChangesetDiffErrors[keyof GetChangesetDiffErrors];
+
+export type GetChangesetDiffResponses = {
+    /**
+     * Added / removed / modified elements and relations (field level)
+     */
+    200: Diff;
+};
+
+export type GetChangesetDiffResponse = GetChangesetDiffResponses[keyof GetChangesetDiffResponses];
+
+export type GetChangesetLintData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/changesets/{id}/lint';
+};
+
+export type GetChangesetLintErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type GetChangesetLintError = GetChangesetLintErrors[keyof GetChangesetLintErrors];
+
+export type GetChangesetLintResponses = {
+    /**
+     * Lint findings, errors first
+     */
+    200: LintReport;
+};
+
+export type GetChangesetLintResponse = GetChangesetLintResponses[keyof GetChangesetLintResponses];
+
+export type GetChangesetConflictsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/changesets/{id}/conflicts';
+};
+
+export type GetChangesetConflictsErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type GetChangesetConflictsError = GetChangesetConflictsErrors[keyof GetChangesetConflictsErrors];
+
+export type GetChangesetConflictsResponses = {
+    /**
+     * Remaining conflicts
+     */
+    200: ConflictList;
+};
+
+export type GetChangesetConflictsResponse = GetChangesetConflictsResponses[keyof GetChangesetConflictsResponses];
+
+export type ResolveChangesetData = {
+    body: ResolveRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/changesets/{id}/resolve';
+};
+
+export type ResolveChangesetErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type ResolveChangesetError = ResolveChangesetErrors[keyof ResolveChangesetErrors];
+
+export type ResolveChangesetResponses = {
+    /**
+     * Conflicts that still need a resolution
+     */
+    200: ConflictList;
+};
+
+export type ResolveChangesetResponse = ResolveChangesetResponses[keyof ResolveChangesetResponses];
+
+export type SubmitChangesetData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/changesets/{id}/submit';
+};
+
+export type SubmitChangesetErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type SubmitChangesetError = SubmitChangesetErrors[keyof SubmitChangesetErrors];
+
+export type SubmitChangesetResponses = {
+    /**
+     * The changeset, now in review
+     */
+    200: Changeset;
+};
+
+export type SubmitChangesetResponse = SubmitChangesetResponses[keyof SubmitChangesetResponses];
+
+export type ApproveChangesetData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/changesets/{id}/approve';
+};
+
+export type ApproveChangesetErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type ApproveChangesetError = ApproveChangesetErrors[keyof ApproveChangesetErrors];
+
+export type ApproveChangesetResponses = {
+    /**
+     * The approved changeset
+     */
+    200: Changeset;
+};
+
+export type ApproveChangesetResponse = ApproveChangesetResponses[keyof ApproveChangesetResponses];
+
+export type RejectChangesetData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/changesets/{id}/reject';
+};
+
+export type RejectChangesetErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type RejectChangesetError = RejectChangesetErrors[keyof RejectChangesetErrors];
+
+export type RejectChangesetResponses = {
+    /**
+     * The rejected changeset
+     */
+    200: Changeset;
+};
+
+export type RejectChangesetResponse = RejectChangesetResponses[keyof RejectChangesetResponses];
+
+export type AbandonChangesetData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/changesets/{id}/abandon';
+};
+
+export type AbandonChangesetErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type AbandonChangesetError = AbandonChangesetErrors[keyof AbandonChangesetErrors];
+
+export type AbandonChangesetResponses = {
+    /**
+     * The abandoned changeset
+     */
+    200: Changeset;
+};
+
+export type AbandonChangesetResponse = AbandonChangesetResponses[keyof AbandonChangesetResponses];
+
+export type MergeChangesetData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/changesets/{id}/merge';
+};
+
+export type MergeChangesetErrors = {
+    /**
+     * Conflicts need resolution (or another problem, as problem+json)
+     */
+    409: ConflictList;
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type MergeChangesetError = MergeChangesetErrors[keyof MergeChangesetErrors];
+
+export type MergeChangesetResponses = {
+    /**
+     * Merged
+     */
+    200: MergeResult;
+};
+
+export type MergeChangesetResponse = MergeChangesetResponses[keyof MergeChangesetResponses];
+
+export type ListLayerRulesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/layer-rules';
+};
+
+export type ListLayerRulesErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type ListLayerRulesError = ListLayerRulesErrors[keyof ListLayerRulesErrors];
+
+export type ListLayerRulesResponses = {
+    /**
+     * The rules (classes without a rule are unrestricted)
+     */
+    200: LayerRules;
+};
+
+export type ListLayerRulesResponse = ListLayerRulesResponses[keyof ListLayerRulesResponses];
+
+export type ReplaceLayerRulesData = {
+    body: LayerRules;
+    path?: never;
+    query?: never;
+    url: '/api/v1/layer-rules';
+};
+
+export type ReplaceLayerRulesErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type ReplaceLayerRulesError = ReplaceLayerRulesErrors[keyof ReplaceLayerRulesErrors];
+
+export type ReplaceLayerRulesResponses = {
+    /**
+     * The stored rules (empty ones are dropped)
+     */
+    200: LayerRules;
+};
+
+export type ReplaceLayerRulesResponse = ReplaceLayerRulesResponses[keyof ReplaceLayerRulesResponses];
+
+export type ListViewsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/views';
+};
+
+export type ListViewsErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type ListViewsError = ListViewsErrors[keyof ListViewsErrors];
+
+export type ListViewsResponses = {
+    /**
+     * Views, oldest first
+     */
+    200: ViewList;
+};
+
+export type ListViewsResponse = ListViewsResponses[keyof ListViewsResponses];
+
+export type CreateViewData = {
+    body: ViewInput;
+    path?: never;
+    query?: never;
+    url: '/api/v1/views';
+};
+
+export type CreateViewErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type CreateViewError = CreateViewErrors[keyof CreateViewErrors];
+
+export type CreateViewResponses = {
+    /**
+     * The new view
+     */
+    201: View;
+};
+
+export type CreateViewResponse = CreateViewResponses[keyof CreateViewResponses];
+
+export type DeleteViewData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/views/{id}';
+};
+
+export type DeleteViewErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type DeleteViewError = DeleteViewErrors[keyof DeleteViewErrors];
+
+export type DeleteViewResponses = {
+    /**
+     * Deleted
+     */
+    204: void;
+};
+
+export type DeleteViewResponse = DeleteViewResponses[keyof DeleteViewResponses];
+
+export type UpdateViewData = {
+    body: ViewInput;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/views/{id}';
+};
+
+export type UpdateViewErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type UpdateViewError = UpdateViewErrors[keyof UpdateViewErrors];
+
+export type UpdateViewResponses = {
+    /**
+     * The updated view
+     */
+    200: View;
+};
+
+export type UpdateViewResponse = UpdateViewResponses[keyof UpdateViewResponses];
+
+export type GetViewModelData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: {
+        changeset_id?: string;
+    };
+    url: '/api/v1/views/{id}/model';
+};
+
+export type GetViewModelErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type GetViewModelError = GetViewModelErrors[keyof GetViewModelErrors];
+
+export type GetViewModelResponses = {
+    /**
+     * The view's model and layout
+     */
+    200: ViewModel;
+};
+
+export type GetViewModelResponse = GetViewModelResponses[keyof GetViewModelResponses];
+
+export type SetViewLayoutData = {
+    body: SetLayoutRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/views/{id}/layout';
+};
+
+export type SetViewLayoutErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type SetViewLayoutError = SetViewLayoutErrors[keyof SetViewLayoutErrors];
+
+export type SetViewLayoutResponses = {
+    /**
+     * The saved layout
+     */
+    200: ViewLayout;
+};
+
+export type SetViewLayoutResponse = SetViewLayoutResponses[keyof SetViewLayoutResponses];
+
+export type ListVersionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/versions';
+};
+
+export type ListVersionsErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type ListVersionsError = ListVersionsErrors[keyof ListVersionsErrors];
+
+export type ListVersionsResponses = {
+    /**
+     * Versions
+     */
+    200: VersionList;
+};
+
+export type ListVersionsResponse = ListVersionsResponses[keyof ListVersionsResponses];
+
+export type GetVersionDiffData = {
+    body?: never;
+    path: {
+        from: number;
+        to: number;
+    };
+    query?: never;
+    url: '/api/v1/versions/{from}/diff/{to}';
+};
+
+export type GetVersionDiffErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type GetVersionDiffError = GetVersionDiffErrors[keyof GetVersionDiffErrors];
+
+export type GetVersionDiffResponses = {
+    /**
+     * Structured diff (base_version = from, main_version = to, stale = false)
+     */
+    200: Diff;
+};
+
+export type GetVersionDiffResponse = GetVersionDiffResponses[keyof GetVersionDiffResponses];
+
+export type GetVersionModelData = {
+    body?: never;
+    path: {
+        n: number;
+    };
+    query?: never;
+    url: '/api/v1/versions/{n}/model';
+};
+
+export type GetVersionModelErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type GetVersionModelError = GetVersionModelErrors[keyof GetVersionModelErrors];
+
+export type GetVersionModelResponses = {
+    /**
+     * The model at that version
+     */
+    200: Model;
+};
+
+export type GetVersionModelResponse = GetVersionModelResponses[keyof GetVersionModelResponses];

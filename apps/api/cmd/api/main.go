@@ -13,12 +13,28 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"archmap/api/internal/apiserver"
+	"archmap/api/internal/changeset"
+	changesetrepo "archmap/api/internal/changeset/repository"
+	changesettransport "archmap/api/internal/changeset/transport"
 	"archmap/api/internal/gen/api"
 	"archmap/api/internal/health"
+	"archmap/api/internal/layerrule"
+	layerrulerepo "archmap/api/internal/layerrule/repository"
+	layerruletransport "archmap/api/internal/layerrule/transport"
+	"archmap/api/internal/model"
+	modelrepo "archmap/api/internal/model/repository"
+	modeltransport "archmap/api/internal/model/transport"
 	"archmap/api/internal/platform/config"
 	"archmap/api/internal/platform/db"
 	"archmap/api/internal/platform/httpx"
 	"archmap/api/internal/platform/logger"
+	"archmap/api/internal/user"
+	userrepo "archmap/api/internal/user/repository"
+	usertransport "archmap/api/internal/user/transport"
+	"archmap/api/internal/view"
+	viewrepo "archmap/api/internal/view/repository"
+	viewtransport "archmap/api/internal/view/transport"
 )
 
 func main() {
@@ -44,17 +60,32 @@ func run() error {
 	}
 	defer pool.Close()
 
-	e, err := httpx.New(httpx.Options{
+	opts := httpx.Options{
 		Logger:      log,
 		CORSOrigins: cfg.CORSOrigins,
 		Registry:    prometheus.NewRegistry(),
-	})
+	}
+	if cfg.AuthDevHeader {
+		log.Warn("AUTH_DEV_HEADER enabled: callers are identified by the X-Dev-User header (development only)")
+		opts.DevActorLookup = userrepo.New(pool).ActorByEmail
+	}
+	e, err := httpx.New(opts)
 	if err != nil {
 		return fmt.Errorf("build http server: %w", err)
 	}
 
-	healthHandler := health.NewHandler(health.NewService(cfg.Version, pool))
-	api.RegisterHandlers(e, api.NewStrictHandler(healthHandler, nil))
+	layerRuleSvc := layerrule.NewService(layerrulerepo.New(pool))
+	changesetSvc := changeset.NewService(changesetrepo.New(pool), changeset.WithSelfMerge(cfg.MergeAllowSelf), changeset.WithLayerRules(layerRuleSvc))
+	viewSvc := view.NewService(viewrepo.New(pool), apiserver.NewViewModelSource(modelrepo.New(pool), changesetSvc))
+	server := apiserver.New(
+		health.NewHandler(health.NewService(cfg.Version, pool)),
+		modeltransport.NewHandler(model.NewService(modelrepo.New(pool))),
+		changesettransport.NewHandler(changesetSvc),
+		usertransport.NewHandler(user.NewService(userrepo.New(pool))),
+		viewtransport.NewHandler(viewSvc),
+		layerruletransport.NewHandler(layerRuleSvc),
+	)
+	api.RegisterHandlers(e, api.NewStrictHandler(server, nil))
 
 	log.Info("api listening", "addr", cfg.Addr, "version", cfg.Version)
 	sc := echo.StartConfig{Address: cfg.Addr}

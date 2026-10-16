@@ -22,6 +22,17 @@ type fakePinger struct{ err error }
 
 func (f fakePinger) Ping(context.Context) error { return f.err }
 
+// healthOnly satisfies the full generated interface while serving just GetHealth;
+// the other operations are nil and never reached by these tests.
+type healthOnly struct {
+	api.StrictServerInterface
+	h *health.Handler
+}
+
+func (s healthOnly) GetHealth(ctx context.Context, r api.GetHealthRequestObject) (api.GetHealthResponseObject, error) {
+	return s.h.GetHealth(ctx, r)
+}
+
 func newServer(t *testing.T, p health.Pinger) http.Handler {
 	t.Helper()
 	e, err := httpx.New(httpx.Options{
@@ -32,7 +43,7 @@ func newServer(t *testing.T, p health.Pinger) http.Handler {
 		t.Fatal(err)
 	}
 	h := health.NewHandler(health.NewService("test", p))
-	api.RegisterHandlers(e, api.NewStrictHandler(h, nil))
+	api.RegisterHandlers(e, api.NewStrictHandler(healthOnly{h: h}, nil))
 	return e
 }
 
@@ -88,4 +99,3 @@ func TestMetricsEndpoint(t *testing.T) {
 		t.Fatalf("metrics output missing http_requests_total:\n%s", rec.Body)
 	}
 }
-

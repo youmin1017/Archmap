@@ -7,9 +7,270 @@ package sqlcgen
 import (
 	"database/sql/driver"
 	"fmt"
+	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/google/uuid"
 )
+
+type ChangeOp string
+
+const (
+	ChangeOpAdd    ChangeOp = "add"
+	ChangeOpUpdate ChangeOp = "update"
+	ChangeOpDelete ChangeOp = "delete"
+)
+
+func (e *ChangeOp) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ChangeOp(s)
+	case string:
+		*e = ChangeOp(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ChangeOp: %T", src)
+	}
+	return nil
+}
+
+type NullChangeOp struct {
+	ChangeOp ChangeOp
+	Valid    bool // Valid is true if ChangeOp is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullChangeOp) Scan(value interface{}) error {
+	if value == nil {
+		ns.ChangeOp, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ChangeOp.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullChangeOp) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ChangeOp), nil
+}
+
+type ChangeTarget string
+
+const (
+	ChangeTargetElement  ChangeTarget = "element"
+	ChangeTargetRelation ChangeTarget = "relation"
+)
+
+func (e *ChangeTarget) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ChangeTarget(s)
+	case string:
+		*e = ChangeTarget(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ChangeTarget: %T", src)
+	}
+	return nil
+}
+
+type NullChangeTarget struct {
+	ChangeTarget ChangeTarget
+	Valid        bool // Valid is true if ChangeTarget is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullChangeTarget) Scan(value interface{}) error {
+	if value == nil {
+		ns.ChangeTarget, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ChangeTarget.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullChangeTarget) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ChangeTarget), nil
+}
+
+type ChangesetStatus string
+
+const (
+	ChangesetStatusDraft     ChangesetStatus = "draft"
+	ChangesetStatusInReview  ChangesetStatus = "in_review"
+	ChangesetStatusMerged    ChangesetStatus = "merged"
+	ChangesetStatusRejected  ChangesetStatus = "rejected"
+	ChangesetStatusAbandoned ChangesetStatus = "abandoned"
+)
+
+func (e *ChangesetStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ChangesetStatus(s)
+	case string:
+		*e = ChangesetStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ChangesetStatus: %T", src)
+	}
+	return nil
+}
+
+type NullChangesetStatus struct {
+	ChangesetStatus ChangesetStatus
+	Valid           bool // Valid is true if ChangesetStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullChangesetStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ChangesetStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ChangesetStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullChangesetStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ChangesetStatus), nil
+}
+
+type ElementKind string
+
+const (
+	ElementKindPerson    ElementKind = "person"
+	ElementKindSystem    ElementKind = "system"
+	ElementKindContainer ElementKind = "container"
+	ElementKindComponent ElementKind = "component"
+	ElementKindNode      ElementKind = "node"
+	ElementKindDatabase  ElementKind = "database"
+)
+
+func (e *ElementKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ElementKind(s)
+	case string:
+		*e = ElementKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ElementKind: %T", src)
+	}
+	return nil
+}
+
+type NullElementKind struct {
+	ElementKind ElementKind
+	Valid       bool // Valid is true if ElementKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullElementKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.ElementKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ElementKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullElementKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ElementKind), nil
+}
+
+type RelationKind string
+
+const (
+	RelationKindUses       RelationKind = "uses"
+	RelationKindDeployedOn RelationKind = "deployed_on"
+)
+
+func (e *RelationKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = RelationKind(s)
+	case string:
+		*e = RelationKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for RelationKind: %T", src)
+	}
+	return nil
+}
+
+type NullRelationKind struct {
+	RelationKind RelationKind
+	Valid        bool // Valid is true if RelationKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullRelationKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.RelationKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.RelationKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullRelationKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.RelationKind), nil
+}
+
+type ResolutionChoice string
+
+const (
+	ResolutionChoiceMine   ResolutionChoice = "mine"
+	ResolutionChoiceTheirs ResolutionChoice = "theirs"
+)
+
+func (e *ResolutionChoice) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ResolutionChoice(s)
+	case string:
+		*e = ResolutionChoice(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ResolutionChoice: %T", src)
+	}
+	return nil
+}
+
+type NullResolutionChoice struct {
+	ResolutionChoice ResolutionChoice
+	Valid            bool // Valid is true if ResolutionChoice is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullResolutionChoice) Scan(value interface{}) error {
+	if value == nil {
+		ns.ResolutionChoice, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ResolutionChoice.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullResolutionChoice) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ResolutionChoice), nil
+}
 
 type UserRole string
 
@@ -54,11 +315,173 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 	return string(ns.UserRole), nil
 }
 
+type ViewKind string
+
+const (
+	ViewKindLandscape  ViewKind = "landscape"
+	ViewKindContext    ViewKind = "context"
+	ViewKindContainer  ViewKind = "container"
+	ViewKindComponent  ViewKind = "component"
+	ViewKindDeployment ViewKind = "deployment"
+	ViewKindCustom     ViewKind = "custom"
+	ViewKindLayers     ViewKind = "layers"
+)
+
+func (e *ViewKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ViewKind(s)
+	case string:
+		*e = ViewKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ViewKind: %T", src)
+	}
+	return nil
+}
+
+type NullViewKind struct {
+	ViewKind ViewKind
+	Valid    bool // Valid is true if ViewKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullViewKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.ViewKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ViewKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullViewKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ViewKind), nil
+}
+
+type Binding struct {
+	ID        uuid.UUID
+	ElementID uuid.UUID
+	Kind      string
+	Config    []byte
+}
+
+type Change struct {
+	ID          uuid.UUID
+	ChangesetID uuid.UUID
+	Seq         int32
+	BatchID     uuid.UUID
+	Op          ChangeOp
+	TargetType  ChangeTarget
+	TargetID    uuid.UUID
+	Patch       []byte
+	Before      []byte
+	UndoneAt    *time.Time
+	CreatedAt   time.Time
+}
+
+type Changeset struct {
+	ID          uuid.UUID
+	Title       string
+	Description string
+	AuthorID    uuid.UUID
+	BaseVersion int32
+	Status      ChangesetStatus
+	CreatedAt   time.Time
+	MergedAt    *time.Time
+	ApprovedBy  *uuid.UUID
+	ApprovedAt  *time.Time
+}
+
+type Element struct {
+	ID          uuid.UUID
+	ParentID    *uuid.UUID
+	Kind        ElementKind
+	Name        string
+	Description string
+	Technology  string
+	Tags        []string
+	Protected   bool
+	Version     int32
+	DeletedAt   *time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	Layer       string
+	Projects    []string
+	Replicas    int32
+	Properties  []byte
+}
+
+type LayerRule struct {
+	ElementClass string
+	Layers       []string
+}
+
+type MergeResolution struct {
+	ChangesetID uuid.UUID
+	TargetType  ChangeTarget
+	TargetID    uuid.UUID
+	Field       string
+	Choice      ResolutionChoice
+}
+
+type ModelSnapshot struct {
+	Version int32
+	Data    []byte
+}
+
+type ModelVersion struct {
+	Number      int32
+	ChangesetID uuid.UUID
+	MergedBy    uuid.UUID
+	MergedAt    time.Time
+	Summary     string
+}
+
+type Relation struct {
+	ID          uuid.UUID
+	SourceID    uuid.UUID
+	TargetID    uuid.UUID
+	Kind        RelationKind
+	Description string
+	Technology  string
+	Version     int32
+	DeletedAt   *time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
 type User struct {
-	ID           pgtype.UUID
+	ID           uuid.UUID
 	Email        string
 	Name         string
 	Role         UserRole
 	PasswordHash string
-	CreatedAt    pgtype.Timestamptz
+	CreatedAt    time.Time
+}
+
+type View struct {
+	ID             uuid.UUID
+	Name           string
+	Kind           ViewKind
+	ScopeElementID *uuid.UUID
+	Description    string
+	CreatedBy      uuid.UUID
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	Layers         []string
+}
+
+type ViewElement struct {
+	ViewID    uuid.UUID
+	ElementID uuid.UUID
+	X         *float64
+	Y         *float64
+	W         *float64
+	H         *float64
+	Collapsed bool
+	Included  bool
 }

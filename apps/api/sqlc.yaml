@@ -1,11 +1,62 @@
 version: "2"
 sql:
-  - engine: postgresql
+  - &cfg
+    engine: postgresql
     schema: db/migrations
-    queries: db/queries.sql
+    queries: db/queries/user.sql
     gen:
       go:
         package: sqlcgen
         out: internal/user/repository/sqlcgen
         sql_package: pgx/v5
         emit_json_tags: false
+        overrides: &overrides
+          - db_type: uuid
+            go_type: github.com/google/uuid.UUID
+          - db_type: uuid
+            nullable: true
+            go_type: { import: github.com/google/uuid, type: UUID, pointer: true }
+          - db_type: timestamptz
+            go_type: time.Time
+          - db_type: timestamptz
+            nullable: true
+            go_type: { import: time, type: Time, pointer: true }
+          - db_type: "pg_catalog.float8"
+            nullable: true
+            go_type: { type: "*float64" }
+  - <<: *cfg
+    queries: db/queries/model.sql
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/model/repository/sqlcgen
+        sql_package: pgx/v5
+        emit_json_tags: false
+        overrides: *overrides
+  - <<: *cfg
+    queries: db/queries/changeset.sql
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/changeset/repository/sqlcgen
+        sql_package: pgx/v5
+        emit_json_tags: false
+        overrides: *overrides
+  - <<: *cfg
+    queries: db/queries/view.sql
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/view/repository/sqlcgen
+        sql_package: pgx/v5
+        emit_json_tags: false
+        overrides: *overrides
+  - <<: *cfg
+    queries: db/queries/layer_rule.sql
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/layerrule/repository/sqlcgen
+        sql_package: pgx/v5
+        emit_json_tags: false
+        overrides: *overrides

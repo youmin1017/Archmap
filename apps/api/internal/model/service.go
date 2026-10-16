@@ -1,0 +1,63 @@
+package model
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+
+	"archmap/api/internal/platform/authctx"
+)
+
+type ElementFilter struct {
+	ParentID *uuid.UUID
+	Query    string
+}
+
+type RelationFilter struct {
+	SourceID *uuid.UUID
+	TargetID *uuid.UUID
+}
+
+// Reader is the read side of main-model storage (implemented by repository).
+type Reader interface {
+	ListElements(ctx context.Context, f ElementFilter) ([]Element, error)
+	GetElement(ctx context.Context, id uuid.UUID) (Element, error)
+	ListRelations(ctx context.Context, f RelationFilter) ([]Relation, error)
+	GetRelation(ctx context.Context, id uuid.UUID) (Relation, error)
+}
+
+// Service exposes the read-only main model. Main is never written through the
+// API; modifications happen in changesets (see package changeset).
+type Service struct {
+	r Reader
+}
+
+func NewService(r Reader) *Service { return &Service{r: r} }
+
+func (s *Service) ListElements(ctx context.Context, f ElementFilter) ([]Element, error) {
+	if _, err := authctx.Require(ctx); err != nil {
+		return nil, err
+	}
+	return s.r.ListElements(ctx, f)
+}
+
+func (s *Service) GetElement(ctx context.Context, id uuid.UUID) (Element, error) {
+	if _, err := authctx.Require(ctx); err != nil {
+		return Element{}, err
+	}
+	return s.r.GetElement(ctx, id)
+}
+
+func (s *Service) ListRelations(ctx context.Context, f RelationFilter) ([]Relation, error) {
+	if _, err := authctx.Require(ctx); err != nil {
+		return nil, err
+	}
+	return s.r.ListRelations(ctx, f)
+}
+
+func (s *Service) GetRelation(ctx context.Context, id uuid.UUID) (Relation, error) {
+	if _, err := authctx.Require(ctx); err != nil {
+		return Relation{}, err
+	}
+	return s.r.GetRelation(ctx, id)
+}

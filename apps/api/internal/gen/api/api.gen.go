@@ -14,10 +14,130 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/labstack/echo/v5"
+	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for ChangeOp.
+const (
+	Add    ChangeOp = "add"
+	Delete ChangeOp = "delete"
+	Update ChangeOp = "update"
+)
+
+// Valid indicates whether the value is a known member of the ChangeOp enum.
+func (e ChangeOp) Valid() bool {
+	switch e {
+	case Add:
+		return true
+	case Delete:
+		return true
+	case Update:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ChangeTarget.
+const (
+	ChangeTargetElement  ChangeTarget = "element"
+	ChangeTargetRelation ChangeTarget = "relation"
+)
+
+// Valid indicates whether the value is a known member of the ChangeTarget enum.
+func (e ChangeTarget) Valid() bool {
+	switch e {
+	case ChangeTargetElement:
+		return true
+	case ChangeTargetRelation:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ChangesetStatus.
+const (
+	Abandoned ChangesetStatus = "abandoned"
+	Draft     ChangesetStatus = "draft"
+	InReview  ChangesetStatus = "in_review"
+	Merged    ChangesetStatus = "merged"
+	Rejected  ChangesetStatus = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the ChangesetStatus enum.
+func (e ChangesetStatus) Valid() bool {
+	switch e {
+	case Abandoned:
+		return true
+	case Draft:
+		return true
+	case InReview:
+		return true
+	case Merged:
+		return true
+	case Rejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ConflictKind.
+const (
+	DanglingReference ConflictKind = "dangling_reference"
+	DeleteVsUpdate    ConflictKind = "delete_vs_update"
+	Field             ConflictKind = "field"
+)
+
+// Valid indicates whether the value is a known member of the ConflictKind enum.
+func (e ConflictKind) Valid() bool {
+	switch e {
+	case DanglingReference:
+		return true
+	case DeleteVsUpdate:
+		return true
+	case Field:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ElementKind.
+const (
+	ElementKindComponent ElementKind = "component"
+	ElementKindContainer ElementKind = "container"
+	ElementKindDatabase  ElementKind = "database"
+	ElementKindNode      ElementKind = "node"
+	ElementKindPerson    ElementKind = "person"
+	ElementKindSystem    ElementKind = "system"
+)
+
+// Valid indicates whether the value is a known member of the ElementKind enum.
+func (e ElementKind) Valid() bool {
+	switch e {
+	case ElementKindComponent:
+		return true
+	case ElementKindContainer:
+		return true
+	case ElementKindDatabase:
+		return true
+	case ElementKindNode:
+		return true
+	case ElementKindPerson:
+		return true
+	case ElementKindSystem:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for HealthStatus.
 const (
@@ -34,6 +154,292 @@ func (e HealthStatus) Valid() bool {
 	}
 }
 
+// Defines values for LintSeverity.
+const (
+	Error   LintSeverity = "error"
+	Warning LintSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the LintSeverity enum.
+func (e LintSeverity) Valid() bool {
+	switch e {
+	case Error:
+		return true
+	case Warning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RelationKind.
+const (
+	DeployedOn RelationKind = "deployed_on"
+	Uses       RelationKind = "uses"
+)
+
+// Valid indicates whether the value is a known member of the RelationKind enum.
+func (e RelationKind) Valid() bool {
+	switch e {
+	case DeployedOn:
+		return true
+	case Uses:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ResolutionChoice.
+const (
+	Mine   ResolutionChoice = "mine"
+	Theirs ResolutionChoice = "theirs"
+)
+
+// Valid indicates whether the value is a known member of the ResolutionChoice enum.
+func (e ResolutionChoice) Valid() bool {
+	switch e {
+	case Mine:
+		return true
+	case Theirs:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Role.
+const (
+	Editor     Role = "editor"
+	Maintainer Role = "maintainer"
+	Viewer     Role = "viewer"
+)
+
+// Valid indicates whether the value is a known member of the Role enum.
+func (e Role) Valid() bool {
+	switch e {
+	case Editor:
+		return true
+	case Maintainer:
+		return true
+	case Viewer:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ViewKind.
+const (
+	ViewKindComponent  ViewKind = "component"
+	ViewKindContainer  ViewKind = "container"
+	ViewKindContext    ViewKind = "context"
+	ViewKindCustom     ViewKind = "custom"
+	ViewKindDeployment ViewKind = "deployment"
+	ViewKindLandscape  ViewKind = "landscape"
+	ViewKindLayers     ViewKind = "layers"
+)
+
+// Valid indicates whether the value is a known member of the ViewKind enum.
+func (e ViewKind) Valid() bool {
+	switch e {
+	case ViewKindComponent:
+		return true
+	case ViewKindContainer:
+		return true
+	case ViewKindContext:
+		return true
+	case ViewKindCustom:
+		return true
+	case ViewKindDeployment:
+		return true
+	case ViewKindLandscape:
+		return true
+	case ViewKindLayers:
+		return true
+	default:
+		return false
+	}
+}
+
+// AddChangesRequest defines model for AddChangesRequest.
+type AddChangesRequest struct {
+	Changes []ChangeInput `json:"changes"`
+}
+
+// Change defines model for Change.
+type Change struct {
+	BatchId     openapi_types.UUID      `json:"batch_id"`
+	Before      *map[string]interface{} `json:"before"`
+	ChangesetId openapi_types.UUID      `json:"changeset_id"`
+	CreatedAt   time.Time               `json:"created_at"`
+	Id          openapi_types.UUID      `json:"id"`
+	Op          ChangeOp                `json:"op"`
+	Patch       map[string]interface{}  `json:"patch"`
+	Seq         int                     `json:"seq"`
+	TargetId    openapi_types.UUID      `json:"target_id"`
+	TargetType  ChangeTarget            `json:"target_type"`
+	UndoneAt    *time.Time              `json:"undone_at"`
+}
+
+// ChangeInput defines model for ChangeInput.
+type ChangeInput struct {
+	// Cascade Delete an element that has children together with all its descendants.
+	Cascade *bool    `json:"cascade,omitempty"`
+	Op      ChangeOp `json:"op"`
+
+	// Patch add: the entity fields (element - kind, name, parent_id, description, technology, tags, protected;
+	// relation - source_id, target_id, kind, description, technology).
+	// update: only the fields to change (null clears parent_id).
+	// delete: omitted.
+	Patch *map[string]interface{} `json:"patch,omitempty"`
+
+	// TargetId Required for update / delete. For add it is optional (server generates one); supply it to reference the new entity later in the same batch.
+	TargetId   *openapi_types.UUID `json:"target_id,omitempty"`
+	TargetType ChangeTarget        `json:"target_type"`
+}
+
+// ChangeList defines model for ChangeList.
+type ChangeList struct {
+	Changes []Change `json:"changes"`
+}
+
+// ChangeOp defines model for ChangeOp.
+type ChangeOp string
+
+// ChangeTarget defines model for ChangeTarget.
+type ChangeTarget string
+
+// Changeset defines model for Changeset.
+type Changeset struct {
+	ApprovedAt  *time.Time          `json:"approved_at,omitempty"`
+	ApprovedBy  *openapi_types.UUID `json:"approved_by,omitempty"`
+	AuthorId    openapi_types.UUID  `json:"author_id"`
+	BaseVersion int                 `json:"base_version"`
+	CreatedAt   time.Time           `json:"created_at"`
+	Description string              `json:"description"`
+	Id          openapi_types.UUID  `json:"id"`
+	MergedAt    *time.Time          `json:"merged_at"`
+	Status      ChangesetStatus     `json:"status"`
+	Title       string              `json:"title"`
+}
+
+// ChangesetDetail defines model for ChangesetDetail.
+type ChangesetDetail struct {
+	Changes   []Change  `json:"changes"`
+	Changeset Changeset `json:"changeset"`
+}
+
+// ChangesetList defines model for ChangesetList.
+type ChangesetList struct {
+	Changesets []Changeset `json:"changesets"`
+}
+
+// ChangesetStatus defines model for ChangesetStatus.
+type ChangesetStatus string
+
+// Conflict defines model for Conflict.
+type Conflict struct {
+	// Base Field value (or entity fields / null for whole-target conflicts) at the draft's base version
+	Base interface{} `json:"base"`
+
+	// Field Field name, or "*" when the conflict concerns the whole target
+	Field   string       `json:"field"`
+	Kind    ConflictKind `json:"kind"`
+	Label   string       `json:"label"`
+	Message string       `json:"message"`
+
+	// Mine The draft's value
+	Mine       interface{}        `json:"mine"`
+	TargetId   openapi_types.UUID `json:"target_id"`
+	TargetType ChangeTarget       `json:"target_type"`
+
+	// Theirs Main's current value
+	Theirs interface{} `json:"theirs"`
+}
+
+// ConflictKind defines model for ConflictKind.
+type ConflictKind string
+
+// ConflictList defines model for ConflictList.
+type ConflictList struct {
+	Conflicts []Conflict `json:"conflicts"`
+}
+
+// CreateChangesetRequest defines model for CreateChangesetRequest.
+type CreateChangesetRequest struct {
+	Description *string `json:"description,omitempty"`
+	Title       string  `json:"title"`
+}
+
+// Diff defines model for Diff.
+type Diff struct {
+	BaseVersion int `json:"base_version"`
+	Elements    struct {
+		Added    []Element             `json:"added"`
+		Modified []ElementModification `json:"modified"`
+		Removed  []Element             `json:"removed"`
+	} `json:"elements"`
+	MainVersion int `json:"main_version"`
+	Relations   struct {
+		Added    []Relation             `json:"added"`
+		Modified []RelationModification `json:"modified"`
+		Removed  []Relation             `json:"removed"`
+	} `json:"relations"`
+
+	// Stale Main has moved since the draft's base version (merging rebases)
+	Stale bool `json:"stale"`
+}
+
+// Element defines model for Element.
+type Element struct {
+	CreatedAt   time.Time          `json:"created_at"`
+	Description string             `json:"description"`
+	Id          openapi_types.UUID `json:"id"`
+	Kind        ElementKind        `json:"kind"`
+
+	// Layer Layer in layers views, e.g. Services or Physical. Empty = unassigned.
+	Layer    string              `json:"layer"`
+	Name     string              `json:"name"`
+	ParentId *openapi_types.UUID `json:"parent_id"`
+
+	// Projects Projects the element belongs to (may be several). Views can highlight the elements of a project.
+	Projects []string `json:"projects"`
+
+	// Properties Free-form facts such as ip, port or namespace (key to value).
+	Properties map[string]string `json:"properties"`
+	Protected  bool              `json:"protected"`
+
+	// Replicas How many instances the element stands for (1 = a single one).
+	Replicas   int       `json:"replicas"`
+	Tags       []string  `json:"tags"`
+	Technology string    `json:"technology"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	Version    int       `json:"version"`
+}
+
+// ElementKind defines model for ElementKind.
+type ElementKind string
+
+// ElementList defines model for ElementList.
+type ElementList struct {
+	Elements []Element `json:"elements"`
+}
+
+// ElementModification defines model for ElementModification.
+type ElementModification struct {
+	After  Element       `json:"after"`
+	Before Element       `json:"before"`
+	Fields []FieldChange `json:"fields"`
+}
+
+// FieldChange defines model for FieldChange.
+type FieldChange struct {
+	After  interface{} `json:"after"`
+	Before interface{} `json:"before"`
+	Field  string      `json:"field"`
+}
+
 // Health defines model for Health.
 type Health struct {
 	Status  HealthStatus `json:"status"`
@@ -43,7 +449,60 @@ type Health struct {
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
 
-// Problem RFC 7807 problem details
+// LayerRule defines model for LayerRule.
+type LayerRule struct {
+	// ElementClass An element kind: person, system, container, component, node or database.
+	ElementClass string `json:"element_class"`
+
+	// Layers Layers (names, matched ignoring case) the class may be placed on. Elements without a layer are always allowed.
+	Layers []string `json:"layers"`
+}
+
+// LayerRules defines model for LayerRules.
+type LayerRules struct {
+	Rules []LayerRule `json:"rules"`
+}
+
+// LintFinding defines model for LintFinding.
+type LintFinding struct {
+	Message    string             `json:"message"`
+	Rule       string             `json:"rule"`
+	Severity   LintSeverity       `json:"severity"`
+	TargetId   openapi_types.UUID `json:"target_id"`
+	TargetType ChangeTarget       `json:"target_type"`
+}
+
+// LintReport defines model for LintReport.
+type LintReport struct {
+	Errors   int           `json:"errors"`
+	Findings []LintFinding `json:"findings"`
+	Warnings int           `json:"warnings"`
+}
+
+// LintSeverity defines model for LintSeverity.
+type LintSeverity string
+
+// Me defines model for Me.
+type Me struct {
+	Email string             `json:"email"`
+	Id    openapi_types.UUID `json:"id"`
+	Name  string             `json:"name"`
+	Role  Role               `json:"role"`
+}
+
+// MergeResult defines model for MergeResult.
+type MergeResult struct {
+	Changeset Changeset `json:"changeset"`
+	Version   int       `json:"version"`
+}
+
+// Model defines model for Model.
+type Model struct {
+	Elements  []Element  `json:"elements"`
+	Relations []Relation `json:"relations"`
+}
+
+// Problem RFC 9457 problem details
 type Problem struct {
 	Detail   *string `json:"detail,omitempty"`
 	Instance *string `json:"instance,omitempty"`
@@ -52,16 +511,585 @@ type Problem struct {
 	Type     *string `json:"type,omitempty"`
 }
 
+// Relation defines model for Relation.
+type Relation struct {
+	CreatedAt   time.Time          `json:"created_at"`
+	Description string             `json:"description"`
+	Id          openapi_types.UUID `json:"id"`
+	Kind        RelationKind       `json:"kind"`
+	SourceId    openapi_types.UUID `json:"source_id"`
+	TargetId    openapi_types.UUID `json:"target_id"`
+	Technology  string             `json:"technology"`
+	UpdatedAt   time.Time          `json:"updated_at"`
+	Version     int                `json:"version"`
+}
+
+// RelationKind defines model for RelationKind.
+type RelationKind string
+
+// RelationList defines model for RelationList.
+type RelationList struct {
+	Relations []Relation `json:"relations"`
+}
+
+// RelationModification defines model for RelationModification.
+type RelationModification struct {
+	After  Relation      `json:"after"`
+	Before Relation      `json:"before"`
+	Fields []FieldChange `json:"fields"`
+}
+
+// Resolution defines model for Resolution.
+type Resolution struct {
+	Choice     ResolutionChoice   `json:"choice"`
+	Field      string             `json:"field"`
+	TargetId   openapi_types.UUID `json:"target_id"`
+	TargetType ChangeTarget       `json:"target_type"`
+}
+
+// ResolutionChoice defines model for ResolutionChoice.
+type ResolutionChoice string
+
+// ResolveRequest defines model for ResolveRequest.
+type ResolveRequest struct {
+	Resolutions []Resolution `json:"resolutions"`
+}
+
+// Role defines model for Role.
+type Role string
+
+// SetLayoutRequest defines model for SetLayoutRequest.
+type SetLayoutRequest struct {
+	Elements []ViewElement `json:"elements"`
+}
+
+// SetRoleRequest defines model for SetRoleRequest.
+type SetRoleRequest struct {
+	Role Role `json:"role"`
+}
+
+// User defines model for User.
+type User struct {
+	CreatedAt time.Time          `json:"created_at"`
+	Email     string             `json:"email"`
+	Id        openapi_types.UUID `json:"id"`
+	Name      string             `json:"name"`
+	Role      Role               `json:"role"`
+}
+
+// UserList defines model for UserList.
+type UserList struct {
+	Users []User `json:"users"`
+}
+
+// Version defines model for Version.
+type Version struct {
+	ChangesetId openapi_types.UUID `json:"changeset_id"`
+	MergedAt    time.Time          `json:"merged_at"`
+	MergedBy    openapi_types.UUID `json:"merged_by"`
+	Number      int                `json:"number"`
+	Summary     string             `json:"summary"`
+}
+
+// VersionList defines model for VersionList.
+type VersionList struct {
+	Versions []Version `json:"versions"`
+}
+
+// View defines model for View.
+type View struct {
+	CreatedAt   time.Time          `json:"created_at"`
+	CreatedBy   openapi_types.UUID `json:"created_by"`
+	Description string             `json:"description"`
+	Id          openapi_types.UUID `json:"id"`
+	Kind        ViewKind           `json:"kind"`
+
+	// Layers Ordered layer names of a layers view, top to bottom (empty for other kinds).
+	Layers         []string            `json:"layers"`
+	Name           string              `json:"name"`
+	ScopeElementId *openapi_types.UUID `json:"scope_element_id"`
+	UpdatedAt      time.Time           `json:"updated_at"`
+}
+
+// ViewElement defines model for ViewElement.
+type ViewElement struct {
+	Collapsed bool               `json:"collapsed"`
+	ElementId openapi_types.UUID `json:"element_id"`
+	H         *float64           `json:"h,omitempty"`
+
+	// Included Custom-view membership (response only; ignored when saving a layout).
+	Included *bool    `json:"included,omitempty"`
+	W        *float64 `json:"w,omitempty"`
+	X        *float64 `json:"x,omitempty"`
+	Y        *float64 `json:"y,omitempty"`
+}
+
+// ViewInput defines model for ViewInput.
+type ViewInput struct {
+	Description *string `json:"description,omitempty"`
+
+	// Elements Members of a custom view.
+	Elements *[]openapi_types.UUID `json:"elements,omitempty"`
+	Kind     ViewKind              `json:"kind"`
+
+	// Layers Layer names of a layers view, top to bottom (required for layers views, not allowed otherwise).
+	Layers *[]string `json:"layers,omitempty"`
+	Name   string    `json:"name"`
+
+	// ScopeElementId Required for context / container / component, optional for deployment, not allowed otherwise.
+	ScopeElementId *openapi_types.UUID `json:"scope_element_id,omitempty"`
+}
+
+// ViewKind defines model for ViewKind.
+type ViewKind string
+
+// ViewLayout defines model for ViewLayout.
+type ViewLayout struct {
+	Elements []ViewElement `json:"elements"`
+}
+
+// ViewList defines model for ViewList.
+type ViewList struct {
+	Views []View `json:"views"`
+}
+
+// ViewModel defines model for ViewModel.
+type ViewModel struct {
+	Elements []Element `json:"elements"`
+
+	// Expanded Elements that start expanded when the view has no saved layout for them.
+	Expanded  []openapi_types.UUID `json:"expanded"`
+	Layout    []ViewElement        `json:"layout"`
+	Relations []Relation           `json:"relations"`
+	Roots     []openapi_types.UUID `json:"roots"`
+
+	// ScopeMissing The view's scope element does not exist in the model being shown.
+	ScopeMissing bool `json:"scope_missing"`
+	View         View `json:"view"`
+}
+
+// Id defines model for Id.
+type Id = openapi_types.UUID
+
+// ListChangesetsParams defines parameters for ListChangesets.
+type ListChangesetsParams struct {
+	Status   *ChangesetStatus    `form:"status,omitempty" json:"status,omitempty"`
+	AuthorId *openapi_types.UUID `form:"author_id,omitempty" json:"author_id,omitempty"`
+}
+
+// ListElementsParams defines parameters for ListElements.
+type ListElementsParams struct {
+	ParentId *openapi_types.UUID `form:"parent_id,omitempty" json:"parent_id,omitempty"`
+
+	// Q Case-insensitive substring match on the name
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+}
+
+// ListRelationsParams defines parameters for ListRelations.
+type ListRelationsParams struct {
+	SourceId *openapi_types.UUID `form:"source_id,omitempty" json:"source_id,omitempty"`
+	TargetId *openapi_types.UUID `form:"target_id,omitempty" json:"target_id,omitempty"`
+}
+
+// GetViewModelParams defines parameters for GetViewModel.
+type GetViewModelParams struct {
+	ChangesetId *openapi_types.UUID `form:"changeset_id,omitempty" json:"changeset_id,omitempty"`
+}
+
+// CreateChangesetJSONRequestBody defines body for CreateChangeset for application/json ContentType.
+type CreateChangesetJSONRequestBody = CreateChangesetRequest
+
+// AddChangesJSONRequestBody defines body for AddChanges for application/json ContentType.
+type AddChangesJSONRequestBody = AddChangesRequest
+
+// ResolveChangesetJSONRequestBody defines body for ResolveChangeset for application/json ContentType.
+type ResolveChangesetJSONRequestBody = ResolveRequest
+
+// ReplaceLayerRulesJSONRequestBody defines body for ReplaceLayerRules for application/json ContentType.
+type ReplaceLayerRulesJSONRequestBody = LayerRules
+
+// SetUserRoleJSONRequestBody defines body for SetUserRole for application/json ContentType.
+type SetUserRoleJSONRequestBody = SetRoleRequest
+
+// CreateViewJSONRequestBody defines body for CreateView for application/json ContentType.
+type CreateViewJSONRequestBody = ViewInput
+
+// UpdateViewJSONRequestBody defines body for UpdateView for application/json ContentType.
+type UpdateViewJSONRequestBody = ViewInput
+
+// SetViewLayoutJSONRequestBody defines body for SetViewLayout for application/json ContentType.
+type SetViewLayoutJSONRequestBody = SetLayoutRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ListChangesets List changesets
+	// (GET /api/v1/changesets)
+	ListChangesets(ctx *echo.Context, params ListChangesetsParams) error
+	// CreateChangeset Open a new draft based on the current main version (editor+)
+	// (POST /api/v1/changesets)
+	CreateChangeset(ctx *echo.Context) error
+	// GetChangeset A changeset with its change log (undone changes included)
+	// (GET /api/v1/changesets/{id})
+	GetChangeset(ctx *echo.Context, id Id) error
+	// AbandonChangeset Abandon a draft or a changeset in review (author or maintainer)
+	// (POST /api/v1/changesets/{id}/abandon)
+	AbandonChangeset(ctx *echo.Context, id Id) error
+	// ApproveChangeset Approve a changeset in review (maintainer; not the author unless self-merge is enabled)
+	// (POST /api/v1/changesets/{id}/approve)
+	ApproveChangeset(ctx *echo.Context, id Id) error
+	// AddChanges Record one batch of changes (one GUI edit) in a draft
+	// (POST /api/v1/changesets/{id}/changes)
+	AddChanges(ctx *echo.Context, id Id) error
+	// UndoChange Undo the latest batch
+	// (DELETE /api/v1/changesets/{id}/changes/last)
+	UndoChange(ctx *echo.Context, id Id) error
+	// RedoChange Redo the most recently undone batch
+	// (POST /api/v1/changesets/{id}/changes/redo)
+	RedoChange(ctx *echo.Context, id Id) error
+	// GetChangesetConflicts Conflicts that block merging into the current main (empty when none)
+	// (GET /api/v1/changesets/{id}/conflicts)
+	GetChangesetConflicts(ctx *echo.Context, id Id) error
+	// GetChangesetDiff Structured diff of a draft against the main version it is based on
+	// (GET /api/v1/changesets/{id}/diff)
+	GetChangesetDiff(ctx *echo.Context, id Id) error
+	// GetChangesetLint Lint report for the draft's effective model (errors block merge)
+	// (GET /api/v1/changesets/{id}/lint)
+	GetChangesetLint(ctx *echo.Context, id Id) error
+	// MergeChangeset Merge an approved changeset into main as a new version (maintainer)
+	// (POST /api/v1/changesets/{id}/merge)
+	MergeChangeset(ctx *echo.Context, id Id) error
+	// GetChangesetModel Effective model of a draft (main + its active changes)
+	// (GET /api/v1/changesets/{id}/model)
+	GetChangesetModel(ctx *echo.Context, id Id) error
+	// RejectChangeset Reject a changeset in review (maintainer)
+	// (POST /api/v1/changesets/{id}/reject)
+	RejectChangeset(ctx *echo.Context, id Id) error
+	// ResolveChangeset Record conflict resolutions (mine / theirs); returns the remaining conflicts
+	// (POST /api/v1/changesets/{id}/resolve)
+	ResolveChangeset(ctx *echo.Context, id Id) error
+	// SubmitChangeset Submit a draft for review (author or maintainer)
+	// (POST /api/v1/changesets/{id}/submit)
+	SubmitChangeset(ctx *echo.Context, id Id) error
 	// GetHealth Liveness / readiness probe
 	// (GET /api/v1/health)
 	GetHealth(ctx *echo.Context) error
+	// ListLayerRules Which layers each element class may be placed on
+	// (GET /api/v1/layer-rules)
+	ListLayerRules(ctx *echo.Context) error
+	// ReplaceLayerRules Replace all layer rules (maintainer). Existing elements are not changed; edits that put an element on a disallowed layer are rejected.
+	// (PUT /api/v1/layer-rules)
+	ReplaceLayerRules(ctx *echo.Context) error
+	// GetMe The authenticated user
+	// (GET /api/v1/me)
+	GetMe(ctx *echo.Context) error
+	// ListElements Elements of main
+	// (GET /api/v1/model/elements)
+	ListElements(ctx *echo.Context, params ListElementsParams) error
+	// GetElement One element of main
+	// (GET /api/v1/model/elements/{id})
+	GetElement(ctx *echo.Context, id Id) error
+	// ListRelations Relations of main
+	// (GET /api/v1/model/relations)
+	ListRelations(ctx *echo.Context, params ListRelationsParams) error
+	// GetRelation One relation of main
+	// (GET /api/v1/model/relations/{id})
+	GetRelation(ctx *echo.Context, id Id) error
+	// ListUsers All users with their roles (maintainers only)
+	// (GET /api/v1/users)
+	ListUsers(ctx *echo.Context) error
+	// SetUserRole Change a user's role (maintainers only; the last maintainer cannot be demoted)
+	// (PUT /api/v1/users/{id}/role)
+	SetUserRole(ctx *echo.Context, id Id) error
+	// ListVersions Merged model versions, newest first
+	// (GET /api/v1/versions)
+	ListVersions(ctx *echo.Context) error
+	// GetVersionDiff What changed between two merged versions (`from` is the base, `to` the newer or older one to compare with)
+	// (GET /api/v1/versions/{from}/diff/{to})
+	GetVersionDiff(ctx *echo.Context, from int, to int) error
+	// GetVersionModel Main as of a merged version (read-only)
+	// (GET /api/v1/versions/{n}/model)
+	GetVersionModel(ctx *echo.Context, n int) error
+	// ListViews Saved views (perspectives over the model)
+	// (GET /api/v1/views)
+	ListViews(ctx *echo.Context) error
+	// CreateView Create a view (editor+). Views are not part of the changeset workflow.
+	// (POST /api/v1/views)
+	CreateView(ctx *echo.Context) error
+	// DeleteView Delete a view and its saved layout (creator or maintainer)
+	// (DELETE /api/v1/views/{id})
+	DeleteView(ctx *echo.Context, id Id) error
+	// UpdateView Replace a view's name, kind, scope and description (creator or maintainer)
+	// (PUT /api/v1/views/{id})
+	UpdateView(ctx *echo.Context, id Id) error
+	// SetViewLayout Replace a view's saved layout (editor+). Creates no changes and no versions.
+	// (PUT /api/v1/views/{id}/layout)
+	SetViewLayout(ctx *echo.Context, id Id) error
+	// GetViewModel What a view shows, with its saved layout
+	// (GET /api/v1/views/{id}/model)
+	GetViewModel(ctx *echo.Context, id Id, params GetViewModelParams) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// ListChangesets converts echo context to params.
+func (w *ServerInterfaceWrapper) ListChangesets(ctx *echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListChangesetsParams
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", ctx.QueryParams(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter status: %s", err))
+	}
+
+	// ------------- Optional query parameter "author_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "author_id", ctx.QueryParams(), &params.AuthorId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter author_id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListChangesets(ctx, params)
+	return err
+}
+
+// CreateChangeset converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateChangeset(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateChangeset(ctx)
+	return err
+}
+
+// GetChangeset converts echo context to params.
+func (w *ServerInterfaceWrapper) GetChangeset(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetChangeset(ctx, id)
+	return err
+}
+
+// AbandonChangeset converts echo context to params.
+func (w *ServerInterfaceWrapper) AbandonChangeset(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.AbandonChangeset(ctx, id)
+	return err
+}
+
+// ApproveChangeset converts echo context to params.
+func (w *ServerInterfaceWrapper) ApproveChangeset(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ApproveChangeset(ctx, id)
+	return err
+}
+
+// AddChanges converts echo context to params.
+func (w *ServerInterfaceWrapper) AddChanges(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.AddChanges(ctx, id)
+	return err
+}
+
+// UndoChange converts echo context to params.
+func (w *ServerInterfaceWrapper) UndoChange(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UndoChange(ctx, id)
+	return err
+}
+
+// RedoChange converts echo context to params.
+func (w *ServerInterfaceWrapper) RedoChange(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.RedoChange(ctx, id)
+	return err
+}
+
+// GetChangesetConflicts converts echo context to params.
+func (w *ServerInterfaceWrapper) GetChangesetConflicts(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetChangesetConflicts(ctx, id)
+	return err
+}
+
+// GetChangesetDiff converts echo context to params.
+func (w *ServerInterfaceWrapper) GetChangesetDiff(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetChangesetDiff(ctx, id)
+	return err
+}
+
+// GetChangesetLint converts echo context to params.
+func (w *ServerInterfaceWrapper) GetChangesetLint(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetChangesetLint(ctx, id)
+	return err
+}
+
+// MergeChangeset converts echo context to params.
+func (w *ServerInterfaceWrapper) MergeChangeset(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.MergeChangeset(ctx, id)
+	return err
+}
+
+// GetChangesetModel converts echo context to params.
+func (w *ServerInterfaceWrapper) GetChangesetModel(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetChangesetModel(ctx, id)
+	return err
+}
+
+// RejectChangeset converts echo context to params.
+func (w *ServerInterfaceWrapper) RejectChangeset(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.RejectChangeset(ctx, id)
+	return err
+}
+
+// ResolveChangeset converts echo context to params.
+func (w *ServerInterfaceWrapper) ResolveChangeset(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ResolveChangeset(ctx, id)
+	return err
+}
+
+// SubmitChangeset converts echo context to params.
+func (w *ServerInterfaceWrapper) SubmitChangeset(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.SubmitChangeset(ctx, id)
+	return err
 }
 
 // GetHealth converts echo context to params.
@@ -70,6 +1098,280 @@ func (w *ServerInterfaceWrapper) GetHealth(ctx *echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.GetHealth(ctx)
+	return err
+}
+
+// ListLayerRules converts echo context to params.
+func (w *ServerInterfaceWrapper) ListLayerRules(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListLayerRules(ctx)
+	return err
+}
+
+// ReplaceLayerRules converts echo context to params.
+func (w *ServerInterfaceWrapper) ReplaceLayerRules(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ReplaceLayerRules(ctx)
+	return err
+}
+
+// GetMe converts echo context to params.
+func (w *ServerInterfaceWrapper) GetMe(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetMe(ctx)
+	return err
+}
+
+// ListElements converts echo context to params.
+func (w *ServerInterfaceWrapper) ListElements(ctx *echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListElementsParams
+	// ------------- Optional query parameter "parent_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "parent_id", ctx.QueryParams(), &params.ParentId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter parent_id: %s", err))
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", ctx.QueryParams(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter q: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListElements(ctx, params)
+	return err
+}
+
+// GetElement converts echo context to params.
+func (w *ServerInterfaceWrapper) GetElement(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetElement(ctx, id)
+	return err
+}
+
+// ListRelations converts echo context to params.
+func (w *ServerInterfaceWrapper) ListRelations(ctx *echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRelationsParams
+	// ------------- Optional query parameter "source_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "source_id", ctx.QueryParams(), &params.SourceId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter source_id: %s", err))
+	}
+
+	// ------------- Optional query parameter "target_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "target_id", ctx.QueryParams(), &params.TargetId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter target_id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListRelations(ctx, params)
+	return err
+}
+
+// GetRelation converts echo context to params.
+func (w *ServerInterfaceWrapper) GetRelation(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetRelation(ctx, id)
+	return err
+}
+
+// ListUsers converts echo context to params.
+func (w *ServerInterfaceWrapper) ListUsers(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListUsers(ctx)
+	return err
+}
+
+// SetUserRole converts echo context to params.
+func (w *ServerInterfaceWrapper) SetUserRole(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.SetUserRole(ctx, id)
+	return err
+}
+
+// ListVersions converts echo context to params.
+func (w *ServerInterfaceWrapper) ListVersions(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListVersions(ctx)
+	return err
+}
+
+// GetVersionDiff converts echo context to params.
+func (w *ServerInterfaceWrapper) GetVersionDiff(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "from" -------------
+	var from int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "from", ctx.Param("from"), &from, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter from: %s", err))
+	}
+
+	// ------------- Path parameter "to" -------------
+	var to int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "to", ctx.Param("to"), &to, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter to: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetVersionDiff(ctx, from, to)
+	return err
+}
+
+// GetVersionModel converts echo context to params.
+func (w *ServerInterfaceWrapper) GetVersionModel(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "n" -------------
+	var n int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "n", ctx.Param("n"), &n, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter n: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetVersionModel(ctx, n)
+	return err
+}
+
+// ListViews converts echo context to params.
+func (w *ServerInterfaceWrapper) ListViews(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListViews(ctx)
+	return err
+}
+
+// CreateView converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateView(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateView(ctx)
+	return err
+}
+
+// DeleteView converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteView(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteView(ctx, id)
+	return err
+}
+
+// UpdateView converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateView(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateView(ctx, id)
+	return err
+}
+
+// SetViewLayout converts echo context to params.
+func (w *ServerInterfaceWrapper) SetViewLayout(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.SetViewLayout(ctx, id)
+	return err
+}
+
+// GetViewModel converts echo context to params.
+func (w *ServerInterfaceWrapper) GetViewModel(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetViewModelParams
+	// ------------- Optional query parameter "changeset_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "changeset_id", ctx.QueryParams(), &params.ChangesetId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter changeset_id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetViewModel(ctx, id, params)
 	return err
 }
 
@@ -121,10 +1423,698 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	}
 
 	router.GET(options.BaseURL+"/api/v1/health", wrapper.GetHealth, options.OperationMiddlewares["getHealth"]...)
+	router.GET(options.BaseURL+"/api/v1/me", wrapper.GetMe, options.OperationMiddlewares["getMe"]...)
+	router.GET(options.BaseURL+"/api/v1/users", wrapper.ListUsers, options.OperationMiddlewares["listUsers"]...)
+	router.PUT(options.BaseURL+"/api/v1/users/:id/role", wrapper.SetUserRole, options.OperationMiddlewares["setUserRole"]...)
+	router.GET(options.BaseURL+"/api/v1/model/elements", wrapper.ListElements, options.OperationMiddlewares["listElements"]...)
+	router.GET(options.BaseURL+"/api/v1/model/elements/:id", wrapper.GetElement, options.OperationMiddlewares["getElement"]...)
+	router.GET(options.BaseURL+"/api/v1/model/relations", wrapper.ListRelations, options.OperationMiddlewares["listRelations"]...)
+	router.GET(options.BaseURL+"/api/v1/model/relations/:id", wrapper.GetRelation, options.OperationMiddlewares["getRelation"]...)
+	router.GET(options.BaseURL+"/api/v1/changesets", wrapper.ListChangesets, options.OperationMiddlewares["listChangesets"]...)
+	router.POST(options.BaseURL+"/api/v1/changesets", wrapper.CreateChangeset, options.OperationMiddlewares["createChangeset"]...)
+	router.GET(options.BaseURL+"/api/v1/changesets/:id", wrapper.GetChangeset, options.OperationMiddlewares["getChangeset"]...)
+	router.GET(options.BaseURL+"/api/v1/changesets/:id/model", wrapper.GetChangesetModel, options.OperationMiddlewares["getChangesetModel"]...)
+	router.POST(options.BaseURL+"/api/v1/changesets/:id/changes", wrapper.AddChanges, options.OperationMiddlewares["addChanges"]...)
+	router.DELETE(options.BaseURL+"/api/v1/changesets/:id/changes/last", wrapper.UndoChange, options.OperationMiddlewares["undoChange"]...)
+	router.POST(options.BaseURL+"/api/v1/changesets/:id/changes/redo", wrapper.RedoChange, options.OperationMiddlewares["redoChange"]...)
+	router.GET(options.BaseURL+"/api/v1/changesets/:id/diff", wrapper.GetChangesetDiff, options.OperationMiddlewares["getChangesetDiff"]...)
+	router.GET(options.BaseURL+"/api/v1/changesets/:id/lint", wrapper.GetChangesetLint, options.OperationMiddlewares["getChangesetLint"]...)
+	router.GET(options.BaseURL+"/api/v1/changesets/:id/conflicts", wrapper.GetChangesetConflicts, options.OperationMiddlewares["getChangesetConflicts"]...)
+	router.POST(options.BaseURL+"/api/v1/changesets/:id/resolve", wrapper.ResolveChangeset, options.OperationMiddlewares["resolveChangeset"]...)
+	router.POST(options.BaseURL+"/api/v1/changesets/:id/submit", wrapper.SubmitChangeset, options.OperationMiddlewares["submitChangeset"]...)
+	router.POST(options.BaseURL+"/api/v1/changesets/:id/approve", wrapper.ApproveChangeset, options.OperationMiddlewares["approveChangeset"]...)
+	router.POST(options.BaseURL+"/api/v1/changesets/:id/reject", wrapper.RejectChangeset, options.OperationMiddlewares["rejectChangeset"]...)
+	router.POST(options.BaseURL+"/api/v1/changesets/:id/abandon", wrapper.AbandonChangeset, options.OperationMiddlewares["abandonChangeset"]...)
+	router.POST(options.BaseURL+"/api/v1/changesets/:id/merge", wrapper.MergeChangeset, options.OperationMiddlewares["mergeChangeset"]...)
+	router.GET(options.BaseURL+"/api/v1/layer-rules", wrapper.ListLayerRules, options.OperationMiddlewares["listLayerRules"]...)
+	router.PUT(options.BaseURL+"/api/v1/layer-rules", wrapper.ReplaceLayerRules, options.OperationMiddlewares["replaceLayerRules"]...)
+	router.GET(options.BaseURL+"/api/v1/views", wrapper.ListViews, options.OperationMiddlewares["listViews"]...)
+	router.POST(options.BaseURL+"/api/v1/views", wrapper.CreateView, options.OperationMiddlewares["createView"]...)
+	router.DELETE(options.BaseURL+"/api/v1/views/:id", wrapper.DeleteView, options.OperationMiddlewares["deleteView"]...)
+	router.PUT(options.BaseURL+"/api/v1/views/:id", wrapper.UpdateView, options.OperationMiddlewares["updateView"]...)
+	router.GET(options.BaseURL+"/api/v1/views/:id/model", wrapper.GetViewModel, options.OperationMiddlewares["getViewModel"]...)
+	router.PUT(options.BaseURL+"/api/v1/views/:id/layout", wrapper.SetViewLayout, options.OperationMiddlewares["setViewLayout"]...)
+	router.GET(options.BaseURL+"/api/v1/versions", wrapper.ListVersions, options.OperationMiddlewares["listVersions"]...)
+	router.GET(options.BaseURL+"/api/v1/versions/:from/diff/:to", wrapper.GetVersionDiff, options.OperationMiddlewares["getVersionDiff"]...)
+	router.GET(options.BaseURL+"/api/v1/versions/:n/model", wrapper.GetVersionModel, options.OperationMiddlewares["getVersionModel"]...)
 
 }
 
 type ProblemApplicationProblemPlusJSONResponse Problem
+
+type ListChangesetsRequestObject struct {
+	Params ListChangesetsParams
+}
+
+type ListChangesetsResponseObject interface {
+	VisitListChangesetsResponse(w http.ResponseWriter) error
+}
+
+type ListChangesets200JSONResponse ChangesetList
+
+func (response ListChangesets200JSONResponse) VisitListChangesetsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListChangesetsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListChangesetsdefaultApplicationProblemPlusJSONResponse) VisitListChangesetsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateChangesetRequestObject struct {
+	Body *CreateChangesetJSONRequestBody
+}
+
+type CreateChangesetResponseObject interface {
+	VisitCreateChangesetResponse(w http.ResponseWriter) error
+}
+
+type CreateChangeset201JSONResponse Changeset
+
+func (response CreateChangeset201JSONResponse) VisitCreateChangesetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateChangesetdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateChangesetdefaultApplicationProblemPlusJSONResponse) VisitCreateChangesetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetChangesetRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type GetChangesetResponseObject interface {
+	VisitGetChangesetResponse(w http.ResponseWriter) error
+}
+
+type GetChangeset200JSONResponse ChangesetDetail
+
+func (response GetChangeset200JSONResponse) VisitGetChangesetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetChangesetdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetChangesetdefaultApplicationProblemPlusJSONResponse) VisitGetChangesetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AbandonChangesetRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type AbandonChangesetResponseObject interface {
+	VisitAbandonChangesetResponse(w http.ResponseWriter) error
+}
+
+type AbandonChangeset200JSONResponse Changeset
+
+func (response AbandonChangeset200JSONResponse) VisitAbandonChangesetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AbandonChangesetdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response AbandonChangesetdefaultApplicationProblemPlusJSONResponse) VisitAbandonChangesetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveChangesetRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type ApproveChangesetResponseObject interface {
+	VisitApproveChangesetResponse(w http.ResponseWriter) error
+}
+
+type ApproveChangeset200JSONResponse Changeset
+
+func (response ApproveChangeset200JSONResponse) VisitApproveChangesetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveChangesetdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ApproveChangesetdefaultApplicationProblemPlusJSONResponse) VisitApproveChangesetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddChangesRequestObject struct {
+	Id   Id `json:"id"`
+	Body *AddChangesJSONRequestBody
+}
+
+type AddChangesResponseObject interface {
+	VisitAddChangesResponse(w http.ResponseWriter) error
+}
+
+type AddChanges201JSONResponse ChangeList
+
+func (response AddChanges201JSONResponse) VisitAddChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddChangesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response AddChangesdefaultApplicationProblemPlusJSONResponse) VisitAddChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UndoChangeRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type UndoChangeResponseObject interface {
+	VisitUndoChangeResponse(w http.ResponseWriter) error
+}
+
+type UndoChange200JSONResponse ChangeList
+
+func (response UndoChange200JSONResponse) VisitUndoChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UndoChangedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UndoChangedefaultApplicationProblemPlusJSONResponse) VisitUndoChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RedoChangeRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type RedoChangeResponseObject interface {
+	VisitRedoChangeResponse(w http.ResponseWriter) error
+}
+
+type RedoChange200JSONResponse ChangeList
+
+func (response RedoChange200JSONResponse) VisitRedoChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RedoChangedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response RedoChangedefaultApplicationProblemPlusJSONResponse) VisitRedoChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetChangesetConflictsRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type GetChangesetConflictsResponseObject interface {
+	VisitGetChangesetConflictsResponse(w http.ResponseWriter) error
+}
+
+type GetChangesetConflicts200JSONResponse ConflictList
+
+func (response GetChangesetConflicts200JSONResponse) VisitGetChangesetConflictsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetChangesetConflictsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetChangesetConflictsdefaultApplicationProblemPlusJSONResponse) VisitGetChangesetConflictsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetChangesetDiffRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type GetChangesetDiffResponseObject interface {
+	VisitGetChangesetDiffResponse(w http.ResponseWriter) error
+}
+
+type GetChangesetDiff200JSONResponse Diff
+
+func (response GetChangesetDiff200JSONResponse) VisitGetChangesetDiffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetChangesetDiffdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetChangesetDiffdefaultApplicationProblemPlusJSONResponse) VisitGetChangesetDiffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetChangesetLintRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type GetChangesetLintResponseObject interface {
+	VisitGetChangesetLintResponse(w http.ResponseWriter) error
+}
+
+type GetChangesetLint200JSONResponse LintReport
+
+func (response GetChangesetLint200JSONResponse) VisitGetChangesetLintResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetChangesetLintdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetChangesetLintdefaultApplicationProblemPlusJSONResponse) VisitGetChangesetLintResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MergeChangesetRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type MergeChangesetResponseObject interface {
+	VisitMergeChangesetResponse(w http.ResponseWriter) error
+}
+
+type MergeChangeset200JSONResponse MergeResult
+
+func (response MergeChangeset200JSONResponse) VisitMergeChangesetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MergeChangeset409JSONResponse ConflictList
+
+func (response MergeChangeset409JSONResponse) VisitMergeChangesetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MergeChangeset409ApplicationProblemPlusJSONResponse Problem
+
+func (response MergeChangeset409ApplicationProblemPlusJSONResponse) VisitMergeChangesetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MergeChangesetdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response MergeChangesetdefaultApplicationProblemPlusJSONResponse) VisitMergeChangesetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetChangesetModelRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type GetChangesetModelResponseObject interface {
+	VisitGetChangesetModelResponse(w http.ResponseWriter) error
+}
+
+type GetChangesetModel200JSONResponse Model
+
+func (response GetChangesetModel200JSONResponse) VisitGetChangesetModelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetChangesetModeldefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetChangesetModeldefaultApplicationProblemPlusJSONResponse) VisitGetChangesetModelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectChangesetRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type RejectChangesetResponseObject interface {
+	VisitRejectChangesetResponse(w http.ResponseWriter) error
+}
+
+type RejectChangeset200JSONResponse Changeset
+
+func (response RejectChangeset200JSONResponse) VisitRejectChangesetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectChangesetdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response RejectChangesetdefaultApplicationProblemPlusJSONResponse) VisitRejectChangesetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResolveChangesetRequestObject struct {
+	Id   Id `json:"id"`
+	Body *ResolveChangesetJSONRequestBody
+}
+
+type ResolveChangesetResponseObject interface {
+	VisitResolveChangesetResponse(w http.ResponseWriter) error
+}
+
+type ResolveChangeset200JSONResponse ConflictList
+
+func (response ResolveChangeset200JSONResponse) VisitResolveChangesetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResolveChangesetdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ResolveChangesetdefaultApplicationProblemPlusJSONResponse) VisitResolveChangesetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitChangesetRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type SubmitChangesetResponseObject interface {
+	VisitSubmitChangesetResponse(w http.ResponseWriter) error
+}
+
+type SubmitChangeset200JSONResponse Changeset
+
+func (response SubmitChangeset200JSONResponse) VisitSubmitChangesetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitChangesetdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response SubmitChangesetdefaultApplicationProblemPlusJSONResponse) VisitSubmitChangesetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type GetHealthRequestObject struct {
 }
@@ -164,11 +2154,809 @@ func (response GetHealthdefaultApplicationProblemPlusJSONResponse) VisitGetHealt
 	return err
 }
 
+type ListLayerRulesRequestObject struct {
+}
+
+type ListLayerRulesResponseObject interface {
+	VisitListLayerRulesResponse(w http.ResponseWriter) error
+}
+
+type ListLayerRules200JSONResponse LayerRules
+
+func (response ListLayerRules200JSONResponse) VisitListLayerRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListLayerRulesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListLayerRulesdefaultApplicationProblemPlusJSONResponse) VisitListLayerRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceLayerRulesRequestObject struct {
+	Body *ReplaceLayerRulesJSONRequestBody
+}
+
+type ReplaceLayerRulesResponseObject interface {
+	VisitReplaceLayerRulesResponse(w http.ResponseWriter) error
+}
+
+type ReplaceLayerRules200JSONResponse LayerRules
+
+func (response ReplaceLayerRules200JSONResponse) VisitReplaceLayerRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceLayerRulesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ReplaceLayerRulesdefaultApplicationProblemPlusJSONResponse) VisitReplaceLayerRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMeRequestObject struct {
+}
+
+type GetMeResponseObject interface {
+	VisitGetMeResponse(w http.ResponseWriter) error
+}
+
+type GetMe200JSONResponse Me
+
+func (response GetMe200JSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetMedefaultApplicationProblemPlusJSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListElementsRequestObject struct {
+	Params ListElementsParams
+}
+
+type ListElementsResponseObject interface {
+	VisitListElementsResponse(w http.ResponseWriter) error
+}
+
+type ListElements200JSONResponse ElementList
+
+func (response ListElements200JSONResponse) VisitListElementsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListElementsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListElementsdefaultApplicationProblemPlusJSONResponse) VisitListElementsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetElementRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type GetElementResponseObject interface {
+	VisitGetElementResponse(w http.ResponseWriter) error
+}
+
+type GetElement200JSONResponse Element
+
+func (response GetElement200JSONResponse) VisitGetElementResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetElementdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetElementdefaultApplicationProblemPlusJSONResponse) VisitGetElementResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRelationsRequestObject struct {
+	Params ListRelationsParams
+}
+
+type ListRelationsResponseObject interface {
+	VisitListRelationsResponse(w http.ResponseWriter) error
+}
+
+type ListRelations200JSONResponse RelationList
+
+func (response ListRelations200JSONResponse) VisitListRelationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRelationsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListRelationsdefaultApplicationProblemPlusJSONResponse) VisitListRelationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRelationRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type GetRelationResponseObject interface {
+	VisitGetRelationResponse(w http.ResponseWriter) error
+}
+
+type GetRelation200JSONResponse Relation
+
+func (response GetRelation200JSONResponse) VisitGetRelationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRelationdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetRelationdefaultApplicationProblemPlusJSONResponse) VisitGetRelationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListUsersRequestObject struct {
+}
+
+type ListUsersResponseObject interface {
+	VisitListUsersResponse(w http.ResponseWriter) error
+}
+
+type ListUsers200JSONResponse UserList
+
+func (response ListUsers200JSONResponse) VisitListUsersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListUsersdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListUsersdefaultApplicationProblemPlusJSONResponse) VisitListUsersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetUserRoleRequestObject struct {
+	Id   Id `json:"id"`
+	Body *SetUserRoleJSONRequestBody
+}
+
+type SetUserRoleResponseObject interface {
+	VisitSetUserRoleResponse(w http.ResponseWriter) error
+}
+
+type SetUserRole200JSONResponse User
+
+func (response SetUserRole200JSONResponse) VisitSetUserRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetUserRoledefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response SetUserRoledefaultApplicationProblemPlusJSONResponse) VisitSetUserRoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListVersionsRequestObject struct {
+}
+
+type ListVersionsResponseObject interface {
+	VisitListVersionsResponse(w http.ResponseWriter) error
+}
+
+type ListVersions200JSONResponse VersionList
+
+func (response ListVersions200JSONResponse) VisitListVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListVersionsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListVersionsdefaultApplicationProblemPlusJSONResponse) VisitListVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetVersionDiffRequestObject struct {
+	From int `json:"from"`
+	To   int `json:"to"`
+}
+
+type GetVersionDiffResponseObject interface {
+	VisitGetVersionDiffResponse(w http.ResponseWriter) error
+}
+
+type GetVersionDiff200JSONResponse Diff
+
+func (response GetVersionDiff200JSONResponse) VisitGetVersionDiffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetVersionDiffdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetVersionDiffdefaultApplicationProblemPlusJSONResponse) VisitGetVersionDiffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetVersionModelRequestObject struct {
+	N int `json:"n"`
+}
+
+type GetVersionModelResponseObject interface {
+	VisitGetVersionModelResponse(w http.ResponseWriter) error
+}
+
+type GetVersionModel200JSONResponse Model
+
+func (response GetVersionModel200JSONResponse) VisitGetVersionModelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetVersionModeldefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetVersionModeldefaultApplicationProblemPlusJSONResponse) VisitGetVersionModelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListViewsRequestObject struct {
+}
+
+type ListViewsResponseObject interface {
+	VisitListViewsResponse(w http.ResponseWriter) error
+}
+
+type ListViews200JSONResponse ViewList
+
+func (response ListViews200JSONResponse) VisitListViewsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListViewsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListViewsdefaultApplicationProblemPlusJSONResponse) VisitListViewsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateViewRequestObject struct {
+	Body *CreateViewJSONRequestBody
+}
+
+type CreateViewResponseObject interface {
+	VisitCreateViewResponse(w http.ResponseWriter) error
+}
+
+type CreateView201JSONResponse View
+
+func (response CreateView201JSONResponse) VisitCreateViewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateViewdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateViewdefaultApplicationProblemPlusJSONResponse) VisitCreateViewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteViewRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type DeleteViewResponseObject interface {
+	VisitDeleteViewResponse(w http.ResponseWriter) error
+}
+
+type DeleteView204Response struct {
+}
+
+func (response DeleteView204Response) VisitDeleteViewResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteViewdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DeleteViewdefaultApplicationProblemPlusJSONResponse) VisitDeleteViewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateViewRequestObject struct {
+	Id   Id `json:"id"`
+	Body *UpdateViewJSONRequestBody
+}
+
+type UpdateViewResponseObject interface {
+	VisitUpdateViewResponse(w http.ResponseWriter) error
+}
+
+type UpdateView200JSONResponse View
+
+func (response UpdateView200JSONResponse) VisitUpdateViewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateViewdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateViewdefaultApplicationProblemPlusJSONResponse) VisitUpdateViewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetViewLayoutRequestObject struct {
+	Id   Id `json:"id"`
+	Body *SetViewLayoutJSONRequestBody
+}
+
+type SetViewLayoutResponseObject interface {
+	VisitSetViewLayoutResponse(w http.ResponseWriter) error
+}
+
+type SetViewLayout200JSONResponse ViewLayout
+
+func (response SetViewLayout200JSONResponse) VisitSetViewLayoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetViewLayoutdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response SetViewLayoutdefaultApplicationProblemPlusJSONResponse) VisitSetViewLayoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetViewModelRequestObject struct {
+	Id     Id `json:"id"`
+	Params GetViewModelParams
+}
+
+type GetViewModelResponseObject interface {
+	VisitGetViewModelResponse(w http.ResponseWriter) error
+}
+
+type GetViewModel200JSONResponse ViewModel
+
+func (response GetViewModel200JSONResponse) VisitGetViewModelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetViewModeldefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetViewModeldefaultApplicationProblemPlusJSONResponse) VisitGetViewModelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// ListChangesets List changesets
+	// (GET /api/v1/changesets)
+	ListChangesets(ctx context.Context, request ListChangesetsRequestObject) (ListChangesetsResponseObject, error)
+	// CreateChangeset Open a new draft based on the current main version (editor+)
+	// (POST /api/v1/changesets)
+	CreateChangeset(ctx context.Context, request CreateChangesetRequestObject) (CreateChangesetResponseObject, error)
+	// GetChangeset A changeset with its change log (undone changes included)
+	// (GET /api/v1/changesets/{id})
+	GetChangeset(ctx context.Context, request GetChangesetRequestObject) (GetChangesetResponseObject, error)
+	// AbandonChangeset Abandon a draft or a changeset in review (author or maintainer)
+	// (POST /api/v1/changesets/{id}/abandon)
+	AbandonChangeset(ctx context.Context, request AbandonChangesetRequestObject) (AbandonChangesetResponseObject, error)
+	// ApproveChangeset Approve a changeset in review (maintainer; not the author unless self-merge is enabled)
+	// (POST /api/v1/changesets/{id}/approve)
+	ApproveChangeset(ctx context.Context, request ApproveChangesetRequestObject) (ApproveChangesetResponseObject, error)
+	// AddChanges Record one batch of changes (one GUI edit) in a draft
+	// (POST /api/v1/changesets/{id}/changes)
+	AddChanges(ctx context.Context, request AddChangesRequestObject) (AddChangesResponseObject, error)
+	// UndoChange Undo the latest batch
+	// (DELETE /api/v1/changesets/{id}/changes/last)
+	UndoChange(ctx context.Context, request UndoChangeRequestObject) (UndoChangeResponseObject, error)
+	// RedoChange Redo the most recently undone batch
+	// (POST /api/v1/changesets/{id}/changes/redo)
+	RedoChange(ctx context.Context, request RedoChangeRequestObject) (RedoChangeResponseObject, error)
+	// GetChangesetConflicts Conflicts that block merging into the current main (empty when none)
+	// (GET /api/v1/changesets/{id}/conflicts)
+	GetChangesetConflicts(ctx context.Context, request GetChangesetConflictsRequestObject) (GetChangesetConflictsResponseObject, error)
+	// GetChangesetDiff Structured diff of a draft against the main version it is based on
+	// (GET /api/v1/changesets/{id}/diff)
+	GetChangesetDiff(ctx context.Context, request GetChangesetDiffRequestObject) (GetChangesetDiffResponseObject, error)
+	// GetChangesetLint Lint report for the draft's effective model (errors block merge)
+	// (GET /api/v1/changesets/{id}/lint)
+	GetChangesetLint(ctx context.Context, request GetChangesetLintRequestObject) (GetChangesetLintResponseObject, error)
+	// MergeChangeset Merge an approved changeset into main as a new version (maintainer)
+	// (POST /api/v1/changesets/{id}/merge)
+	MergeChangeset(ctx context.Context, request MergeChangesetRequestObject) (MergeChangesetResponseObject, error)
+	// GetChangesetModel Effective model of a draft (main + its active changes)
+	// (GET /api/v1/changesets/{id}/model)
+	GetChangesetModel(ctx context.Context, request GetChangesetModelRequestObject) (GetChangesetModelResponseObject, error)
+	// RejectChangeset Reject a changeset in review (maintainer)
+	// (POST /api/v1/changesets/{id}/reject)
+	RejectChangeset(ctx context.Context, request RejectChangesetRequestObject) (RejectChangesetResponseObject, error)
+	// ResolveChangeset Record conflict resolutions (mine / theirs); returns the remaining conflicts
+	// (POST /api/v1/changesets/{id}/resolve)
+	ResolveChangeset(ctx context.Context, request ResolveChangesetRequestObject) (ResolveChangesetResponseObject, error)
+	// SubmitChangeset Submit a draft for review (author or maintainer)
+	// (POST /api/v1/changesets/{id}/submit)
+	SubmitChangeset(ctx context.Context, request SubmitChangesetRequestObject) (SubmitChangesetResponseObject, error)
 	// GetHealth Liveness / readiness probe
 	// (GET /api/v1/health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
+	// ListLayerRules Which layers each element class may be placed on
+	// (GET /api/v1/layer-rules)
+	ListLayerRules(ctx context.Context, request ListLayerRulesRequestObject) (ListLayerRulesResponseObject, error)
+	// ReplaceLayerRules Replace all layer rules (maintainer). Existing elements are not changed; edits that put an element on a disallowed layer are rejected.
+	// (PUT /api/v1/layer-rules)
+	ReplaceLayerRules(ctx context.Context, request ReplaceLayerRulesRequestObject) (ReplaceLayerRulesResponseObject, error)
+	// GetMe The authenticated user
+	// (GET /api/v1/me)
+	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// ListElements Elements of main
+	// (GET /api/v1/model/elements)
+	ListElements(ctx context.Context, request ListElementsRequestObject) (ListElementsResponseObject, error)
+	// GetElement One element of main
+	// (GET /api/v1/model/elements/{id})
+	GetElement(ctx context.Context, request GetElementRequestObject) (GetElementResponseObject, error)
+	// ListRelations Relations of main
+	// (GET /api/v1/model/relations)
+	ListRelations(ctx context.Context, request ListRelationsRequestObject) (ListRelationsResponseObject, error)
+	// GetRelation One relation of main
+	// (GET /api/v1/model/relations/{id})
+	GetRelation(ctx context.Context, request GetRelationRequestObject) (GetRelationResponseObject, error)
+	// ListUsers All users with their roles (maintainers only)
+	// (GET /api/v1/users)
+	ListUsers(ctx context.Context, request ListUsersRequestObject) (ListUsersResponseObject, error)
+	// SetUserRole Change a user's role (maintainers only; the last maintainer cannot be demoted)
+	// (PUT /api/v1/users/{id}/role)
+	SetUserRole(ctx context.Context, request SetUserRoleRequestObject) (SetUserRoleResponseObject, error)
+	// ListVersions Merged model versions, newest first
+	// (GET /api/v1/versions)
+	ListVersions(ctx context.Context, request ListVersionsRequestObject) (ListVersionsResponseObject, error)
+	// GetVersionDiff What changed between two merged versions (`from` is the base, `to` the newer or older one to compare with)
+	// (GET /api/v1/versions/{from}/diff/{to})
+	GetVersionDiff(ctx context.Context, request GetVersionDiffRequestObject) (GetVersionDiffResponseObject, error)
+	// GetVersionModel Main as of a merged version (read-only)
+	// (GET /api/v1/versions/{n}/model)
+	GetVersionModel(ctx context.Context, request GetVersionModelRequestObject) (GetVersionModelResponseObject, error)
+	// ListViews Saved views (perspectives over the model)
+	// (GET /api/v1/views)
+	ListViews(ctx context.Context, request ListViewsRequestObject) (ListViewsResponseObject, error)
+	// CreateView Create a view (editor+). Views are not part of the changeset workflow.
+	// (POST /api/v1/views)
+	CreateView(ctx context.Context, request CreateViewRequestObject) (CreateViewResponseObject, error)
+	// DeleteView Delete a view and its saved layout (creator or maintainer)
+	// (DELETE /api/v1/views/{id})
+	DeleteView(ctx context.Context, request DeleteViewRequestObject) (DeleteViewResponseObject, error)
+	// UpdateView Replace a view's name, kind, scope and description (creator or maintainer)
+	// (PUT /api/v1/views/{id})
+	UpdateView(ctx context.Context, request UpdateViewRequestObject) (UpdateViewResponseObject, error)
+	// SetViewLayout Replace a view's saved layout (editor+). Creates no changes and no versions.
+	// (PUT /api/v1/views/{id}/layout)
+	SetViewLayout(ctx context.Context, request SetViewLayoutRequestObject) (SetViewLayoutResponseObject, error)
+	// GetViewModel What a view shows, with its saved layout
+	// (GET /api/v1/views/{id}/model)
+	GetViewModel(ctx context.Context, request GetViewModelRequestObject) (GetViewModelResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx *echo.Context, request any) (any, error)
@@ -181,6 +2969,452 @@ func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareF
 type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
+}
+
+// ListChangesets operation middleware
+func (sh *strictHandler) ListChangesets(ctx *echo.Context, params ListChangesetsParams) error {
+	var request ListChangesetsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListChangesets(ctx.Request().Context(), request.(ListChangesetsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListChangesets")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListChangesetsResponseObject); ok {
+		return validResponse.VisitListChangesetsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateChangeset operation middleware
+func (sh *strictHandler) CreateChangeset(ctx *echo.Context) error {
+	var request CreateChangesetRequestObject
+
+	var body CreateChangesetJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateChangeset(ctx.Request().Context(), request.(CreateChangesetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateChangeset")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateChangesetResponseObject); ok {
+		return validResponse.VisitCreateChangesetResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetChangeset operation middleware
+func (sh *strictHandler) GetChangeset(ctx *echo.Context, id Id) error {
+	var request GetChangesetRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetChangeset(ctx.Request().Context(), request.(GetChangesetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetChangeset")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetChangesetResponseObject); ok {
+		return validResponse.VisitGetChangesetResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// AbandonChangeset operation middleware
+func (sh *strictHandler) AbandonChangeset(ctx *echo.Context, id Id) error {
+	var request AbandonChangesetRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.AbandonChangeset(ctx.Request().Context(), request.(AbandonChangesetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AbandonChangeset")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(AbandonChangesetResponseObject); ok {
+		return validResponse.VisitAbandonChangesetResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ApproveChangeset operation middleware
+func (sh *strictHandler) ApproveChangeset(ctx *echo.Context, id Id) error {
+	var request ApproveChangesetRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ApproveChangeset(ctx.Request().Context(), request.(ApproveChangesetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApproveChangeset")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ApproveChangesetResponseObject); ok {
+		return validResponse.VisitApproveChangesetResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// AddChanges operation middleware
+func (sh *strictHandler) AddChanges(ctx *echo.Context, id Id) error {
+	var request AddChangesRequestObject
+
+	request.Id = id
+
+	var body AddChangesJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.AddChanges(ctx.Request().Context(), request.(AddChangesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddChanges")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(AddChangesResponseObject); ok {
+		return validResponse.VisitAddChangesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UndoChange operation middleware
+func (sh *strictHandler) UndoChange(ctx *echo.Context, id Id) error {
+	var request UndoChangeRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UndoChange(ctx.Request().Context(), request.(UndoChangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UndoChange")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UndoChangeResponseObject); ok {
+		return validResponse.VisitUndoChangeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// RedoChange operation middleware
+func (sh *strictHandler) RedoChange(ctx *echo.Context, id Id) error {
+	var request RedoChangeRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RedoChange(ctx.Request().Context(), request.(RedoChangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RedoChange")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(RedoChangeResponseObject); ok {
+		return validResponse.VisitRedoChangeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetChangesetConflicts operation middleware
+func (sh *strictHandler) GetChangesetConflicts(ctx *echo.Context, id Id) error {
+	var request GetChangesetConflictsRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetChangesetConflicts(ctx.Request().Context(), request.(GetChangesetConflictsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetChangesetConflicts")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetChangesetConflictsResponseObject); ok {
+		return validResponse.VisitGetChangesetConflictsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetChangesetDiff operation middleware
+func (sh *strictHandler) GetChangesetDiff(ctx *echo.Context, id Id) error {
+	var request GetChangesetDiffRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetChangesetDiff(ctx.Request().Context(), request.(GetChangesetDiffRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetChangesetDiff")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetChangesetDiffResponseObject); ok {
+		return validResponse.VisitGetChangesetDiffResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetChangesetLint operation middleware
+func (sh *strictHandler) GetChangesetLint(ctx *echo.Context, id Id) error {
+	var request GetChangesetLintRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetChangesetLint(ctx.Request().Context(), request.(GetChangesetLintRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetChangesetLint")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetChangesetLintResponseObject); ok {
+		return validResponse.VisitGetChangesetLintResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// MergeChangeset operation middleware
+func (sh *strictHandler) MergeChangeset(ctx *echo.Context, id Id) error {
+	var request MergeChangesetRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.MergeChangeset(ctx.Request().Context(), request.(MergeChangesetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "MergeChangeset")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(MergeChangesetResponseObject); ok {
+		return validResponse.VisitMergeChangesetResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetChangesetModel operation middleware
+func (sh *strictHandler) GetChangesetModel(ctx *echo.Context, id Id) error {
+	var request GetChangesetModelRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetChangesetModel(ctx.Request().Context(), request.(GetChangesetModelRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetChangesetModel")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetChangesetModelResponseObject); ok {
+		return validResponse.VisitGetChangesetModelResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// RejectChangeset operation middleware
+func (sh *strictHandler) RejectChangeset(ctx *echo.Context, id Id) error {
+	var request RejectChangesetRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RejectChangeset(ctx.Request().Context(), request.(RejectChangesetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RejectChangeset")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(RejectChangesetResponseObject); ok {
+		return validResponse.VisitRejectChangesetResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ResolveChangeset operation middleware
+func (sh *strictHandler) ResolveChangeset(ctx *echo.Context, id Id) error {
+	var request ResolveChangesetRequestObject
+
+	request.Id = id
+
+	var body ResolveChangesetJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ResolveChangeset(ctx.Request().Context(), request.(ResolveChangesetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ResolveChangeset")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ResolveChangesetResponseObject); ok {
+		return validResponse.VisitResolveChangesetResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// SubmitChangeset operation middleware
+func (sh *strictHandler) SubmitChangeset(ctx *echo.Context, id Id) error {
+	var request SubmitChangesetRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.SubmitChangeset(ctx.Request().Context(), request.(SubmitChangesetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SubmitChangeset")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(SubmitChangesetResponseObject); ok {
+		return validResponse.VisitSubmitChangesetResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
 }
 
 // GetHealth operation middleware
@@ -206,20 +3440,620 @@ func (sh *strictHandler) GetHealth(ctx *echo.Context) error {
 	return nil
 }
 
+// ListLayerRules operation middleware
+func (sh *strictHandler) ListLayerRules(ctx *echo.Context) error {
+	var request ListLayerRulesRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListLayerRules(ctx.Request().Context(), request.(ListLayerRulesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListLayerRules")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListLayerRulesResponseObject); ok {
+		return validResponse.VisitListLayerRulesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ReplaceLayerRules operation middleware
+func (sh *strictHandler) ReplaceLayerRules(ctx *echo.Context) error {
+	var request ReplaceLayerRulesRequestObject
+
+	var body ReplaceLayerRulesJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ReplaceLayerRules(ctx.Request().Context(), request.(ReplaceLayerRulesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReplaceLayerRules")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ReplaceLayerRulesResponseObject); ok {
+		return validResponse.VisitReplaceLayerRulesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetMe operation middleware
+func (sh *strictHandler) GetMe(ctx *echo.Context) error {
+	var request GetMeRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMe(ctx.Request().Context(), request.(GetMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMe")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetMeResponseObject); ok {
+		return validResponse.VisitGetMeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListElements operation middleware
+func (sh *strictHandler) ListElements(ctx *echo.Context, params ListElementsParams) error {
+	var request ListElementsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListElements(ctx.Request().Context(), request.(ListElementsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListElements")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListElementsResponseObject); ok {
+		return validResponse.VisitListElementsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetElement operation middleware
+func (sh *strictHandler) GetElement(ctx *echo.Context, id Id) error {
+	var request GetElementRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetElement(ctx.Request().Context(), request.(GetElementRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetElement")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetElementResponseObject); ok {
+		return validResponse.VisitGetElementResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListRelations operation middleware
+func (sh *strictHandler) ListRelations(ctx *echo.Context, params ListRelationsParams) error {
+	var request ListRelationsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRelations(ctx.Request().Context(), request.(ListRelationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRelations")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListRelationsResponseObject); ok {
+		return validResponse.VisitListRelationsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetRelation operation middleware
+func (sh *strictHandler) GetRelation(ctx *echo.Context, id Id) error {
+	var request GetRelationRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRelation(ctx.Request().Context(), request.(GetRelationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRelation")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetRelationResponseObject); ok {
+		return validResponse.VisitGetRelationResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListUsers operation middleware
+func (sh *strictHandler) ListUsers(ctx *echo.Context) error {
+	var request ListUsersRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListUsers(ctx.Request().Context(), request.(ListUsersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListUsers")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListUsersResponseObject); ok {
+		return validResponse.VisitListUsersResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// SetUserRole operation middleware
+func (sh *strictHandler) SetUserRole(ctx *echo.Context, id Id) error {
+	var request SetUserRoleRequestObject
+
+	request.Id = id
+
+	var body SetUserRoleJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.SetUserRole(ctx.Request().Context(), request.(SetUserRoleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetUserRole")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(SetUserRoleResponseObject); ok {
+		return validResponse.VisitSetUserRoleResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListVersions operation middleware
+func (sh *strictHandler) ListVersions(ctx *echo.Context) error {
+	var request ListVersionsRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListVersions(ctx.Request().Context(), request.(ListVersionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListVersions")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListVersionsResponseObject); ok {
+		return validResponse.VisitListVersionsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetVersionDiff operation middleware
+func (sh *strictHandler) GetVersionDiff(ctx *echo.Context, from int, to int) error {
+	var request GetVersionDiffRequestObject
+
+	request.From = from
+	request.To = to
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetVersionDiff(ctx.Request().Context(), request.(GetVersionDiffRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetVersionDiff")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetVersionDiffResponseObject); ok {
+		return validResponse.VisitGetVersionDiffResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetVersionModel operation middleware
+func (sh *strictHandler) GetVersionModel(ctx *echo.Context, n int) error {
+	var request GetVersionModelRequestObject
+
+	request.N = n
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetVersionModel(ctx.Request().Context(), request.(GetVersionModelRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetVersionModel")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetVersionModelResponseObject); ok {
+		return validResponse.VisitGetVersionModelResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListViews operation middleware
+func (sh *strictHandler) ListViews(ctx *echo.Context) error {
+	var request ListViewsRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListViews(ctx.Request().Context(), request.(ListViewsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListViews")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListViewsResponseObject); ok {
+		return validResponse.VisitListViewsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateView operation middleware
+func (sh *strictHandler) CreateView(ctx *echo.Context) error {
+	var request CreateViewRequestObject
+
+	var body CreateViewJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateView(ctx.Request().Context(), request.(CreateViewRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateView")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateViewResponseObject); ok {
+		return validResponse.VisitCreateViewResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteView operation middleware
+func (sh *strictHandler) DeleteView(ctx *echo.Context, id Id) error {
+	var request DeleteViewRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteView(ctx.Request().Context(), request.(DeleteViewRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteView")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeleteViewResponseObject); ok {
+		return validResponse.VisitDeleteViewResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateView operation middleware
+func (sh *strictHandler) UpdateView(ctx *echo.Context, id Id) error {
+	var request UpdateViewRequestObject
+
+	request.Id = id
+
+	var body UpdateViewJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateView(ctx.Request().Context(), request.(UpdateViewRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateView")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateViewResponseObject); ok {
+		return validResponse.VisitUpdateViewResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// SetViewLayout operation middleware
+func (sh *strictHandler) SetViewLayout(ctx *echo.Context, id Id) error {
+	var request SetViewLayoutRequestObject
+
+	request.Id = id
+
+	var body SetViewLayoutJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.SetViewLayout(ctx.Request().Context(), request.(SetViewLayoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetViewLayout")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(SetViewLayoutResponseObject); ok {
+		return validResponse.VisitSetViewLayoutResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetViewModel operation middleware
+func (sh *strictHandler) GetViewModel(ctx *echo.Context, id Id, params GetViewModelParams) error {
+	var request GetViewModelRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetViewModel(ctx.Request().Context(), request.(GetViewModelRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetViewModel")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetViewModelResponseObject); ok {
+		return validResponse.VisitGetViewModelResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
 // Stored as a slice of fixed-width chunks rather than one concatenated
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"lFPBbtQwEP0Va+AAIkpSemjlW4WAVuKwor21lep6Zzcujm1mJiutqvw7spPutnQBcZt4PC9vnt97BBv7",
-	"FAMGYdCPQMgpBsbysaB477HPpY1BMEguTUreWSMuhiZNNz48cAy5x7bD3uTqLeEKNLxp9vjN1OXmCXcc",
-	"xwqWyJZcynCg4TNRJMjn8+WMdY7GS5erRDEhiZv4sRgZSoVh6EFfQ/wBtxXINiFoYCEX1jBWsEFiNzH8",
-	"rTdWQPhzcITLPD8j7if2aPH+Aa1ktGeyvCT//csndXLanqhZFrVEMc5nvJfEp/MDdCpwgcUEiweb+4Xn",
-	"lguCa6TcEyf+8NR08K/Vp/ndP14vPhZ2q/h670sX1h4Vx4EsqrhSQoN0ahVJSYfqjGzXm6TOr64W6mxx",
-	"Ud+Eu6ZHIWf5Tr1bUOxROhz4vXKsXDGai8F4v1UhikqGpKB2jhUntPVNgN3C8AR/trh49nAa2vqobvP+",
-	"MWEwyYGG47qtj/NrGOmKjI1JrtkcNd3OYWssJs+vVSx+sQQNX1FmD1YvE/Kxbf+Sjv9LxfyHA6G4RNo4",
-	"i1mdiegWyp2VGbz8CXbH81ncKuCh7w1tQcM3t8GAzKpRhGbpSp2Ni1lbs+aShy0L9nBbSDFSVhf09SMM",
-	"5EFDJ5J00/hoje8iiz5tT1sYb8dfAwA=",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

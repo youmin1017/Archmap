@@ -14,6 +14,10 @@ type Config struct {
 	LogLevel    slog.Level
 	CORSOrigins []string
 	Version     string
+	// AuthDevHeader enables the dev-only X-Dev-User header auth. Never in production.
+	AuthDevHeader bool
+	// MergeAllowSelf lets a maintainer approve and merge their own changeset.
+	MergeAllowSelf bool
 }
 
 func Load() (Config, error) {
@@ -23,6 +27,8 @@ func Load() (Config, error) {
 		CORSOrigins: splitCSV(getenv("CORS_ALLOW_ORIGINS", "http://localhost:3000")),
 		Version:     getenv("APP_VERSION", "dev"),
 	}
+	cfg.AuthDevHeader = getenv("AUTH_DEV_HEADER", "false") == "true"
+	cfg.MergeAllowSelf = getenv("MERGE_ALLOW_SELF", "false") == "true"
 	if err := cfg.LogLevel.UnmarshalText([]byte(getenv("LOG_LEVEL", "info"))); err != nil {
 		return Config{}, fmt.Errorf("invalid LOG_LEVEL: %w", err)
 	}

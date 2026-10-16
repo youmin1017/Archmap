@@ -1,10 +1,14 @@
 openapi: 3.0.3
 info:
   title: Archmap API
-  version: 0.1.0
+  version: 0.9.0
   description: |
     Single source of truth for the Archmap HTTP API.
     `/metrics` (Prometheus) is intentionally not part of this spec.
+
+    Main is read-only through the API: every modification is a change inside a
+    changeset (draft). Until session auth exists, a dev-only `X-Dev-User: <email>`
+    header identifies the caller (enabled with AUTH_DEV_HEADER=true).
 servers:
   - url: http://localhost:8080
 paths:
@@ -22,7 +26,662 @@ paths:
                 $ref: "#/components/schemas/Health"
         default:
           $ref: "#/components/responses/Problem"
+
+  /api/v1/me:
+    get:
+      operationId: getMe
+      summary: The authenticated user
+      tags: [auth]
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/users:
+    get:
+      operationId: listUsers
+      summary: All users with their roles (maintainers only)
+      tags: [users]
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserList"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/users/{id}/role:
+    put:
+      operationId: setUserRole
+      summary: Change a user's role (maintainers only; the last maintainer cannot be demoted)
+      tags: [users]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetRoleRequest"
+      responses:
+        "200":
+          description: The updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/model/elements:
+    get:
+      operationId: listElements
+      summary: Elements of main
+      tags: [model]
+      parameters:
+        - name: parent_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: q
+          in: query
+          description: Case-insensitive substring match on the name
+          schema: { type: string }
+      responses:
+        "200":
+          description: Matching elements
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ElementList"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/model/elements/{id}:
+    get:
+      operationId: getElement
+      summary: One element of main
+      tags: [model]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: The element
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Element"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/model/relations:
+    get:
+      operationId: listRelations
+      summary: Relations of main
+      tags: [model]
+      parameters:
+        - name: source_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: target_id
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Matching relations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RelationList"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/model/relations/{id}:
+    get:
+      operationId: getRelation
+      summary: One relation of main
+      tags: [model]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: The relation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Relation"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/changesets:
+    get:
+      operationId: listChangesets
+      summary: List changesets
+      tags: [changesets]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/ChangesetStatus"
+        - name: author_id
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Changesets, newest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangesetList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createChangeset
+      summary: Open a new draft based on the current main version (editor+)
+      tags: [changesets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChangesetRequest"
+      responses:
+        "201":
+          description: The new draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Changeset"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/changesets/{id}:
+    get:
+      operationId: getChangeset
+      summary: A changeset with its change log (undone changes included)
+      tags: [changesets]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: The changeset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangesetDetail"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/changesets/{id}/model:
+    get:
+      operationId: getChangesetModel
+      summary: Effective model of a draft (main + its active changes)
+      tags: [changesets]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: The effective model
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Model"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/changesets/{id}/changes:
+    post:
+      operationId: addChanges
+      summary: Record one batch of changes (one GUI edit) in a draft
+      tags: [changesets]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddChangesRequest"
+      responses:
+        "201":
+          description: The recorded changes (cascades are expanded into explicit changes)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeList"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/changesets/{id}/changes/last:
+    delete:
+      operationId: undoChange
+      summary: Undo the latest batch
+      tags: [changesets]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: The changes that were undone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeList"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/changesets/{id}/changes/redo:
+    post:
+      operationId: redoChange
+      summary: Redo the most recently undone batch
+      tags: [changesets]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: The changes that were restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeList"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/changesets/{id}/diff:
+    get:
+      operationId: getChangesetDiff
+      summary: Structured diff of a draft against the main version it is based on
+      tags: [review]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Added / removed / modified elements and relations (field level)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Diff"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/changesets/{id}/lint:
+    get:
+      operationId: getChangesetLint
+      summary: Lint report for the draft's effective model (errors block merge)
+      tags: [review]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Lint findings, errors first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LintReport"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/changesets/{id}/conflicts:
+    get:
+      operationId: getChangesetConflicts
+      summary: Conflicts that block merging into the current main (empty when none)
+      tags: [review]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Remaining conflicts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConflictList"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/changesets/{id}/resolve:
+    post:
+      operationId: resolveChangeset
+      summary: Record conflict resolutions (mine / theirs); returns the remaining conflicts
+      tags: [review]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveRequest"
+      responses:
+        "200":
+          description: Conflicts that still need a resolution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConflictList"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/changesets/{id}/submit:
+    post:
+      operationId: submitChangeset
+      summary: Submit a draft for review (author or maintainer)
+      tags: [review]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: The changeset, now in review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Changeset"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/changesets/{id}/approve:
+    post:
+      operationId: approveChangeset
+      summary: Approve a changeset in review (maintainer; not the author unless self-merge is enabled)
+      tags: [review]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: The approved changeset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Changeset"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/changesets/{id}/reject:
+    post:
+      operationId: rejectChangeset
+      summary: Reject a changeset in review (maintainer)
+      tags: [review]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: The rejected changeset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Changeset"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/changesets/{id}/abandon:
+    post:
+      operationId: abandonChangeset
+      summary: Abandon a draft or a changeset in review (author or maintainer)
+      tags: [review]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: The abandoned changeset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Changeset"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/changesets/{id}/merge:
+    post:
+      operationId: mergeChangeset
+      summary: Merge an approved changeset into main as a new version (maintainer)
+      description: |
+        Fast-forwards when main has not moved since the draft's base version,
+        otherwise rebases with a field-level 3-way merge. Unresolved conflicts
+        answer 409 with the conflict list and change nothing. Lint errors and
+        other rule violations answer a problem+json 409 / 403.
+      tags: [review]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Merged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MergeResult"
+        "409":
+          description: Conflicts need resolution (or another problem, as problem+json)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConflictList"
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/layer-rules:
+    get:
+      operationId: listLayerRules
+      summary: Which layers each element class may be placed on
+      tags: [layers]
+      responses:
+        "200":
+          description: The rules (classes without a rule are unrestricted)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LayerRules"
+        default:
+          $ref: "#/components/responses/Problem"
+    put:
+      operationId: replaceLayerRules
+      summary: Replace all layer rules (maintainer). Existing elements are not changed; edits that put an element on a disallowed layer are rejected.
+      tags: [layers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LayerRules"
+      responses:
+        "200":
+          description: The stored rules (empty ones are dropped)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LayerRules"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/views:
+    get:
+      operationId: listViews
+      summary: Saved views (perspectives over the model)
+      tags: [views]
+      responses:
+        "200":
+          description: Views, oldest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ViewList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createView
+      summary: Create a view (editor+). Views are not part of the changeset workflow.
+      tags: [views]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ViewInput"
+      responses:
+        "201":
+          description: The new view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/View"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/views/{id}:
+    put:
+      operationId: updateView
+      summary: Replace a view's name, kind, scope and description (creator or maintainer)
+      description: For custom views, `elements` replaces the member list when present and leaves it unchanged when omitted.
+      tags: [views]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ViewInput"
+      responses:
+        "200":
+          description: The updated view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/View"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteView
+      summary: Delete a view and its saved layout (creator or maintainer)
+      tags: [views]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204":
+          description: Deleted
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/views/{id}/model:
+    get:
+      operationId: getViewModel
+      summary: What a view shows, with its saved layout
+      description: |
+        Computed from main, or from a draft's effective model when `changeset_id` is given.
+        `elements` holds every root of the view plus all their descendants; a root's parent is
+        not included, so the client shows it at the top level.
+      tags: [views]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+        - name: changeset_id
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The view's model and layout
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ViewModel"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/views/{id}/layout:
+    put:
+      operationId: setViewLayout
+      summary: Replace a view's saved layout (editor+). Creates no changes and no versions.
+      tags: [views]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetLayoutRequest"
+      responses:
+        "200":
+          description: The saved layout
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ViewLayout"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/versions:
+    get:
+      operationId: listVersions
+      summary: Merged model versions, newest first
+      tags: [versions]
+      responses:
+        "200":
+          description: Versions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VersionList"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/versions/{from}/diff/{to}:
+    get:
+      operationId: getVersionDiff
+      summary: What changed between two merged versions (`from` is the base, `to` the newer or older one to compare with)
+      tags: [versions]
+      parameters:
+        - name: from
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - name: to
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Structured diff (base_version = from, main_version = to, stale = false)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Diff"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/versions/{n}/model:
+    get:
+      operationId: getVersionModel
+      summary: Main as of a merged version (read-only)
+      tags: [versions]
+      parameters:
+        - name: n
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: The model at that version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Model"
+        default:
+          $ref: "#/components/responses/Problem"
+
 components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
   schemas:
     Health:
       type: object
@@ -33,8 +692,9 @@ components:
           enum: [ok]
         version:
           type: string
+
     Problem:
-      description: RFC 7807 problem details
+      description: RFC 9457 problem details
       type: object
       required: [title, status]
       properties:
@@ -48,6 +708,589 @@ components:
           type: string
         instance:
           type: string
+
+    Role:
+      type: string
+      enum: [viewer, editor, maintainer]
+
+    Me:
+      type: object
+      required: [id, email, name, role]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        name: { type: string }
+        role:
+          $ref: "#/components/schemas/Role"
+
+    User:
+      type: object
+      required: [id, email, name, role, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        name: { type: string }
+        role:
+          $ref: "#/components/schemas/Role"
+        created_at: { type: string, format: date-time }
+
+    UserList:
+      type: object
+      required: [users]
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+
+    SetRoleRequest:
+      type: object
+      required: [role]
+      properties:
+        role:
+          $ref: "#/components/schemas/Role"
+
+    ElementKind:
+      type: string
+      enum: [person, system, container, component, node, database]
+
+    RelationKind:
+      type: string
+      enum: [uses, deployed_on]
+
+    Element:
+      type: object
+      required: [id, parent_id, kind, name, description, technology, tags, protected, layer, projects, replicas, properties, version, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        parent_id: { type: string, format: uuid, nullable: true }
+        kind:
+          $ref: "#/components/schemas/ElementKind"
+        name: { type: string }
+        description: { type: string }
+        technology: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        protected: { type: boolean }
+        layer:
+          type: string
+          maxLength: 60
+          description: Layer in layers views, e.g. Services or Physical. Empty = unassigned.
+        projects:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 60 }
+          description: Projects the element belongs to (may be several). Views can highlight the elements of a project.
+        replicas:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: How many instances the element stands for (1 = a single one).
+        properties:
+          type: object
+          maxProperties: 20
+          additionalProperties: { type: string, maxLength: 200 }
+          description: Free-form facts such as ip, port or namespace (key to value).
+        version: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    Relation:
+      type: object
+      required: [id, source_id, target_id, kind, description, technology, version, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        source_id: { type: string, format: uuid }
+        target_id: { type: string, format: uuid }
+        kind:
+          $ref: "#/components/schemas/RelationKind"
+        description: { type: string }
+        technology: { type: string }
+        version: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ElementList:
+      type: object
+      required: [elements]
+      properties:
+        elements:
+          type: array
+          items:
+            $ref: "#/components/schemas/Element"
+
+    RelationList:
+      type: object
+      required: [relations]
+      properties:
+        relations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Relation"
+
+    Model:
+      type: object
+      required: [elements, relations]
+      properties:
+        elements:
+          type: array
+          items:
+            $ref: "#/components/schemas/Element"
+        relations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Relation"
+
+    ChangesetStatus:
+      type: string
+      enum: [draft, in_review, merged, rejected, abandoned]
+
+    Changeset:
+      type: object
+      required: [id, title, description, author_id, base_version, status, created_at, merged_at]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
+        author_id: { type: string, format: uuid }
+        base_version: { type: integer }
+        status:
+          $ref: "#/components/schemas/ChangesetStatus"
+        created_at: { type: string, format: date-time }
+        merged_at: { type: string, format: date-time, nullable: true }
+        approved_by: { type: string, format: uuid, nullable: true }
+        approved_at: { type: string, format: date-time, nullable: true }
+
+    ChangesetList:
+      type: object
+      required: [changesets]
+      properties:
+        changesets:
+          type: array
+          items:
+            $ref: "#/components/schemas/Changeset"
+
+    CreateChangesetRequest:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1 }
+        description: { type: string }
+
+    ChangeOp:
+      type: string
+      enum: [add, update, delete]
+
+    ChangeTarget:
+      type: string
+      enum: [element, relation]
+
+    Change:
+      type: object
+      required: [id, changeset_id, seq, batch_id, op, target_type, target_id, patch, before, undone_at, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        changeset_id: { type: string, format: uuid }
+        seq: { type: integer }
+        batch_id: { type: string, format: uuid }
+        op:
+          $ref: "#/components/schemas/ChangeOp"
+        target_type:
+          $ref: "#/components/schemas/ChangeTarget"
+        target_id: { type: string, format: uuid }
+        patch:
+          type: object
+          additionalProperties: true
+        before:
+          type: object
+          nullable: true
+          additionalProperties: true
+        undone_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    ChangeList:
+      type: object
+      required: [changes]
+      properties:
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Change"
+
+    ChangesetDetail:
+      type: object
+      required: [changeset, changes]
+      properties:
+        changeset:
+          $ref: "#/components/schemas/Changeset"
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Change"
+
+    ChangeInput:
+      type: object
+      required: [op, target_type]
+      properties:
+        op:
+          $ref: "#/components/schemas/ChangeOp"
+        target_type:
+          $ref: "#/components/schemas/ChangeTarget"
+        target_id:
+          type: string
+          format: uuid
+          description: Required for update / delete. For add it is optional (server generates one); supply it to reference the new entity later in the same batch.
+        patch:
+          type: object
+          additionalProperties: true
+          description: |
+            add: the entity fields (element - kind, name, parent_id, description, technology, tags, protected;
+            relation - source_id, target_id, kind, description, technology).
+            update: only the fields to change (null clears parent_id).
+            delete: omitted.
+        cascade:
+          type: boolean
+          description: Delete an element that has children together with all its descendants.
+
+    AddChangesRequest:
+      type: object
+      required: [changes]
+      properties:
+        changes:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/ChangeInput"
+
+    FieldChange:
+      type: object
+      required: [field, before, after]
+      properties:
+        field: { type: string }
+        before: {}
+        after: {}
+
+    ElementModification:
+      type: object
+      required: [before, after, fields]
+      properties:
+        before:
+          $ref: "#/components/schemas/Element"
+        after:
+          $ref: "#/components/schemas/Element"
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldChange"
+
+    RelationModification:
+      type: object
+      required: [before, after, fields]
+      properties:
+        before:
+          $ref: "#/components/schemas/Relation"
+        after:
+          $ref: "#/components/schemas/Relation"
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldChange"
+
+    Diff:
+      type: object
+      required: [base_version, main_version, stale, elements, relations]
+      properties:
+        base_version: { type: integer }
+        main_version: { type: integer }
+        stale:
+          type: boolean
+          description: Main has moved since the draft's base version (merging rebases)
+        elements:
+          type: object
+          required: [added, removed, modified]
+          properties:
+            added:
+              type: array
+              items:
+                $ref: "#/components/schemas/Element"
+            removed:
+              type: array
+              items:
+                $ref: "#/components/schemas/Element"
+            modified:
+              type: array
+              items:
+                $ref: "#/components/schemas/ElementModification"
+        relations:
+          type: object
+          required: [added, removed, modified]
+          properties:
+            added:
+              type: array
+              items:
+                $ref: "#/components/schemas/Relation"
+            removed:
+              type: array
+              items:
+                $ref: "#/components/schemas/Relation"
+            modified:
+              type: array
+              items:
+                $ref: "#/components/schemas/RelationModification"
+
+    LintSeverity:
+      type: string
+      enum: [error, warning]
+
+    LintFinding:
+      type: object
+      required: [rule, severity, message, target_type, target_id]
+      properties:
+        rule: { type: string }
+        severity:
+          $ref: "#/components/schemas/LintSeverity"
+        message: { type: string }
+        target_type:
+          $ref: "#/components/schemas/ChangeTarget"
+        target_id: { type: string, format: uuid }
+
+    LintReport:
+      type: object
+      required: [errors, warnings, findings]
+      properties:
+        errors: { type: integer }
+        warnings: { type: integer }
+        findings:
+          type: array
+          items:
+            $ref: "#/components/schemas/LintFinding"
+
+    ConflictKind:
+      type: string
+      enum: [field, delete_vs_update, dangling_reference]
+
+    Conflict:
+      type: object
+      required: [kind, target_type, target_id, field, label, message, base, mine, theirs]
+      properties:
+        kind:
+          $ref: "#/components/schemas/ConflictKind"
+        target_type:
+          $ref: "#/components/schemas/ChangeTarget"
+        target_id: { type: string, format: uuid }
+        field:
+          type: string
+          description: Field name, or "*" when the conflict concerns the whole target
+        label: { type: string }
+        message: { type: string }
+        base:
+          description: Field value (or entity fields / null for whole-target conflicts) at the draft's base version
+        mine:
+          description: The draft's value
+        theirs:
+          description: Main's current value
+
+    ConflictList:
+      type: object
+      required: [conflicts]
+      properties:
+        conflicts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Conflict"
+
+    ResolutionChoice:
+      type: string
+      enum: [mine, theirs]
+
+    Resolution:
+      type: object
+      required: [target_type, target_id, field, choice]
+      properties:
+        target_type:
+          $ref: "#/components/schemas/ChangeTarget"
+        target_id: { type: string, format: uuid }
+        field: { type: string, minLength: 1 }
+        choice:
+          $ref: "#/components/schemas/ResolutionChoice"
+
+    ResolveRequest:
+      type: object
+      required: [resolutions]
+      properties:
+        resolutions:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/Resolution"
+
+    MergeResult:
+      type: object
+      required: [version, changeset]
+      properties:
+        version: { type: integer }
+        changeset:
+          $ref: "#/components/schemas/Changeset"
+
+    Version:
+      type: object
+      required: [number, changeset_id, merged_by, merged_at, summary]
+      properties:
+        number: { type: integer }
+        changeset_id: { type: string, format: uuid }
+        merged_by: { type: string, format: uuid }
+        merged_at: { type: string, format: date-time }
+        summary: { type: string }
+
+    VersionList:
+      type: object
+      required: [versions]
+      properties:
+        versions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Version"
+
+    ViewKind:
+      type: string
+      enum: [landscape, context, container, component, deployment, custom, layers]
+
+    View:
+      type: object
+      required: [id, name, kind, scope_element_id, description, layers, created_by, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        kind:
+          $ref: "#/components/schemas/ViewKind"
+        scope_element_id: { type: string, format: uuid, nullable: true }
+        description: { type: string }
+        layers:
+          type: array
+          description: Ordered layer names of a layers view, top to bottom (empty for other kinds).
+          items: { type: string }
+        created_by: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ViewList:
+      type: object
+      required: [views]
+      properties:
+        views:
+          type: array
+          items:
+            $ref: "#/components/schemas/View"
+
+    LayerRule:
+      type: object
+      required: [element_class, layers]
+      properties:
+        element_class:
+          type: string
+          description: "An element kind: person, system, container, component, node or database."
+        layers:
+          type: array
+          maxItems: 12
+          description: Layers (names, matched ignoring case) the class may be placed on. Elements without a layer are always allowed.
+          items: { type: string, minLength: 1, maxLength: 60 }
+
+    LayerRules:
+      type: object
+      required: [rules]
+      properties:
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/LayerRule"
+
+    ViewInput:
+      type: object
+      required: [name, kind]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        kind:
+          $ref: "#/components/schemas/ViewKind"
+        scope_element_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Required for context / container / component, optional for deployment, not allowed otherwise.
+        description: { type: string }
+        layers:
+          type: array
+          maxItems: 12
+          description: Layer names of a layers view, top to bottom (required for layers views, not allowed otherwise).
+          items: { type: string, minLength: 1, maxLength: 60 }
+        elements:
+          type: array
+          description: Members of a custom view.
+          items: { type: string, format: uuid }
+
+    ViewElement:
+      type: object
+      required: [element_id, collapsed]
+      properties:
+        element_id: { type: string, format: uuid }
+        x: { type: number, format: double, nullable: true }
+        y: { type: number, format: double, nullable: true }
+        w: { type: number, format: double, nullable: true }
+        h: { type: number, format: double, nullable: true }
+        collapsed: { type: boolean }
+        included:
+          type: boolean
+          description: Custom-view membership (response only; ignored when saving a layout).
+
+    ViewLayout:
+      type: object
+      required: [elements]
+      properties:
+        elements:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewElement"
+
+    SetLayoutRequest:
+      type: object
+      required: [elements]
+      properties:
+        elements:
+          type: array
+          maxItems: 5000
+          items:
+            $ref: "#/components/schemas/ViewElement"
+
+    ViewModel:
+      type: object
+      required: [view, elements, relations, roots, expanded, layout, scope_missing]
+      properties:
+        view:
+          $ref: "#/components/schemas/View"
+        elements:
+          type: array
+          items:
+            $ref: "#/components/schemas/Element"
+        relations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Relation"
+        roots:
+          type: array
+          items: { type: string, format: uuid }
+        expanded:
+          type: array
+          description: Elements that start expanded when the view has no saved layout for them.
+          items: { type: string, format: uuid }
+        layout:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViewElement"
+        scope_missing:
+          type: boolean
+          description: The view's scope element does not exist in the model being shown.
+
   responses:
     Problem:
       description: Error

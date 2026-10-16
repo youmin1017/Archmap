@@ -21,6 +21,9 @@ type Options struct {
 	CORSOrigins []string
 	// Registry receives HTTP metrics and backs GET /metrics.
 	Registry *prometheus.Registry
+	// DevActorLookup, when set, enables the dev-only X-Dev-User header auth.
+	// Leave nil outside local development.
+	DevActorLookup ActorLookup
 }
 
 // New returns an Echo instance with all cross-cutting middleware installed.
@@ -33,7 +36,7 @@ func New(opts Options) (*echo.Echo, error) {
 
 	e := echo.New()
 	e.Logger = opts.Logger
-	e.HTTPErrorHandler = echo.ProblemDetailsHTTPErrorHandler(false)
+	e.HTTPErrorHandler = errorHandler()
 
 	onlyAPI := func(c *echo.Context) bool { return !strings.HasPrefix(c.Request().URL.Path, "/api/") }
 
@@ -63,6 +66,9 @@ func New(opts Options) (*echo.Echo, error) {
 		},
 	}))
 	e.Use(middleware.Recover())
+	if opts.DevActorLookup != nil {
+		e.Use(devAuth(opts.DevActorLookup))
+	}
 	if len(opts.CORSOrigins) > 0 {
 		e.Use(middleware.CORS(opts.CORSOrigins...))
 	}

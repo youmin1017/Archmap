@@ -8,7 +8,7 @@ export const zHealth = z.object({
 });
 
 /**
- * RFC 7807 problem details
+ * RFC 9457 problem details
  */
 export const zProblem = z.object({
     type: z.string().optional(),
@@ -18,7 +18,637 @@ export const zProblem = z.object({
     instance: z.string().optional()
 });
 
+export const zRole = z.enum([
+    'viewer',
+    'editor',
+    'maintainer'
+]);
+
+export const zMe = z.object({
+    id: z.uuid(),
+    email: z.string(),
+    name: z.string(),
+    role: zRole
+});
+
+export const zUser = z.object({
+    id: z.uuid(),
+    email: z.string(),
+    name: z.string(),
+    role: zRole,
+    created_at: z.iso.datetime()
+});
+
+export const zUserList = z.object({
+    users: z.array(zUser)
+});
+
+export const zSetRoleRequest = z.object({
+    role: zRole
+});
+
+export const zElementKind = z.enum([
+    'person',
+    'system',
+    'container',
+    'component',
+    'node',
+    'database'
+]);
+
+export const zRelationKind = z.enum(['uses', 'deployed_on']);
+
+export const zElement = z.object({
+    id: z.uuid(),
+    parent_id: z.uuid().nullable(),
+    kind: zElementKind,
+    name: z.string(),
+    description: z.string(),
+    technology: z.string(),
+    tags: z.array(z.string()),
+    protected: z.boolean(),
+    layer: z.string().max(60),
+    projects: z.array(z.string().max(60)).max(20),
+    replicas: z.int().gte(1).lte(100),
+    properties: z.record(z.string(), z.string().max(200)),
+    version: z.int(),
+    created_at: z.iso.datetime(),
+    updated_at: z.iso.datetime()
+});
+
+export const zRelation = z.object({
+    id: z.uuid(),
+    source_id: z.uuid(),
+    target_id: z.uuid(),
+    kind: zRelationKind,
+    description: z.string(),
+    technology: z.string(),
+    version: z.int(),
+    created_at: z.iso.datetime(),
+    updated_at: z.iso.datetime()
+});
+
+export const zElementList = z.object({
+    elements: z.array(zElement)
+});
+
+export const zRelationList = z.object({
+    relations: z.array(zRelation)
+});
+
+export const zModel = z.object({
+    elements: z.array(zElement),
+    relations: z.array(zRelation)
+});
+
+export const zChangesetStatus = z.enum([
+    'draft',
+    'in_review',
+    'merged',
+    'rejected',
+    'abandoned'
+]);
+
+export const zChangeset = z.object({
+    id: z.uuid(),
+    title: z.string(),
+    description: z.string(),
+    author_id: z.uuid(),
+    base_version: z.int(),
+    status: zChangesetStatus,
+    created_at: z.iso.datetime(),
+    merged_at: z.iso.datetime().nullable(),
+    approved_by: z.uuid().nullish(),
+    approved_at: z.iso.datetime().nullish()
+});
+
+export const zChangesetList = z.object({
+    changesets: z.array(zChangeset)
+});
+
+export const zCreateChangesetRequest = z.object({
+    title: z.string().min(1),
+    description: z.string().optional()
+});
+
+export const zChangeOp = z.enum([
+    'add',
+    'update',
+    'delete'
+]);
+
+export const zChangeTarget = z.enum(['element', 'relation']);
+
+export const zChange = z.object({
+    id: z.uuid(),
+    changeset_id: z.uuid(),
+    seq: z.int(),
+    batch_id: z.uuid(),
+    op: zChangeOp,
+    target_type: zChangeTarget,
+    target_id: z.uuid(),
+    patch: z.record(z.string(), z.unknown()),
+    before: z.record(z.string(), z.unknown()).nullable(),
+    undone_at: z.iso.datetime().nullable(),
+    created_at: z.iso.datetime()
+});
+
+export const zChangeList = z.object({
+    changes: z.array(zChange)
+});
+
+export const zChangesetDetail = z.object({
+    changeset: zChangeset,
+    changes: z.array(zChange)
+});
+
+export const zChangeInput = z.object({
+    op: zChangeOp,
+    target_type: zChangeTarget,
+    target_id: z.uuid().optional(),
+    patch: z.record(z.string(), z.unknown()).optional(),
+    cascade: z.boolean().optional()
+});
+
+export const zAddChangesRequest = z.object({
+    changes: z.array(zChangeInput).min(1).max(500)
+});
+
+export const zFieldChange = z.object({
+    field: z.string(),
+    before: z.unknown(),
+    after: z.unknown()
+});
+
+export const zElementModification = z.object({
+    before: zElement,
+    after: zElement,
+    fields: z.array(zFieldChange)
+});
+
+export const zRelationModification = z.object({
+    before: zRelation,
+    after: zRelation,
+    fields: z.array(zFieldChange)
+});
+
+export const zDiff = z.object({
+    base_version: z.int(),
+    main_version: z.int(),
+    stale: z.boolean(),
+    elements: z.object({
+        added: z.array(zElement),
+        removed: z.array(zElement),
+        modified: z.array(zElementModification)
+    }),
+    relations: z.object({
+        added: z.array(zRelation),
+        removed: z.array(zRelation),
+        modified: z.array(zRelationModification)
+    })
+});
+
+export const zLintSeverity = z.enum(['error', 'warning']);
+
+export const zLintFinding = z.object({
+    rule: z.string(),
+    severity: zLintSeverity,
+    message: z.string(),
+    target_type: zChangeTarget,
+    target_id: z.uuid()
+});
+
+export const zLintReport = z.object({
+    errors: z.int(),
+    warnings: z.int(),
+    findings: z.array(zLintFinding)
+});
+
+export const zConflictKind = z.enum([
+    'field',
+    'delete_vs_update',
+    'dangling_reference'
+]);
+
+export const zConflict = z.object({
+    kind: zConflictKind,
+    target_type: zChangeTarget,
+    target_id: z.uuid(),
+    field: z.string(),
+    label: z.string(),
+    message: z.string(),
+    base: z.unknown(),
+    mine: z.unknown(),
+    theirs: z.unknown()
+});
+
+export const zConflictList = z.object({
+    conflicts: z.array(zConflict)
+});
+
+export const zResolutionChoice = z.enum(['mine', 'theirs']);
+
+export const zResolution = z.object({
+    target_type: zChangeTarget,
+    target_id: z.uuid(),
+    field: z.string().min(1),
+    choice: zResolutionChoice
+});
+
+export const zResolveRequest = z.object({
+    resolutions: z.array(zResolution).min(1)
+});
+
+export const zMergeResult = z.object({
+    version: z.int(),
+    changeset: zChangeset
+});
+
+export const zVersion = z.object({
+    number: z.int(),
+    changeset_id: z.uuid(),
+    merged_by: z.uuid(),
+    merged_at: z.iso.datetime(),
+    summary: z.string()
+});
+
+export const zVersionList = z.object({
+    versions: z.array(zVersion)
+});
+
+export const zViewKind = z.enum([
+    'landscape',
+    'context',
+    'container',
+    'component',
+    'deployment',
+    'custom',
+    'layers'
+]);
+
+export const zView = z.object({
+    id: z.uuid(),
+    name: z.string(),
+    kind: zViewKind,
+    scope_element_id: z.uuid().nullable(),
+    description: z.string(),
+    layers: z.array(z.string()),
+    created_by: z.uuid(),
+    created_at: z.iso.datetime(),
+    updated_at: z.iso.datetime()
+});
+
+export const zViewList = z.object({
+    views: z.array(zView)
+});
+
+export const zLayerRule = z.object({
+    element_class: z.string(),
+    layers: z.array(z.string().min(1).max(60)).max(12)
+});
+
+export const zLayerRules = z.object({
+    rules: z.array(zLayerRule)
+});
+
+export const zViewInput = z.object({
+    name: z.string().min(1).max(120),
+    kind: zViewKind,
+    scope_element_id: z.uuid().nullish(),
+    description: z.string().optional(),
+    layers: z.array(z.string().min(1).max(60)).max(12).optional(),
+    elements: z.array(z.uuid()).optional()
+});
+
+export const zViewElement = z.object({
+    element_id: z.uuid(),
+    x: z.number().nullish(),
+    y: z.number().nullish(),
+    w: z.number().nullish(),
+    h: z.number().nullish(),
+    collapsed: z.boolean(),
+    included: z.boolean().optional()
+});
+
+export const zViewLayout = z.object({
+    elements: z.array(zViewElement)
+});
+
+export const zSetLayoutRequest = z.object({
+    elements: z.array(zViewElement).max(5000)
+});
+
+export const zViewModel = z.object({
+    view: zView,
+    elements: z.array(zElement),
+    relations: z.array(zRelation),
+    roots: z.array(z.uuid()),
+    expanded: z.array(z.uuid()),
+    layout: z.array(zViewElement),
+    scope_missing: z.boolean()
+});
+
+export const zId = z.uuid();
+
 /**
  * Service is healthy
  */
 export const zGetHealthResponse = zHealth;
+
+/**
+ * Current user
+ */
+export const zGetMeResponse = zMe;
+
+/**
+ * Users
+ */
+export const zListUsersResponse = zUserList;
+
+export const zSetUserRoleBody = zSetRoleRequest;
+
+export const zSetUserRolePath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * The updated user
+ */
+export const zSetUserRoleResponse = zUser;
+
+export const zListElementsQuery = z.object({
+    parent_id: z.uuid().optional(),
+    q: z.string().optional()
+});
+
+/**
+ * Matching elements
+ */
+export const zListElementsResponse = zElementList;
+
+export const zGetElementPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * The element
+ */
+export const zGetElementResponse = zElement;
+
+export const zListRelationsQuery = z.object({
+    source_id: z.uuid().optional(),
+    target_id: z.uuid().optional()
+});
+
+/**
+ * Matching relations
+ */
+export const zListRelationsResponse = zRelationList;
+
+export const zGetRelationPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * The relation
+ */
+export const zGetRelationResponse = zRelation;
+
+export const zListChangesetsQuery = z.object({
+    status: zChangesetStatus.optional(),
+    author_id: z.uuid().optional()
+});
+
+/**
+ * Changesets, newest first
+ */
+export const zListChangesetsResponse = zChangesetList;
+
+export const zCreateChangesetBody = zCreateChangesetRequest;
+
+/**
+ * The new draft
+ */
+export const zCreateChangesetResponse = zChangeset;
+
+export const zGetChangesetPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * The changeset
+ */
+export const zGetChangesetResponse = zChangesetDetail;
+
+export const zGetChangesetModelPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * The effective model
+ */
+export const zGetChangesetModelResponse = zModel;
+
+export const zAddChangesBody = zAddChangesRequest;
+
+export const zAddChangesPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * The recorded changes (cascades are expanded into explicit changes)
+ */
+export const zAddChangesResponse = zChangeList;
+
+export const zUndoChangePath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * The changes that were undone
+ */
+export const zUndoChangeResponse = zChangeList;
+
+export const zRedoChangePath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * The changes that were restored
+ */
+export const zRedoChangeResponse = zChangeList;
+
+export const zGetChangesetDiffPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * Added / removed / modified elements and relations (field level)
+ */
+export const zGetChangesetDiffResponse = zDiff;
+
+export const zGetChangesetLintPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * Lint findings, errors first
+ */
+export const zGetChangesetLintResponse = zLintReport;
+
+export const zGetChangesetConflictsPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * Remaining conflicts
+ */
+export const zGetChangesetConflictsResponse = zConflictList;
+
+export const zResolveChangesetBody = zResolveRequest;
+
+export const zResolveChangesetPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * Conflicts that still need a resolution
+ */
+export const zResolveChangesetResponse = zConflictList;
+
+export const zSubmitChangesetPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * The changeset, now in review
+ */
+export const zSubmitChangesetResponse = zChangeset;
+
+export const zApproveChangesetPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * The approved changeset
+ */
+export const zApproveChangesetResponse = zChangeset;
+
+export const zRejectChangesetPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * The rejected changeset
+ */
+export const zRejectChangesetResponse = zChangeset;
+
+export const zAbandonChangesetPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * The abandoned changeset
+ */
+export const zAbandonChangesetResponse = zChangeset;
+
+export const zMergeChangesetPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * Merged
+ */
+export const zMergeChangesetResponse = zMergeResult;
+
+/**
+ * The rules (classes without a rule are unrestricted)
+ */
+export const zListLayerRulesResponse = zLayerRules;
+
+export const zReplaceLayerRulesBody = zLayerRules;
+
+/**
+ * The stored rules (empty ones are dropped)
+ */
+export const zReplaceLayerRulesResponse = zLayerRules;
+
+/**
+ * Views, oldest first
+ */
+export const zListViewsResponse = zViewList;
+
+export const zCreateViewBody = zViewInput;
+
+/**
+ * The new view
+ */
+export const zCreateViewResponse = zView;
+
+export const zDeleteViewPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * Deleted
+ */
+export const zDeleteViewResponse = z.void();
+
+export const zUpdateViewBody = zViewInput;
+
+export const zUpdateViewPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * The updated view
+ */
+export const zUpdateViewResponse = zView;
+
+export const zGetViewModelPath = z.object({
+    id: z.uuid()
+});
+
+export const zGetViewModelQuery = z.object({
+    changeset_id: z.uuid().optional()
+});
+
+/**
+ * The view's model and layout
+ */
+export const zGetViewModelResponse = zViewModel;
+
+export const zSetViewLayoutBody = zSetLayoutRequest;
+
+export const zSetViewLayoutPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * The saved layout
+ */
+export const zSetViewLayoutResponse = zViewLayout;
+
+/**
+ * Versions
+ */
+export const zListVersionsResponse = zVersionList;
+
+export const zGetVersionDiffPath = z.object({
+    from: z.int().gte(1),
+    to: z.int().gte(1)
+});
+
+/**
+ * Structured diff (base_version = from, main_version = to, stale = false)
+ */
+export const zGetVersionDiffResponse = zDiff;
+
+export const zGetVersionModelPath = z.object({
+    n: z.int().gte(1)
+});
+
+/**
+ * The model at that version
+ */
+export const zGetVersionModelResponse = zModel;
