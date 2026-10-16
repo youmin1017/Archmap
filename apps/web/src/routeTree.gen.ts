@@ -10,33 +10,79 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as UsersRouteImport } from './routes/users'
+import { Route as VersionsRouteImport } from './routes/versions'
+import { Route as ChangesetsIndexRouteImport } from './routes/changesets.index'
+import { Route as ChangesetsIdRouteImport } from './routes/changesets.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UsersRoute = UsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VersionsRoute = VersionsRouteImport.update({
+  id: '/versions',
+  path: '/versions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChangesetsIndexRoute = ChangesetsIndexRouteImport.update({
+  id: '/changesets/',
+  path: '/changesets/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChangesetsIdRoute = ChangesetsIdRouteImport.update({
+  id: '/changesets/$id',
+  path: '/changesets/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/users': typeof UsersRoute
+  '/versions': typeof VersionsRoute
+  '/changesets/$id': typeof ChangesetsIdRoute
+  '/changesets/': typeof ChangesetsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/users': typeof UsersRoute
+  '/versions': typeof VersionsRoute
+  '/changesets/$id': typeof ChangesetsIdRoute
+  '/changesets': typeof ChangesetsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/users': typeof UsersRoute
+  '/versions': typeof VersionsRoute
+  '/changesets/$id': typeof ChangesetsIdRoute
+  '/changesets/': typeof ChangesetsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/users' | '/versions' | '/changesets/$id' | '/changesets/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/users' | '/versions' | '/changesets/$id' | '/changesets'
+  id:
+    | '__root__'
+    | '/'
+    | '/users'
+    | '/versions'
+    | '/changesets/$id'
+    | '/changesets/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  UsersRoute: typeof UsersRoute
+  VersionsRoute: typeof VersionsRoute
+  ChangesetsIdRoute: typeof ChangesetsIdRoute
+  ChangesetsIndexRoute: typeof ChangesetsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +94,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/users': {
+      id: '/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof UsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/versions': {
+      id: '/versions'
+      path: '/versions'
+      fullPath: '/versions'
+      preLoaderRoute: typeof VersionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/changesets/': {
+      id: '/changesets/'
+      path: '/changesets'
+      fullPath: '/changesets/'
+      preLoaderRoute: typeof ChangesetsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/changesets/$id': {
+      id: '/changesets/$id'
+      path: '/changesets/$id'
+      fullPath: '/changesets/$id'
+      preLoaderRoute: typeof ChangesetsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  UsersRoute: UsersRoute,
+  VersionsRoute: VersionsRoute,
+  ChangesetsIdRoute: ChangesetsIdRoute,
+  ChangesetsIndexRoute: ChangesetsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,5 +1,5 @@
 {
-  "include": ["**/*.ts", "**/*.tsx", "eslint.config.js", ".oxfmtrc.json", "vite.config.ts"],
+  "include": ["**/*.ts", "**/*.tsx", "eslint.config.js", ".oxfmtrc.json", "vite.config.ts", "vitest.config.ts"],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",

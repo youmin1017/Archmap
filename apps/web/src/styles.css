@@ -129,3 +129,48 @@
     @apply font-sans;
   }
 }
+
+/* Kind accent colors for canvas nodes (visually distinct, readable in both themes). */
+:root {
+  --kind-person: oklch(0.62 0.17 55);
+  --kind-system: oklch(0.52 0.2 264);
+  --kind-container: oklch(0.6 0.15 200);
+  --kind-component: oklch(0.58 0.17 150);
+  --kind-node: oklch(0.55 0.04 240);
+  --kind-database: oklch(0.55 0.16 305);
+}
+
+.dark {
+  --kind-person: oklch(0.78 0.15 65);
+  --kind-system: oklch(0.72 0.16 264);
+  --kind-container: oklch(0.78 0.12 200);
+  --kind-component: oklch(0.78 0.15 150);
+  --kind-node: oklch(0.75 0.04 240);
+  --kind-database: oklch(0.76 0.13 305);
+}
+
+/* React Flow: let the app theme drive colors; no attribution background box. */
+.react-flow {
+  --xy-background-color: transparent;
+  --xy-node-border-radius: var(--radius);
+}
+/* Keyboard focus stays clearly visible on nodes. */
+.react-flow__node:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+/* New nodes fade in while the layout animation moves existing ones. */
+.react-flow__node.archmap-enter {
+  animation: archmap-fade-in 220ms ease-out both;
+}
+@keyframes archmap-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .react-flow__node.archmap-enter {
+    animation: none;
+  }
+}

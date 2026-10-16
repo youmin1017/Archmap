@@ -1,41 +1,50 @@
 import { Icon } from "@iconify/react"
 import { Box } from "lucide-react"
-import postgresql from "@iconify-icons/simple-icons/postgresql"
-import kubernetes from "@iconify-icons/simple-icons/kubernetes"
-import docker from "@iconify-icons/simple-icons/docker"
-import nginx from "@iconify-icons/simple-icons/nginx"
-import go from "@iconify-icons/simple-icons/go"
-import react from "@iconify-icons/simple-icons/react"
 
-// Icon data is imported statically so it is bundled at build time (offline-safe).
-// M0 stub: simple-icons subset + lucide fallback. Custom uploads and devicon
-// fallback land in M3/M6 (see docs/PROJECT_BRIEF.md section 2, "Icons").
-const icons = { postgresql, kubernetes, docker, nginx, go, react }
+import { cn } from "@/lib/utils"
+import { resolveTechIcon } from "./resolve"
 
-// Case-insensitive alias map: free-text technology -> icon slug.
-const aliases: Partial<Record<string, keyof typeof icons>> = {
-  postgres: "postgresql",
-  postgresql: "postgresql",
-  k8s: "kubernetes",
-  kubernetes: "kubernetes",
-  docker: "docker",
-  nginx: "nginx",
-  go: "go",
-  golang: "go",
-  react: "react",
+export { resolveTechIcon } from "./resolve"
+
+type Props = {
+  technology: string
+  className?: string
+  /** URL of a user-uploaded custom icon (highest priority; wired up in M6). */
+  customIconUrl?: string
 }
 
-export function resolveTechIcon(technology: string) {
-  const slug = aliases[technology.trim().toLowerCase()]
-  return slug ? icons[slug] : undefined
+/**
+ * Technology badge icon. Resolution order (brief section 2): custom upload,
+ * simple-icons (monochrome, currentColor), colored logos, generic lucide icon.
+ */
+export function TechIcon({ technology, className, customIconUrl }: Props) {
+  if (customIconUrl) {
+    return <img src={customIconUrl} alt={technology} className={cn("object-contain", className)} />
+  }
+  const resolved = resolveTechIcon(technology)
+  if (!resolved) return <Box className={className} aria-label={technology} role="img" />
+  return (
+    <Icon
+      icon={resolved.data}
+      className={cn(resolved.lowContrastOnDark && "dark:brightness-0 dark:invert", className)}
+      aria-label={technology}
+      role="img"
+    />
+  )
 }
 
-export function TechIcon({ technology, className }: { technology: string; className?: string }) {
-  const data = resolveTechIcon(technology)
-  // simple-icons are monochrome: currentColor keeps contrast in both themes.
-  return data ? (
-    <Icon icon={data} className={className} aria-label={technology} role="img" />
-  ) : (
-    <Box className={className} aria-label={technology} role="img" />
+/** Icon + text chip for an element's technology. */
+export function TechBadge({ technology, className }: { technology: string; className?: string }) {
+  if (!technology.trim()) return null
+  return (
+    <span
+      className={cn(
+        "inline-flex max-w-full items-center gap-1 rounded-full border bg-background/70 px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground",
+        className
+      )}
+    >
+      <TechIcon technology={technology} className="size-3 shrink-0" />
+      <span className="truncate">{technology}</span>
+    </span>
   )
 }

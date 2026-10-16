@@ -1,57 +1,93 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { useQuery } from "@tanstack/react-query"
-import { getHealth } from "@archmap/api-client"
-import { useReducedMotion } from "motion/react"
-import { Network } from "lucide-react"
 
-import "@/lib/api"
-import { BorderBeam } from "@/components/ui/border-beam"
-import { ThemeToggle } from "@/components/theme-toggle"
-import { TechIcon } from "@/components/tech-icon/tech-icon"
+import { AppTopBar } from "@/components/app-top-bar"
+import { Badge } from "@/components/ui/badge"
+import { PropertyPanel } from "@/features/canvas/PropertyPanel"
+import { NewDraftButton } from "@/features/draft/NewDraftDialog"
+import { useMainModel, useMainVersion, useMe } from "@/features/draft/queries"
+import { ViewTabs } from "@/features/views/ViewTabs"
+import { useViewWorkspace } from "@/features/views/useViewWorkspace"
+import { ModelWorkspace, Status } from "@/features/workspace/ModelWorkspace"
 
-export const Route = createFileRoute("/")({ component: App })
+export const Route = createFileRoute("/")({
+  component: Landscape,
+  validateSearch: (s: Record<string, unknown>): { view?: string } => ({
+    view: typeof s.view === "string" ? s.view : undefined,
+  }),
+})
 
-function App() {
-  const reducedMotion = useReducedMotion()
-  const health = useQuery({
-    queryKey: ["health"],
-    // Responses are Zod-validated by the generated SDK; drift in the backend
-    // contract surfaces here as a thrown error.
-    queryFn: async () => {
-      const { data } = await getHealth({ throwOnError: true })
-      return data
-    },
+/** Main: the merged model, read-only. Edits start from a draft. */
+function Landscape() {
+  const versions = useMainVersion()
+  const model = useMainModel()
+  const me = useMe()
+  const { view } = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const version = versions.data?.[0]?.number ?? 0
+
+  const ws = useViewWorkspace({
+    viewId: view,
+    fullModel: model.data,
+    canSaveLayout: me.data?.role === "editor" || me.data?.role === "maintainer",
   })
+  const elements = ws.elements ?? []
+  const relations = ws.relations ?? []
 
   return (
-    <main className="mx-auto flex min-h-svh max-w-2xl flex-col gap-8 p-6">
-      <header className="flex items-center justify-between pt-6">
-        <div className="flex items-center gap-2">
-          <Network className="size-6 text-primary" aria-hidden />
-          <h1 className="font-heading text-xl font-semibold">Archmap</h1>
-        </div>
-        <ThemeToggle />
-      </header>
+    <div className="flex h-svh flex-col">
+      <AppTopBar
+        context={
+          <>
+            <Badge variant="secondary" aria-label="Current context">
+              Main{version > 0 ? ` @ v${version}` : ""}
+            </Badge>
+            <Badge variant="outline">Read-only</Badge>
+            <NewDraftButton />
+          </>
+        }
+      />
 
-      <section className="relative overflow-hidden rounded-2xl border bg-card p-6 text-card-foreground shadow-sm">
-        <h2 className="text-sm font-medium text-muted-foreground">API status</h2>
-        <p className="mt-2 text-2xl font-semibold" aria-live="polite">
-          {health.isPending && "Checking…"}
-          {health.isError && "API unreachable"}
-          {health.isSuccess && `API: ${health.data.status}`}
-        </p>
-        {health.isSuccess && <p className="mt-1 text-sm text-muted-foreground">version {health.data.version}</p>}
-        {health.isError && (
-          <p className="mt-1 text-sm text-destructive">{health.error.message}. Is `task dev-api` running?</p>
-        )}
-        {health.isSuccess && !reducedMotion && <BorderBeam size={120} duration={8} />}
-      </section>
+      {model.isSuccess && model.data.elements.length > 0 && (
+        <ViewTabs
+          me={me.data}
+          activeId={view}
+          onSelect={(id) => void navigate({ search: { view: id } })}
+          model={model.data}
+          activeModel={ws.viewModel}
+        />
+      )}
 
-      <section className="flex items-center gap-4 text-muted-foreground">
-        {["postgres", "go", "react", "docker", "k8s", "nginx"].map((t) => (
-          <TechIcon key={t} technology={t} className="size-6" />
-        ))}
-      </section>
-    </main>
+      {model.isPending && <Status tone="loading">Loading the model…</Status>}
+      {model.isError && (
+        <Status tone="error" title="Could not load the model" onRetry={() => void model.refetch()}>
+          {String(model.error.message).slice(0, 240)}. Is the API running (`task dev-api`) with AUTH_DEV_HEADER=true?
+        </Status>
+      )}
+      {model.isSuccess && model.data.elements.length === 0 && (
+        <Status title="The model is empty">
+          Run `task seed` to load the sample model, or start a draft and add the first elements.
+        </Status>
+      )}
+      {view && ws.loading && <Status tone="loading">Loading the view…</Status>}
+      {view && ws.error && (
+        <Status tone="error" title="This view could not be loaded">
+          It may have been deleted. Pick another one above.
+        </Status>
+      )}
+      {view && ws.scopeMissing && (
+        <Status title="Nothing to show">
+          The element this view is scoped to does not exist in this model. Edit the view to pick another.
+        </Status>
+      )}
+      {model.isSuccess && model.data.elements.length > 0 && !ws.loading && !ws.error && !ws.scopeMissing && (
+        <ModelWorkspace
+          viewKey={view}
+          layers={ws.viewModel?.view.kind === "layers" ? ws.viewModel.view.layers : undefined}
+          elements={elements}
+          relations={relations}
+          renderPanel={(tree) => <PropertyPanel tree={tree} relations={relations} />}
+        />
+      )}
+    </div>
   )
 }
