@@ -10,7 +10,17 @@ import type { Decor } from "../canvas/decor"
 import { buildTree, filterMatches, isFilterActive } from "../canvas/graph"
 import { kindColor, kindMeta } from "../canvas/kind"
 import { hostNameIndex } from "../canvas/deployment"
-import { DatabaseShape, endpointOf, HostBadge, ReplicaBackdrop, ReplicaBadge, type ShapeTone } from "../canvas/shapes"
+import {
+  cardClass,
+  DatabaseShape,
+  DiffMark,
+  endpointOf,
+  HostBadge,
+  KindTile,
+  ReplicaBackdrop,
+  ReplicaBadge,
+  type ShapeTone,
+} from "../canvas/shapes"
 import { useCanvasStore } from "../canvas/store"
 import { useLayerRules, useMe, useReplaceLayerRules } from "../draft/queries"
 import { LayerRulesDialog } from "./LayerRulesDialog"
@@ -229,7 +239,7 @@ export function LayeredCanvas({ elements, relations, layers, decor, onConnect, o
     return (
       <div
         key={el.id}
-        className="col-span-full grid gap-3 rounded-xl border border-dashed border-(--kind)/50 bg-background/30 p-2"
+        className="col-span-full grid gap-3 rounded-lg border border-dashed bg-background/40 p-2"
         style={{
           gridTemplateColumns: "repeat(auto-fill, minmax(184px, 1fr))",
           ["--kind" as string]: kindColor(el.kind),
@@ -399,10 +409,10 @@ function LayerList({
   return (
     <nav
       aria-label="Layers"
-      className="flex w-52 shrink-0 flex-col gap-1 overflow-y-auto border-r bg-sidebar p-2 text-sidebar-foreground"
+      className="flex w-52 shrink-0 flex-col gap-1 overflow-y-auto border-r bg-sidebar p-3 text-sidebar-foreground"
     >
       <div className="flex items-center justify-between px-1 pb-1">
-        <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Layers</h2>
+        <h2 className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Layers</h2>
         {filtered && (
           <Button variant="ghost" size="xs" onClick={onShowAll}>
             Show all
@@ -429,14 +439,14 @@ function LayerList({
                 title={focus === p.name ? "Show all layers again" : "Show only this layer"}
                 onClick={() => onFocus(p.name)}
                 className={cn(
-                  "flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1 text-left text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                  focus === p.name && "bg-accent font-medium",
+                  "flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  focus === p.name && "bg-primary/10 font-medium hover:bg-primary/15",
                   mode === "hidden" && "text-muted-foreground line-through"
                 )}
               >
                 <span
-                  className="size-2.5 shrink-0 rounded-full"
-                  style={{ background: `hsl(${planeHue(i)} 70% 60%)` }}
+                  className="size-2 shrink-0 rounded-full"
+                  style={{ background: `hsl(${planeHue(i)} 65% 58%)` }}
                   aria-hidden
                 />
                 <span className="truncate">{p.name}</span>
@@ -451,7 +461,7 @@ function LayerList({
       </p>
       <div className="mt-2 flex flex-col gap-1 border-t px-1 pt-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Rules</h2>
+          <h2 className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Rules</h2>
           {onEditRules && (
             <Button variant="ghost" size="xs" onClick={onEditRules}>
               Edit
@@ -509,14 +519,10 @@ function Lane({
     <section
       aria-label={`Layer ${plane.name}, ${plane.elements.length} element${plane.elements.length === 1 ? "" : "s"}`}
       className={cn(
-        "rounded-xl border transition-[box-shadow,opacity]",
-        dropping && "ring-2 ring-primary",
+        "rounded-lg border bg-muted/30 transition-[background-color,box-shadow,opacity] dark:bg-card/40",
+        dropping && "bg-primary/5 ring-2 ring-primary/60",
         blocked && "opacity-40"
       )}
-      style={{
-        background: `hsl(${hue} 70% 55% / ${dropping ? 0.18 : 0.07})`,
-        borderColor: `hsl(${hue} 60% 55% / 0.45)`,
-      }}
       onContextMenu={onContextMenu}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
@@ -528,16 +534,13 @@ function Lane({
           onClick={onToggleCollapse}
           aria-expanded={!collapsed}
           aria-label={collapsed ? `Show layer ${plane.name} only` : `Show all layers`}
-          className="rounded focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
-          <Chevron className="size-4" aria-hidden />
+          <Chevron className="size-3.5" aria-hidden />
         </button>
-        <h3 className="text-xs font-semibold tracking-wide uppercase" style={{ color: `hsl(${hue} 70% 62%)` }}>
-          {plane.name}
-        </h3>
-        <span className="rounded-full bg-background/60 px-1.5 py-0.5 text-[10px] text-muted-foreground tabular-nums">
-          {plane.elements.length}
-        </span>
+        <span className="size-2 shrink-0 rounded-full" style={{ background: `hsl(${hue} 65% 58%)` }} aria-hidden />
+        <h3 className="text-sm font-medium">{plane.name}</h3>
+        <span className="text-xs text-muted-foreground tabular-nums">{plane.elements.length}</span>
       </header>
       {!collapsed && (
         <div
@@ -611,15 +614,9 @@ function Card({
         aria-label={`${label} ${element.name}${diff ? ` (${diff})` : ""}`}
         className={cn(
           "relative flex flex-col justify-center gap-1.5 overflow-hidden px-3 text-card-foreground outline-none",
-          db
-            ? "h-[96px] justify-end pt-8 pb-2"
-            : "h-[76px] rounded-xl border border-l-4 border-(--kind)/40 border-l-(--kind) bg-card shadow-sm",
-          "cursor-pointer transition-opacity focus-visible:ring-2 focus-visible:ring-ring",
-          !db && selected && "ring-2 ring-primary",
-          !db && diff === "added" && "outline-2 outline-offset-2 outline-emerald-500",
-          !db && diff === "modified" && "outline-2 outline-offset-2 outline-amber-500",
-          diff === "removed" &&
-            (db ? "opacity-60" : "border-dashed opacity-60 outline-2 outline-offset-2 outline-red-500"),
+          db ? "h-[96px] justify-end pt-8 pb-2" : cn("h-[76px]", cardClass(tone)),
+          "cursor-pointer focus-visible:ring-2 focus-visible:ring-ring",
+          db && diff === "removed" && "opacity-60",
           dimmed && "opacity-30",
           draggable && "cursor-grab active:cursor-grabbing",
           dragging && "opacity-40"
@@ -642,9 +639,10 @@ function Card({
       >
         {db && <DatabaseShape tone={tone} dashed={diff === "removed"} />}
         <div className="relative flex items-center gap-2">
-          <KindIcon className="size-4 shrink-0 text-(--kind)" aria-hidden />
+          <KindTile icon={KindIcon} />
           <span className="truncate font-heading text-sm font-semibold">{element.name}</span>
           {element.protected && <Lock className="size-3 shrink-0 text-muted-foreground" aria-label="Protected" />}
+          <DiffMark diff={diff} />
           {lint && (
             <span className="ml-auto" role="img" aria-label={lint === "error" ? "Lint error" : "Lint warning"}>
               {lint === "error" ? (

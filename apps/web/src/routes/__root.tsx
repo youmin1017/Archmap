@@ -1,10 +1,12 @@
-import { HeadContent, Scripts, createRootRouteWithContext } from "@tanstack/react-router"
+import { HeadContent, Link, Scripts, createRootRouteWithContext } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { TanStackDevtools } from "@tanstack/react-devtools"
 import type { QueryClient } from "@tanstack/react-query"
 
 import { themeInitScript } from "@/components/theme-toggle"
+import { Button } from "@/components/ui/button"
 import { Toaster } from "@/components/ui/sonner"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import appCss from "../styles.css?url"
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -17,9 +19,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [{ rel: "stylesheet", href: appCss }],
   }),
   notFoundComponent: () => (
-    <main className="container mx-auto p-4 pt-16">
-      <h1>404</h1>
-      <p>The requested page could not be found.</p>
+    <main className="grid min-h-svh place-items-center p-6">
+      <div className="flex max-w-sm flex-col items-center gap-3 text-center">
+        <span className="font-mono text-xs tracking-widest text-muted-foreground">404</span>
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">Page not found</h1>
+        <p className="text-sm text-muted-foreground">The page you are looking for does not exist or has moved.</p>
+        <Button size="sm" className="mt-2" render={<Link to="/" />}>
+          Back to main
+        </Button>
+      </div>
     </main>
   ),
   shellComponent: RootDocument,
@@ -33,8 +41,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {children}
-        <Toaster richColors closeButton />
+        <TooltipProvider delay={300}>{children}</TooltipProvider>
+        <Toaster richColors closeButton position="bottom-center" />
         <TanStackDevtools
           config={{ position: "bottom-right" }}
           plugins={[

@@ -26,16 +26,20 @@ type Props = {
   model: Model | undefined
   /** The active view's data (members of a custom view are read from its layout). */
   activeModel: ViewModel | undefined
+  /** Page actions shown at the right end of the bar (draft tools, New draft, ...). */
+  actions?: React.ReactNode
 }
 
 const tab =
-  "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+  "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-3.5"
+const tabOn = "bg-muted font-medium text-foreground"
+const tabOff = "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
 
 /**
  * Tab strip above the canvas: the whole model plus saved views. Creating,
  * renaming and deleting views needs an editor; views never change the model.
  */
-export function ViewTabs({ me, activeId, onSelect, model, activeModel }: Props) {
+export function ViewTabs({ me, activeId, onSelect, model, activeModel, actions }: Props) {
   const views = useViews()
   const create = useCreateView()
   const update = useUpdateView()
@@ -51,66 +55,67 @@ export function ViewTabs({ me, activeId, onSelect, model, activeModel }: Props) 
   const members = activeModel?.layout.filter((l) => l.included).map((l) => l.element_id)
 
   return (
-    <div className="flex items-center gap-1 overflow-x-auto border-b px-3 py-1.5" role="tablist" aria-label="Views">
-      <button
-        type="button"
-        role="tab"
-        aria-selected={activeId === undefined}
-        onClick={() => onSelect(undefined)}
-        className={cn(
-          tab,
-          activeId === undefined ? "bg-accent font-medium" : "text-muted-foreground hover:text-foreground"
-        )}
-      >
-        <Eye className="size-4" aria-hidden /> Whole model
-      </button>
+    <div className="flex h-11 shrink-0 items-center gap-2 border-b bg-background px-2">
+      <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto" role="tablist" aria-label="Views">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeId === undefined}
+          onClick={() => onSelect(undefined)}
+          className={cn(tab, activeId === undefined ? tabOn : tabOff)}
+        >
+          <Eye aria-hidden /> Whole model
+        </button>
 
-      {views.data?.map((v) => (
-        <span key={v.id} className="inline-flex shrink-0 items-center">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={v.id === activeId}
-            title={`${viewKinds.find((k) => k.value === v.kind)?.label ?? v.kind}${v.description ? ` · ${v.description}` : ""}`}
-            onClick={() => onSelect(v.id)}
-            className={cn(
-              tab,
-              v.id === activeId ? "bg-accent font-medium" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {v.name}
-          </button>
-          {v.id === activeId && mayManage(v) && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button variant="ghost" size="icon-xs" aria-label={`Manage view ${v.name}`} />}
+        {views.data?.map((v) => {
+          const KindIcon = viewKinds.find((k) => k.value === v.kind)?.icon ?? Eye
+          return (
+            <span key={v.id} className="inline-flex shrink-0 items-center">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={v.id === activeId}
+                title={`${viewKinds.find((k) => k.value === v.kind)?.label ?? v.kind}${v.description ? ` · ${v.description}` : ""}`}
+                onClick={() => onSelect(v.id)}
+                className={cn(tab, v.id === activeId ? tabOn : tabOff)}
               >
-                <MoreHorizontal aria-hidden />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem onClick={() => setDialog({ view: v })}>
-                  <Pencil aria-hidden /> Edit…
-                </DropdownMenuItem>
-                <DropdownMenuItem variant="destructive" onClick={() => setDeleting(v)}>
-                  <Trash2 aria-hidden /> Delete…
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </span>
-      ))}
+                <KindIcon aria-hidden /> {v.name}
+              </button>
+              {v.id === activeId && mayManage(v) && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={<Button variant="ghost" size="icon-xs" aria-label={`Manage view ${v.name}`} />}
+                  >
+                    <MoreHorizontal aria-hidden />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => setDialog({ view: v })}>
+                      <Pencil aria-hidden /> Edit…
+                    </DropdownMenuItem>
+                    <DropdownMenuItem variant="destructive" onClick={() => setDeleting(v)}>
+                      <Trash2 aria-hidden /> Delete…
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </span>
+          )
+        })}
 
-      <Button
-        variant="ghost"
-        size="sm"
-        disabled={!canEditRole}
-        title={canEditRole ? "Create a view" : "Viewers cannot create views"}
-        onClick={() => setDialog({})}
-        aria-label="New view"
-      >
-        <Plus aria-hidden /> New view
-      </Button>
-      {views.isError && <span className="text-xs text-destructive">Could not load views</span>}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground"
+          disabled={!canEditRole}
+          title={canEditRole ? "Create a view" : "Viewers cannot create views"}
+          onClick={() => setDialog({})}
+          aria-label="New view"
+        >
+          <Plus aria-hidden /> New view
+        </Button>
+        {views.isError && <span className="text-xs text-destructive">Could not load views</span>}
+      </div>
+      {actions && <div className="flex shrink-0 items-center gap-1.5">{actions}</div>}
 
       <ViewDialog
         open={dialog !== null}

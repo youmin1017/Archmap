@@ -1,7 +1,4 @@
 import { CircleAlert, Inbox, LoaderCircle } from "lucide-react"
-import { useReducedMotion } from "motion/react"
-
-import { BorderBeam } from "@/components/ui/border-beam"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -9,8 +6,8 @@ export type StateTone = "loading" | "empty" | "error"
 
 /**
  * Loading, empty and error states of a page or panel: skeleton placeholders
- * while loading, a quiet card with a beam for "nothing here yet", and a
- * clear message with an optional retry for errors.
+ * while loading, a quiet card for "nothing here yet", and a clear message
+ * with an optional retry for errors.
  */
 export function StatePanel({
   tone = "empty",
@@ -27,7 +24,6 @@ export function StatePanel({
   /** Anything else the user can do next (a link or button). */
   action?: React.ReactNode
 }) {
-  const reducedMotion = useReducedMotion()
   if (tone === "loading") {
     return (
       <div role="status" aria-busy="true" className="m-auto flex w-full max-w-md flex-col gap-3 p-6">
@@ -44,22 +40,18 @@ export function StatePanel({
   const Icon = tone === "error" ? CircleAlert : Inbox
   return (
     <div role={tone === "error" ? "alert" : "status"} className="m-auto w-full max-w-md p-6">
-      <div className="relative flex flex-col items-center gap-3 rounded-2xl border bg-card/60 p-8 text-center">
+      <div className="flex flex-col items-center gap-3 p-8 text-center">
         <span
           className={
             tone === "error"
-              ? "flex size-11 items-center justify-center rounded-full bg-destructive/10 text-destructive"
-              : "flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground"
+              ? "grid size-10 place-items-center rounded-xl border border-destructive/30 bg-destructive/10 text-destructive"
+              : "grid size-10 place-items-center rounded-xl border bg-card text-muted-foreground shadow-xs"
           }
         >
           <Icon className="size-5" aria-hidden />
         </span>
-        {title && <h2 className="font-heading text-base font-semibold">{title}</h2>}
-        {children && (
-          <div className={tone === "error" ? "text-sm text-destructive" : "text-sm text-muted-foreground"}>
-            {children}
-          </div>
-        )}
+        {title && <h2 className="text-sm font-medium">{title}</h2>}
+        {children && <div className="max-w-sm text-sm text-pretty text-muted-foreground">{children}</div>}
         {(onRetry || action) && (
           <div className="flex items-center gap-2">
             {onRetry && (
@@ -70,7 +62,6 @@ export function StatePanel({
             {action}
           </div>
         )}
-        {tone === "empty" && !reducedMotion && <BorderBeam size={90} duration={8} />}
       </div>
     </div>
   )

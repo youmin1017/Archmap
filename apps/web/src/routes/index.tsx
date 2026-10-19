@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
+import { Lock } from "lucide-react"
 
 import { AppTopBar } from "@/components/app-top-bar"
 import { Badge } from "@/components/ui/badge"
@@ -38,11 +39,15 @@ function Landscape() {
       <AppTopBar
         context={
           <>
-            <Badge variant="secondary" aria-label="Current context">
-              Main{version > 0 ? ` @ v${version}` : ""}
+            <span className="font-medium">Main</span>
+            {version > 0 && (
+              <Badge variant="outline" className="font-mono">
+                v{version}
+              </Badge>
+            )}
+            <Badge variant="secondary" className="text-muted-foreground">
+              <Lock data-icon="inline-start" aria-hidden /> Read-only
             </Badge>
-            <Badge variant="outline">Read-only</Badge>
-            <NewDraftButton />
           </>
         }
       />
@@ -54,6 +59,7 @@ function Landscape() {
           onSelect={(id) => void navigate({ search: { view: id } })}
           model={model.data}
           activeModel={ws.viewModel}
+          actions={<NewDraftButton />}
         />
       )}
 
@@ -64,7 +70,7 @@ function Landscape() {
         </Status>
       )}
       {model.isSuccess && model.data.elements.length === 0 && (
-        <Status title="The model is empty">
+        <Status title="The model is empty" action={<NewDraftButton />}>
           Run `task seed` to load the sample model, or start a draft and add the first elements.
         </Status>
       )}

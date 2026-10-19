@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { CircleAlert, GitMerge, Info, TriangleAlert } from "lucide-react"
+import { CircleAlert, GitMerge, Info, Minus, Pencil, Plus, TriangleAlert } from "lucide-react"
 import type { Change, Conflict, Diff, LintReport, Relation, Resolution } from "@archmap/api-client"
 
 import { Badge } from "@/components/ui/badge"
@@ -31,7 +31,7 @@ export function ReviewPanel(props: Props) {
   const conflictCount = conflicts?.length ?? 0
   return (
     <Tabs value={props.tab} onValueChange={props.onTabChange} className="h-full min-h-0 gap-0">
-      <TabsList className="mx-3 mt-3 w-auto">
+      <TabsList className="mx-3 mt-3 w-[calc(100%-1.5rem)] shrink-0">
         <TabsTrigger value="lint">
           Lint
           {lint && lint.errors + lint.warnings > 0 && (
@@ -104,7 +104,7 @@ function LintTab({ lint, tree, relations }: Props) {
             <button
               type="button"
               onClick={() => goto(target)}
-              className="flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="flex w-full items-start gap-2 rounded-lg border bg-card px-2.5 py-2 text-left text-sm transition-colors hover:border-ring/50 hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <Icon
                 className={cn("mt-0.5 size-4 shrink-0", f.severity === "error" ? "text-destructive" : "text-amber-500")}
@@ -112,7 +112,7 @@ function LintTab({ lint, tree, relations }: Props) {
               />
               <span className="flex flex-col">
                 <span>{f.message}</span>
-                <span className="text-xs text-muted-foreground">{f.rule}</span>
+                <span className="font-mono text-[11px] text-muted-foreground">{f.rule}</span>
               </span>
             </button>
           </li>
@@ -127,6 +127,7 @@ const statusStyle = {
   removed: "bg-red-500/15 text-red-700 dark:text-red-400",
   modified: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
 } as const
+const statusIcon = { added: Plus, removed: Minus, modified: Pencil } as const
 
 function DiffTab({ diff, tree }: Props) {
   return <DiffView diff={diff} tree={tree} />
@@ -155,11 +156,13 @@ export function DiffView({
     relations.removed.length +
     relations.modified.length
   const name = (id: string) => tree.byId.get(id)?.name ?? "unknown"
+  // Reference fields (parent_id, ...) hold element ids: show the element's name instead.
+  const show = (v: unknown) => (typeof v === "string" && tree.byId.has(v) ? name(v) : formatValue(v))
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       {showStale && diff.stale && (
-        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-xs">
+        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs">
           Main moved from v{diff.base_version} to v{diff.main_version} since this draft started. Merging rebases it onto
           the current main; conflicts, if any, appear under Conflicts.
         </p>
@@ -168,49 +171,46 @@ export function DiffView({
 
       <DiffSection title="Elements added" status="added" count={elements.added.length}>
         {elements.added.map((e) => (
-          <DiffRow key={e.id} label={e.name} meta={e.kind} onClick={() => goto(e.id)} />
+          <DiffRow key={e.id} status="added" label={e.name} meta={e.kind} onClick={() => goto(e.id)} />
         ))}
       </DiffSection>
       <DiffSection title="Elements removed" status="removed" count={elements.removed.length}>
         {elements.removed.map((e) => (
-          <DiffRow key={e.id} label={e.name} meta={e.kind} />
+          <DiffRow key={e.id} status="removed" label={e.name} meta={e.kind} />
         ))}
       </DiffSection>
       <DiffSection title="Elements modified" status="modified" count={elements.modified.length}>
         {elements.modified.map((m) => (
-          <DiffRow key={m.after.id} label={m.after.name} meta={m.after.kind} onClick={() => goto(m.after.id)}>
-            {m.fields.map((f) => (
-              <span key={f.field} className="block text-xs text-muted-foreground">
-                {f.field}: <s>{formatValue(f.before)}</s> →{" "}
-                <b className="font-medium text-foreground">{formatValue(f.after)}</b>
-              </span>
-            ))}
+          <DiffRow
+            key={m.after.id}
+            status="modified"
+            label={m.after.name}
+            meta={m.after.kind}
+            onClick={() => goto(m.after.id)}
+          >
+            <FieldChanges fields={m.fields} show={show} />
           </DiffRow>
         ))}
       </DiffSection>
       <DiffSection title="Relations added" status="added" count={relations.added.length}>
         {relations.added.map((r) => (
-          <DiffRow key={r.id} label={`${name(r.source_id)} → ${name(r.target_id)}`} meta={r.kind} />
+          <DiffRow key={r.id} status="added" label={`${name(r.source_id)} → ${name(r.target_id)}`} meta={r.kind} />
         ))}
       </DiffSection>
       <DiffSection title="Relations removed" status="removed" count={relations.removed.length}>
         {relations.removed.map((r) => (
-          <DiffRow key={r.id} label={`${name(r.source_id)} → ${name(r.target_id)}`} meta={r.kind} />
+          <DiffRow key={r.id} status="removed" label={`${name(r.source_id)} → ${name(r.target_id)}`} meta={r.kind} />
         ))}
       </DiffSection>
       <DiffSection title="Relations modified" status="modified" count={relations.modified.length}>
         {relations.modified.map((m) => (
           <DiffRow
             key={m.after.id}
+            status="modified"
             label={`${name(m.after.source_id)} → ${name(m.after.target_id)}`}
             meta={m.after.kind}
           >
-            {m.fields.map((f) => (
-              <span key={f.field} className="block text-xs text-muted-foreground">
-                {f.field}: <s>{formatValue(f.before)}</s> →{" "}
-                <b className="font-medium text-foreground">{formatValue(f.after)}</b>
-              </span>
-            ))}
+            <FieldChanges fields={m.fields} show={show} />
           </DiffRow>
         ))}
       </DiffSection>
@@ -231,52 +231,96 @@ function DiffSection({
 }) {
   if (count === 0) return null
   return (
-    <section aria-label={title} className="flex flex-col gap-1">
-      <h3 className="flex items-center gap-2 text-sm font-medium">
+    <section aria-label={title} className="flex flex-col gap-1.5">
+      <h3 className="flex items-center gap-2 px-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
         {title}
         <span className={cn("rounded-full px-1.5 text-[11px] leading-4 tabular-nums", statusStyle[status])}>
           {count}
         </span>
       </h3>
-      <ul className="flex flex-col gap-0.5">{children}</ul>
+      <ul className="flex flex-col gap-1">{children}</ul>
     </section>
   )
 }
 
 function DiffRow({
+  status,
   label,
   meta,
   onClick,
   children,
 }: {
+  status: keyof typeof statusStyle
   label: string
   meta: string
   onClick?: () => void
   children?: React.ReactNode
 }) {
+  const Icon = statusIcon[status]
   const body = (
     <>
       <span className="flex items-center gap-2 text-sm">
-        <span className="truncate">{label}</span>
-        <span className="ml-auto text-xs text-muted-foreground">{meta}</span>
+        <span className={cn("grid size-4 shrink-0 place-items-center rounded", statusStyle[status])} aria-hidden>
+          <Icon className="size-2.5" strokeWidth={3} />
+        </span>
+        <span className={cn("truncate font-medium", status === "removed" && "text-muted-foreground line-through")}>
+          {label}
+        </span>
+        <span className="ml-auto shrink-0 font-mono text-[11px] text-muted-foreground">
+          {meta.replaceAll("_", " ")}
+        </span>
       </span>
       {children}
     </>
   )
+  const box = "flex w-full flex-col gap-1.5 rounded-lg border bg-card px-2.5 py-2 text-left"
   return (
     <li>
       {onClick ? (
         <button
           type="button"
           onClick={onClick}
-          className="flex w-full flex-col rounded-lg px-2 py-1 text-left hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className={cn(
+            box,
+            "transition-colors hover:border-ring/50 hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          )}
         >
           {body}
         </button>
       ) : (
-        <div className="flex flex-col px-2 py-1">{body}</div>
+        <div className={box}>{body}</div>
       )}
     </li>
+  )
+}
+
+/** Field-level changes of a modified element or relation: name, old value (struck) and new value. */
+function FieldChanges({
+  fields,
+  show,
+}: {
+  fields: readonly { field: string; before?: unknown; after?: unknown }[]
+  show: (v: unknown) => string
+}) {
+  return (
+    <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 pl-6 text-xs">
+      {fields.map((f) => (
+        <div key={f.field} className="contents">
+          <dt className="font-mono text-muted-foreground">{f.field.replaceAll("_", " ")}</dt>
+          <dd className="flex min-w-0 flex-wrap items-center gap-1">
+            <span className="max-w-full truncate rounded bg-red-500/10 px-1 text-red-700 line-through decoration-red-500/50 dark:text-red-400">
+              {show(f.before)}
+            </span>
+            <span className="text-muted-foreground" aria-label="changed to">
+              →
+            </span>
+            <span className="max-w-full truncate rounded bg-emerald-500/10 px-1 text-emerald-700 dark:text-emerald-400">
+              {show(f.after)}
+            </span>
+          </dd>
+        </div>
+      ))}
+    </dl>
   )
 }
 
@@ -302,7 +346,7 @@ function ConflictsTab({ conflicts, canResolve, resolving, onResolve }: Props) {
         {conflicts.map((c) => {
           const k = keyOf(c)
           return (
-            <li key={k} className="flex flex-col gap-2 rounded-xl border p-3">
+            <li key={k} className="flex flex-col gap-2 rounded-lg border bg-card p-3">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <CircleAlert className="size-4 text-destructive" aria-hidden />
                 <span className="truncate">{c.label}</span>
@@ -311,34 +355,44 @@ function ConflictsTab({ conflicts, canResolve, resolving, onResolve }: Props) {
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground">{c.message}</p>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-                <dt className="text-muted-foreground">Base</dt>
-                <dd className="truncate">{formatValue(c.base)}</dd>
-                <dt className="text-muted-foreground">Mine</dt>
-                <dd className="truncate">{formatValue(c.mine)}</dd>
-                <dt className="text-muted-foreground">Theirs</dt>
-                <dd className="truncate">{formatValue(c.theirs)}</dd>
-              </dl>
-              <fieldset className="flex gap-4 text-sm" disabled={!canResolve}>
+              <p className="text-xs text-muted-foreground">
+                Base: <span className="font-mono text-foreground">{formatValue(c.base)}</span>
+              </p>
+              {/* Each option shows the value it keeps, so choosing is one look and one click. */}
+              <fieldset className="grid grid-cols-2 gap-1.5" disabled={!canResolve}>
                 <legend className="sr-only">Resolution for {c.label}</legend>
-                {(["mine", "theirs"] as const).map((choice) => (
-                  <label key={choice} className="flex items-center gap-1.5">
-                    <input
-                      type="radio"
-                      name={k}
-                      value={choice}
-                      checked={choices[k] === choice}
-                      onChange={() => setChoices((prev) => ({ ...prev, [k]: choice }))}
-                    />
-                    Keep {choice}
-                  </label>
-                ))}
+                {(["mine", "theirs"] as const).map((choice) => {
+                  const on = choices[k] === choice
+                  return (
+                    <label
+                      key={choice}
+                      className={cn(
+                        "flex cursor-pointer flex-col gap-0.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring",
+                        on ? "border-primary bg-primary/5" : "hover:bg-muted/60"
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name={k}
+                        value={choice}
+                        checked={on}
+                        onChange={() => setChoices((prev) => ({ ...prev, [k]: choice }))}
+                        className="sr-only"
+                      />
+                      <span className="font-medium">{choice === "mine" ? "Keep mine" : "Keep theirs (main)"}</span>
+                      <span className="truncate font-mono text-muted-foreground">
+                        {formatValue(choice === "mine" ? c.mine : c.theirs)}
+                      </span>
+                    </label>
+                  )
+                })}
               </fieldset>
             </li>
           )
         })}
       </ul>
       <Button
+        className="self-end"
         disabled={!canResolve || !allChosen || resolving}
         onClick={() =>
           onResolve(
@@ -364,7 +418,7 @@ function ChangesTab({ tree, changes }: { tree: ElementTree; changes: readonly Ch
     <AnimatedList delay={40} aria-label="Edit history" className="gap-1.5">
       {batches.map((b) => (
         <AnimatedListItem key={b.batchId}>
-          <div className={cn("rounded-lg border px-2.5 py-1.5 text-sm", b.undone && "opacity-50")}>
+          <div className={cn("rounded-lg border bg-card px-2.5 py-1.5 text-sm", b.undone && "opacity-50")}>
             {b.lines.map((l, i) => (
               <p key={i} className={cn("truncate", b.undone && "line-through")}>
                 {l}

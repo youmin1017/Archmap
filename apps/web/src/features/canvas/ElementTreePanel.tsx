@@ -2,7 +2,6 @@ import { useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { ChevronDown, ChevronRight, Search, X } from "lucide-react"
 import type { Element, ElementKind } from "@archmap/api-client"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -37,6 +36,13 @@ export function treeRows(
   for (const r of tree.roots) walk(r, 1)
   return rows
 }
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">{children}</span>
+}
+
+const chip =
+  "inline-flex h-6 items-center rounded-md border px-2 text-xs transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-pressed:border-primary/40 aria-pressed:bg-primary/10 aria-pressed:text-foreground"
 
 export function ElementTreePanel({ tree, elements }: { tree: ElementTree; elements: readonly Element[] }) {
   const filter = useCanvasStore((s) => s.filter)
@@ -110,8 +116,8 @@ export function ElementTreePanel({ tree, elements }: { tree: ElementTree; elemen
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
-      <div className="flex flex-col gap-2 px-3 pt-3">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex flex-col gap-3 border-b px-3 pt-3 pb-3">
         <div className="relative">
           <Search
             className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
@@ -121,9 +127,9 @@ export function ElementTreePanel({ tree, elements }: { tree: ElementTree; elemen
             type="search"
             value={filter.query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search elements"
+            placeholder="Search elements…"
             aria-label="Search elements"
-            className="pl-8"
+            className="h-8 bg-background pl-8"
           />
         </div>
         <ToggleGroup
@@ -133,20 +139,20 @@ export function ElementTreePanel({ tree, elements }: { tree: ElementTree; elemen
           aria-label="Filter by kind"
           variant="outline"
           size="sm"
-          className="flex-wrap"
+          className="w-full *:flex-1"
         >
           {kinds.map((k) => {
             const Icon = kindMeta[k].icon
             return (
               <ToggleGroupItem key={k} value={k} aria-label={kindMeta[k].label} title={kindMeta[k].label}>
-                <Icon aria-hidden />
+                <Icon aria-hidden style={{ color: `var(--kind-${k})` }} />
               </ToggleGroupItem>
             )
           })}
         </ToggleGroup>
         {projects.length > 0 && (
-          <div className="flex flex-col gap-1" role="group" aria-label="Highlight a project">
-            <span className="text-xs font-medium text-muted-foreground">Project</span>
+          <div className="flex flex-col gap-1.5" role="group" aria-label="Highlight a project">
+            <SectionLabel>Projects</SectionLabel>
             <div className="flex flex-wrap gap-1">
               {projects.map((p) => {
                 const on = filter.project?.toLowerCase() === p.toLowerCase()
@@ -156,9 +162,9 @@ export function ElementTreePanel({ tree, elements }: { tree: ElementTree; elemen
                     type="button"
                     aria-pressed={on}
                     onClick={() => setProject(on ? null : p)}
-                    className="rounded-4xl focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                    className={cn(chip, "font-medium", !on && "text-foreground hover:bg-muted")}
                   >
-                    <Badge variant={on ? "default" : "secondary"}>{p}</Badge>
+                    {p}
                   </button>
                 )
               })}
@@ -166,30 +172,38 @@ export function ElementTreePanel({ tree, elements }: { tree: ElementTree; elemen
           </div>
         )}
         {tags.length > 0 && (
-          <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by tag">
-            {tags.map((t) => {
-              const on = filter.tags.includes(t)
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => setTags(on ? filter.tags.filter((x) => x !== t) : [...filter.tags, t])}
-                  className="rounded-4xl focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                >
-                  <Badge variant={on ? "default" : "outline"}>{t}</Badge>
-                </button>
-              )
-            })}
+          <div className="flex flex-col gap-1.5" role="group" aria-label="Filter by tag">
+            <SectionLabel>Tags</SectionLabel>
+            <div className="flex flex-wrap gap-1">
+              {tags.map((t) => {
+                const on = filter.tags.includes(t)
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setTags(on ? filter.tags.filter((x) => x !== t) : [...filter.tags, t])}
+                    className={cn(chip, !on && "text-muted-foreground hover:bg-muted hover:text-foreground")}
+                  >
+                    <span className="mr-0.5 opacity-50">#</span>
+                    {t}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )}
         {active && (
-          <Button variant="ghost" size="xs" onClick={clearFilter} className="self-start">
+          <Button variant="ghost" size="xs" onClick={clearFilter} className="-ml-1 self-start text-muted-foreground">
             <X aria-hidden /> Clear filters ({matches.size} match{matches.size === 1 ? "" : "es"})
           </Button>
         )}
       </div>
 
+      <div className="flex items-center justify-between px-3 pt-3 pb-1">
+        <SectionLabel>Elements</SectionLabel>
+        <span className="text-[11px] text-muted-foreground tabular-nums">{elements.length}</span>
+      </div>
       <ul ref={listRef} role="tree" aria-label="Model elements" className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-3">
         {rows.length === 0 && (
           <li className="px-3 py-6 text-center text-sm text-muted-foreground">No elements match.</li>
@@ -212,8 +226,8 @@ export function ElementTreePanel({ tree, elements }: { tree: ElementTree; elemen
               onClick={() => reveal(e.id, ancestorIds(tree, e.id))}
               style={{ paddingLeft: `${(row.level - 1) * 14 + 6}px` }}
               className={cn(
-                "flex cursor-pointer items-center gap-1.5 rounded-lg py-1 pr-2 text-sm outline-none select-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring",
-                selected && "bg-accent font-medium",
+                "flex h-7 cursor-pointer items-center gap-1.5 rounded-md pr-2 text-sm outline-none select-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
+                selected && "bg-primary/10 font-medium text-foreground hover:bg-primary/15",
                 !row.match && "text-muted-foreground"
               )}
             >
@@ -222,7 +236,7 @@ export function ElementTreePanel({ tree, elements }: { tree: ElementTree; elemen
                   type="button"
                   tabIndex={-1}
                   aria-label={`${row.open ? "Collapse" : "Expand"} ${e.name} in tree`}
-                  className="grid size-5 shrink-0 place-items-center rounded hover:bg-muted"
+                  className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground hover:bg-background hover:text-foreground"
                   onClick={(ev) => {
                     ev.stopPropagation()
                     setOpenState(e.id, !row.open)

@@ -37,3 +37,18 @@ Web formatter is **oxfmt** (`pnpm --filter web format`), config `apps/web/.oxfmt
 - No global state; interfaces defined on the consumer side; table-driven service tests; testcontainers-go for repository/merge integration tests.
 - All business rules in Go; web has UI validation only (no TanStack server functions for business logic).
 - Model (structure) and Layout (positions) are strictly separate: dragging a node never creates a model change.
+
+## Web UI style rules
+
+Linear/Vercel-like: dense, neutral, crisp. Decoration must carry meaning.
+
+- shadcn style is `base-nova` (`components.json`). Add/update primitives with `pnpm exec shadcn add <name> --overwrite`, then review the diff: `ui/sonner.tsx` must keep `useColorMode` (no `next-themes`), and drop unused imports. Colors only via theme tokens in `src/styles.css` (`--kind-*` for element kinds, `shadow-island` for floating chrome); light and dark both.
+- Sizes: controls `h-7`/`h-8` (`size="sm"` in toolbars), radius `rounded-md`/`rounded-lg`, never pills except status badges. Chips/badges inside cards are `rounded bg-muted text-[11px]`.
+- No glow, gradients, shimmer/border-beam, colored outlines or thick accent bars. The only gradient is the brand logo tile.
+- Element cards (canvas and layers view) use `cardClass(tone)` from `features/canvas/shapes.tsx`: neutral 1px border; kind color only in `KindTile`; selection = primary border + `ring-3 ring-primary/15`; diff = colored border + `DiffMark` (+ / ✎ / −, same marks as the review diff). Keep the two canvases consistent.
+- Color has one meaning each: kind (`--kind-*`), diff (emerald added / amber modified / red removed), status (`StatusBadge`), lint (destructive / amber). Layer hue is a small dot only, never a fill.
+- Section headings: `text-[11px] font-medium tracking-wide text-muted-foreground uppercase`. Read-only details are label/value lists (`dl`), not disabled inputs. Show element names, never raw ids.
+- Chrome: one top bar (brand, nav, breadcrumb context) + one sub-bar (`ViewTabs`, page actions in its `actions` slot). Don't add more stacked bars. Canvas tools are icon buttons with `Tooltip`s in a floating island.
+- Forms: group into sections; in dialogs only the body scrolls (header and footer stay visible), footer says what is missing. Show validation errors only after the user touched the field (hint text before). Few options → selectable cards/chips (`role="radio"` / `aria-pressed`), not a select.
+- Every panel must stay reachable at any width: side panels go inline at `md`/`lg`, drawers below (`ModelWorkspace`).
+- Empty/loading/error states use `StatePanel`. Respect `prefers-reduced-motion`; a11y attributes (`aria-*`, focus-visible rings, keyboard tree) are not optional.

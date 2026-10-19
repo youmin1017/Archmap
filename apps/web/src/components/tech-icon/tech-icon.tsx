@@ -39,7 +39,7 @@ export function TechBadge({ technology, className }: { technology: string; class
   return (
     <span
       className={cn(
-        "inline-flex max-w-full items-center gap-1 rounded-full border bg-background/70 px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground",
+        "inline-flex max-w-full items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground",
         className
       )}
     >

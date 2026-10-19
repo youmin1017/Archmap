@@ -2,13 +2,12 @@ import { Link, createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 
 import { AppTopBar } from "@/components/app-top-bar"
-import { Badge } from "@/components/ui/badge"
 import { StatePanel } from "@/components/state-panel"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { NewDraftButton } from "@/features/draft/NewDraftDialog"
 import { useChangesets, useMe } from "@/features/draft/queries"
-import { statusLabel } from "@/features/draft/workflow"
+import { StatusBadge } from "@/features/draft/StatusBadge"
 import type { ChangesetStatus } from "@archmap/api-client"
 
 export const Route = createFileRoute("/changesets/")({ component: ChangesetList })
@@ -20,12 +19,22 @@ const filters: { value: ChangesetStatus | "all"; label: string }[] = [
   { value: "merged", label: "Merged" },
 ]
 
-export const statusTone: Record<ChangesetStatus, string> = {
-  draft: "bg-secondary text-secondary-foreground",
-  in_review: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-  merged: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-  rejected: "bg-red-500/15 text-red-700 dark:text-red-400",
-  abandoned: "bg-muted text-muted-foreground",
+const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" })
+/** "3 hours ago", "yesterday", ... (falls back to the date after a month). */
+function ago(iso: string) {
+  const s = (new Date(iso).getTime() - Date.now()) / 1000
+  const steps: [Intl.RelativeTimeFormatUnit, number][] = [
+    ["second", 60],
+    ["minute", 60],
+    ["hour", 24],
+    ["day", 30],
+  ]
+  let v = s
+  for (const [unit, size] of steps) {
+    if (Math.abs(v) < size) return relative.format(Math.round(v), unit)
+    v /= size
+  }
+  return new Date(iso).toLocaleDateString()
 }
 
 function ChangesetList() {
@@ -35,10 +44,15 @@ function ChangesetList() {
 
   return (
     <div className="flex h-svh flex-col">
-      <AppTopBar context={<Badge variant="secondary">Changesets</Badge>} />
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 overflow-y-auto p-6">
-        <div className="flex items-center gap-3">
-          <h1 className="font-heading text-xl font-semibold">Changesets</h1>
+      <AppTopBar />
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 overflow-y-auto px-6 py-8">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">Changesets</h1>
+          <p className="text-sm text-muted-foreground">
+            Every edit to the model is proposed in a draft, reviewed, then merged into main.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
           <ToggleGroup
             value={[filter]}
             onValueChange={(v) => v[0] && setFilter(v[0] as ChangesetStatus | "all")}
@@ -69,10 +83,10 @@ function ChangesetList() {
           </StatePanel>
         )}
         {list.isSuccess && list.data.length > 0 && (
-          <div className="rounded-xl border">
+          <div className="overflow-hidden rounded-lg border bg-card">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
                   <TableHead>Title</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Author</TableHead>
@@ -82,22 +96,33 @@ function ChangesetList() {
               </TableHeader>
               <TableBody>
                 {list.data.map((cs) => (
-                  <TableRow key={cs.id}>
+                  <TableRow key={cs.id} className="relative">
                     <TableCell>
-                      <Link to="/changesets/$id" params={{ id: cs.id }} className="font-medium hover:underline">
+                      {/* The whole row is clickable: the link's overlay covers it. */}
+                      <Link
+                        to="/changesets/$id"
+                        params={{ id: cs.id }}
+                        className="font-medium after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-inset"
+                      >
                         {cs.title}
                       </Link>
                     </TableCell>
                     <TableCell>
-                      <span className={`rounded-full px-2 py-0.5 text-xs ${statusTone[cs.status]}`}>
-                        {statusLabel[cs.status]}
-                      </span>
+                      <StatusBadge status={cs.status} />
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {cs.author_id === me.data?.id ? "You" : cs.author_id.slice(-6)}
                     </TableCell>
-                    <TableCell className="text-muted-foreground tabular-nums">v{cs.base_version}</TableCell>
-                    <TableCell className="text-muted-foreground">{new Date(cs.created_at).toLocaleString()}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground tabular-nums">
+                      v{cs.base_version}
+                    </TableCell>
+                    <TableCell
+                      className="text-muted-foreground"
+                      title={new Date(cs.created_at).toLocaleString()}
+                      suppressHydrationWarning
+                    >
+                      {ago(cs.created_at)}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

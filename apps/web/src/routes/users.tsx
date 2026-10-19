@@ -1,10 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { Users } from "lucide-react"
 import type { Role } from "@archmap/api-client"
 
 import { AppTopBar } from "@/components/app-top-bar"
 import { StatePanel } from "@/components/state-panel"
-import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useMe } from "@/features/draft/queries"
@@ -31,19 +29,16 @@ function UsersPage() {
 
   return (
     <div className="flex h-svh flex-col">
-      <AppTopBar
-        context={
-          <Badge variant="secondary">
-            <Users data-icon="inline-start" aria-hidden /> Users
-          </Badge>
-        }
-      />
-      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 overflow-y-auto p-6">
-        <h1 className="font-heading text-xl font-semibold">Users and roles</h1>
+      <AppTopBar />
+      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 overflow-y-auto px-6 py-8">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">Users and roles</h1>
+          <p className="text-sm text-muted-foreground">Roles decide who can view, draft, review and merge changes.</p>
+        </div>
 
         <section aria-label="What each role can do" className="grid gap-3 sm:grid-cols-3">
           {roles.map((r) => (
-            <div key={r.value} className="rounded-xl border p-3">
+            <div key={r.value} className="rounded-lg border bg-card p-4">
               <h2 className="text-sm font-medium">{r.label}</h2>
               <p className="mt-1 text-xs text-muted-foreground">{r.can}</p>
             </div>
@@ -64,10 +59,10 @@ function UsersPage() {
         )}
         {isMaintainer && users.isSuccess && users.data.length === 0 && <StatePanel title="No users" />}
         {isMaintainer && users.isSuccess && users.data.length > 0 && (
-          <div className="rounded-xl border">
+          <div className="overflow-hidden rounded-lg border bg-card">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead className="w-44">Role</TableHead>

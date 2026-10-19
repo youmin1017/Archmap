@@ -5,10 +5,7 @@ import type { Element, Relation } from "@archmap/api-client"
 import { Button } from "@/components/ui/button"
 
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { Textarea } from "@/components/ui/textarea"
 import { TechIcon } from "@/components/tech-icon/tech-icon"
 import { canBeDeployed, hostedIds, hostIds } from "./deployment"
 import { ancestorIds, type ElementTree } from "./graph"
@@ -28,13 +25,21 @@ export type PanelActions = {
   onDeleteRelation: (r: Relation) => void
 }
 
-function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
+/** One row of the read-only property list: label on the left, value on the right. */
+function Prop({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      {children}
+    <div className="contents">
+      <dt className="py-1 text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 py-1">{children}</dd>
     </div>
   )
+}
+
+const none = <span className="text-muted-foreground/70">—</span>
+
+/** Small uppercase heading of a panel section. */
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <h3 className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">{children}</h3>
 }
 
 /**
@@ -68,12 +73,12 @@ export function PropertyPanel({
     const nameOf = (id: string) => tree.byId.get(id)?.name ?? "unknown"
     return (
       <div className="flex flex-col gap-3 p-4" aria-label="Relation details">
-        <h2 className="font-heading text-base font-semibold">
+        <h2 className="font-heading text-base font-semibold tracking-tight">
           {selected.length === 1 ? "Relation" : `${selected.length} relations`}
         </h2>
         <ul className="flex flex-col gap-2">
           {selected.map((r) => (
-            <li key={r.id} className="flex flex-col gap-1 rounded-xl border p-2.5 text-sm">
+            <li key={r.id} className="flex flex-col gap-1.5 rounded-lg border bg-card p-2.5 text-sm">
               <span className="flex items-center gap-1.5">
                 <span className="truncate font-medium">{nameOf(r.source_id)}</span>
                 <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
@@ -103,9 +108,16 @@ export function PropertyPanel({
 
   if (!element) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground">
-        <MousePointerClick className="size-6" aria-hidden />
-        Select an element on the canvas or in the tree to see its details.
+      <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+        <span className="grid size-10 place-items-center rounded-xl border bg-card text-muted-foreground shadow-xs">
+          <MousePointerClick className="size-5" aria-hidden />
+        </span>
+        <div className="flex flex-col gap-1">
+          <p className="text-sm font-medium">Nothing selected</p>
+          <p className="text-xs text-muted-foreground">
+            Select an element on the canvas or in the tree to see its details.
+          </p>
+        </div>
       </div>
     )
   }
@@ -124,19 +136,30 @@ export function PropertyPanel({
 
   return (
     <div className="flex flex-col gap-4 p-4" aria-label="Element details">
-      <header className="flex items-center gap-2">
-        <KindIcon className="size-5" style={{ color: `var(--kind-${element.kind})` }} aria-hidden />
-        <h2 className="truncate font-heading text-base font-semibold">{element.name}</h2>
-        <Badge variant="secondary" className="ml-auto">
-          {label}
-        </Badge>
+      <header className="flex items-start gap-3">
+        <span
+          className="grid size-9 shrink-0 place-items-center rounded-lg border"
+          style={{
+            color: `var(--kind-${element.kind})`,
+            background: `color-mix(in oklch, var(--kind-${element.kind}) 10%, transparent)`,
+            borderColor: `color-mix(in oklch, var(--kind-${element.kind}) 25%, transparent)`,
+          }}
+        >
+          <KindIcon className="size-4.5" aria-hidden />
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h2 className="truncate font-heading text-base leading-tight font-semibold tracking-tight">{element.name}</h2>
+          <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+            {label}
+            {path && <span className="truncate">· in {path}</span>}
+          </p>
+        </div>
         {element.protected && (
-          <Badge variant="outline">
+          <Badge variant="outline" className="shrink-0">
             <Lock data-icon="inline-start" aria-hidden /> Protected
           </Badge>
         )}
       </header>
-      {path && <p className="-mt-2 truncate text-xs text-muted-foreground">in {path}</p>}
       {actions && !editing && (
         <div className="flex flex-wrap gap-1.5">
           <Button size="sm" variant="outline" onClick={() => actions.onEdit(element)}>
@@ -155,41 +178,58 @@ export function PropertyPanel({
         actions.renderEditor(element)
       ) : (
         <>
-          <Field id="prop-name" label="Name">
-            <Input id="prop-name" value={element.name} readOnly />
-          </Field>
-          <Field id="prop-description" label="Description">
-            <Textarea
-              id="prop-description"
-              value={element.description}
-              readOnly
-              rows={3}
-              placeholder="No description"
-            />
-          </Field>
-          <Field id="prop-technology" label="Technology">
-            <div className="relative">
-              {element.technology && (
-                <TechIcon
-                  technology={element.technology}
-                  className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
-                />
+          {element.description ? (
+            <p className="text-sm leading-relaxed text-pretty">{element.description}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">No description</p>
+          )}
+          <dl className="grid grid-cols-[6.5rem_minmax(0,1fr)] border-y py-1.5 text-sm">
+            <Prop label="Technology">
+              {element.technology ? (
+                <span className="flex items-center gap-1.5">
+                  <TechIcon technology={element.technology} className="size-4 shrink-0" />
+                  <span className="truncate">{element.technology}</span>
+                </span>
+              ) : (
+                none
               )}
-              <Input
-                id="prop-technology"
-                value={element.technology}
-                readOnly
-                className={element.technology ? "pl-8" : undefined}
-                placeholder="None"
-              />
-            </div>
-          </Field>
-          <Field id="prop-layer" label="Layer">
-            <Input id="prop-layer" value={element.layer} readOnly placeholder="Unassigned" />
-          </Field>
+            </Prop>
+            <Prop label="Layer">{element.layer || <span className="text-muted-foreground/70">Unassigned</span>}</Prop>
+            {element.replicas > 1 && (
+              <Prop label="Replicas">
+                <span className="tabular-nums">×{element.replicas}</span>
+              </Prop>
+            )}
+            <Prop label="Projects">
+              {element.projects.length === 0 ? (
+                none
+              ) : (
+                <span className="flex flex-wrap gap-1">
+                  {element.projects.map((p) => (
+                    <Badge key={p} variant="secondary">
+                      {p}
+                    </Badge>
+                  ))}
+                </span>
+              )}
+            </Prop>
+            <Prop label="Tags">
+              {element.tags.length === 0 ? (
+                none
+              ) : (
+                <span className="flex flex-wrap gap-1">
+                  {element.tags.map((t) => (
+                    <Badge key={t} variant="outline">
+                      #{t}
+                    </Badge>
+                  ))}
+                </span>
+              )}
+            </Prop>
+          </dl>
           {canBeDeployed(element.kind) && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-sm leading-none font-medium">Deployed on</span>
+              <SectionTitle>Deployed on</SectionTitle>
               {deployedOn.length === 0 ? (
                 <span className="flex items-center gap-1.5 text-sm text-amber-600 dark:text-amber-400">
                   <TriangleAlert className="size-3.5" aria-hidden /> Not deployed on any node
@@ -205,18 +245,13 @@ export function PropertyPanel({
               )}
             </div>
           )}
-          {element.replicas > 1 && (
-            <Field id="prop-replicas" label="Replicas">
-              <Input id="prop-replicas" value={String(element.replicas)} readOnly />
-            </Field>
-          )}
           {Object.keys(element.properties).length > 0 && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-sm leading-none font-medium">Properties</span>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+              <SectionTitle>Properties</SectionTitle>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border bg-muted/40 px-2.5 py-2 text-xs">
                 {Object.entries(element.properties).map(([k, v]) => (
                   <div key={k} className="contents">
-                    <dt className="text-muted-foreground">{k}</dt>
+                    <dt className="font-mono text-muted-foreground">{k}</dt>
                     <dd className="font-mono break-all">{v}</dd>
                   </div>
                 ))}
@@ -225,9 +260,9 @@ export function PropertyPanel({
           )}
           {element.kind === "node" && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-sm leading-none font-medium">
-                Hosts <span className="text-muted-foreground">({hosted.length})</span>
-              </span>
+              <SectionTitle>
+                Hosts <span className="tabular-nums">· {hosted.length}</span>
+              </SectionTitle>
               {hosted.length === 0 ? (
                 <span className="text-sm text-muted-foreground">Nothing is deployed on this node</span>
               ) : (
@@ -241,28 +276,6 @@ export function PropertyPanel({
               )}
             </div>
           )}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm leading-none font-medium">Projects</span>
-            <div className="flex flex-wrap gap-1">
-              {element.projects.length === 0 && <span className="text-sm text-muted-foreground">No projects</span>}
-              {element.projects.map((p) => (
-                <Badge key={p} variant="secondary">
-                  {p}
-                </Badge>
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm leading-none font-medium">Tags</span>
-            <div className="flex flex-wrap gap-1">
-              {element.tags.length === 0 && <span className="text-sm text-muted-foreground">No tags</span>}
-              {element.tags.map((t) => (
-                <Badge key={t} variant="outline">
-                  {t}
-                </Badge>
-              ))}
-            </div>
-          </div>
         </>
       )}
 
@@ -274,6 +287,7 @@ export function PropertyPanel({
         otherEnd={(r) => r.target_id}
         nameOf={nameOf}
         goto={goto}
+        actions={actions}
       />
       <RelationList
         title="Incoming"
@@ -281,10 +295,11 @@ export function PropertyPanel({
         otherEnd={(r) => r.source_id}
         nameOf={nameOf}
         goto={goto}
+        actions={actions}
       />
 
       <Separator />
-      <p className="text-xs text-muted-foreground">
+      <p className="font-mono text-[11px] text-muted-foreground">
         Version {element.version} · updated {new Date(element.updated_at).toLocaleString()}
       </p>
     </div>
@@ -308,10 +323,10 @@ function RelationList({
 }) {
   return (
     <section aria-label={`${title} relations`} className="flex flex-col gap-1.5">
-      <h3 className="text-sm font-medium">
-        {title} <span className="text-muted-foreground">({relations.length})</span>
-      </h3>
-      {relations.length === 0 && <p className="text-sm text-muted-foreground">None</p>}
+      <SectionTitle>
+        {title} <span className="tabular-nums">· {relations.length}</span>
+      </SectionTitle>
+      {relations.length === 0 && <p className="text-sm text-muted-foreground/70">None</p>}
       <ul className="flex flex-col gap-1">
         {relations.map((r) => (
           <li key={r.id} className="flex items-center gap-1">

@@ -19,6 +19,7 @@ import type { Element, Relation } from "@archmap/api-client"
 import "@xyflow/react/dist/style.css"
 
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useColorMode } from "@/lib/use-color-mode"
 import { AggregatedEdge } from "./AggregatedEdge"
 import { CanvasContextMenu, joinGroups, type MenuEntry, type MenuPosition } from "./CanvasContextMenu"
@@ -255,7 +256,7 @@ function Canvas({ elements, relations, decor, onConnect, onDeleteRequest, menu }
         maxZoom={2}
         aria-label="Architecture model canvas"
       >
-        <Background gap={24} />
+        <Background gap={20} size={1.2} />
         <Controls showInteractive={false} />
         <MiniMap
           pannable
@@ -263,48 +264,75 @@ function Canvas({ elements, relations, decor, onConnect, onDeleteRequest, menu }
           ariaLabel="Model overview"
           nodeColor={(n) => minimapColor((n as ElementFlowNode).data.element.kind)}
           className="hidden md:block"
+          style={{ width: 168, height: 112 }}
         />
         {connectFrom && (
           <Panel
             position="top-center"
-            className="rounded-full border bg-popover px-3 py-1.5 text-sm shadow-md"
+            className="rounded-full border border-primary/30 bg-popover px-3 py-1.5 text-sm shadow-island"
             role="status"
           >
             Connecting from <b>{nodes.find((n) => n.id === connectFrom)?.data.element.name}</b>: click the target
             element · Esc to cancel
           </Panel>
         )}
-        <Panel position="top-left" className="flex gap-1.5">
-          <Button
-            variant="outline"
-            size="sm"
+        <Panel
+          position="top-left"
+          className="flex items-center gap-0.5 rounded-lg border bg-card/90 p-0.5 shadow-island backdrop-blur"
+          role="toolbar"
+          aria-label="Canvas"
+        >
+          <ToolButton
+            label="Expand all"
             onClick={() => {
               setExpanded(expandableIds(tree))
               fitSoon()
             }}
           >
-            <ChevronsUpDown aria-hidden /> Expand all
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
+            <ChevronsUpDown aria-hidden />
+          </ToolButton>
+          <ToolButton
+            label="Collapse all"
             onClick={() => {
               setExpanded([])
               fitSoon()
             }}
           >
-            <ChevronsDownUp aria-hidden /> Collapse all
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => void rf.fitView({ padding: 0.2, duration: 300 })}>
-            <Maximize aria-hidden /> Fit
-          </Button>
-          <Button variant="outline" size="sm" onClick={resetPositions}>
-            <RotateCcw aria-hidden /> Reset layout
-          </Button>
+            <ChevronsDownUp aria-hidden />
+          </ToolButton>
+          <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
+          <ToolButton label="Fit view" onClick={() => void rf.fitView({ padding: 0.2, duration: 300 })}>
+            <Maximize aria-hidden />
+          </ToolButton>
+          <ToolButton label="Reset layout" onClick={resetPositions}>
+            <RotateCcw aria-hidden />
+          </ToolButton>
         </Panel>
       </ReactFlow>
       <CanvasContextMenu position={menuPos} entries={menuEntries} onClose={() => setMenuPos(null)} />
     </>
+  )
+}
+
+/** Icon button of the floating canvas toolbar; the label shows as a tooltip. */
+function ToolButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={label}
+            onClick={onClick}
+            className="text-muted-foreground hover:text-foreground"
+          />
+        }
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
   )
 }
 

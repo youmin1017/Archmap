@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
-import { History } from "lucide-react"
+import { ArrowUpRight, GitCommitHorizontal } from "lucide-react"
 
 import { AppTopBar } from "@/components/app-top-bar"
 import { StatePanel } from "@/components/state-panel"
@@ -27,6 +27,8 @@ export const Route = createFileRoute("/versions")({
 })
 
 const when = (iso: string) => new Date(iso).toLocaleString()
+const short = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
 
 /** Merged versions of main: browse any version read-only and see what each one changed. */
 function VersionBrowser() {
@@ -69,9 +71,13 @@ function VersionBrowser() {
     <div className="flex h-svh flex-col">
       <AppTopBar
         context={
-          <Badge variant="secondary">
-            <History data-icon="inline-start" aria-hidden /> Versions
-          </Badge>
+          <>
+            {selected !== undefined && (
+              <Badge variant="outline" className="font-mono">
+                v{selected}
+              </Badge>
+            )}
+          </>
         }
       />
 
@@ -88,45 +94,78 @@ function VersionBrowser() {
       )}
 
       {versions.isSuccess && current && selected !== undefined && (
-        <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[300px_minmax(0,1fr)]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[288px_minmax(0,1fr)]">
           <aside
-            className="min-h-0 overflow-y-auto border-r bg-sidebar p-3 text-sidebar-foreground"
+            className="flex min-h-0 flex-col overflow-y-auto border-r bg-sidebar text-sidebar-foreground"
             aria-label="Versions"
           >
-            <ol className="flex flex-col gap-1">
-              {list.map((x) => (
-                <li key={x.number}>
-                  <Link
-                    to="/versions"
-                    search={{ v: x.number }}
-                    aria-current={x.number === selected ? "true" : undefined}
-                    className={cn(
-                      "flex flex-col gap-0.5 rounded-xl border border-transparent px-3 py-2 text-sm hover:bg-accent",
-                      x.number === selected && "border-border bg-accent"
-                    )}
-                  >
-                    <span className="flex items-center gap-2">
-                      <span className="font-heading font-semibold tabular-nums">v{x.number}</span>
-                      {x.number === latest && <Badge variant="secondary">Current</Badge>}
-                    </span>
-                    <span className="line-clamp-2 text-muted-foreground">{x.summary || "No summary"}</span>
-                    <span className="text-xs text-muted-foreground">{when(x.merged_at)}</span>
-                  </Link>
-                </li>
-              ))}
+            <div className="flex items-center justify-between px-4 pt-4 pb-2">
+              <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">History</span>
+              <span className="text-[11px] text-muted-foreground tabular-nums">{list.length}</span>
+            </div>
+            {/* Timeline: a rail with one dot per merged version, newest first. */}
+            <ol className="relative flex flex-col px-2 pb-3 before:absolute before:top-3 before:bottom-6 before:left-[1.4rem] before:w-px before:bg-border">
+              {list.map((x) => {
+                const on = x.number === selected
+                return (
+                  <li key={x.number}>
+                    <Link
+                      to="/versions"
+                      search={{ v: x.number }}
+                      aria-current={on ? "true" : undefined}
+                      className={cn(
+                        "relative flex gap-3 rounded-lg py-2 pr-2 pl-2.5 text-sm transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                        on && "bg-primary/10 hover:bg-primary/15"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "relative z-10 mt-1 grid size-3.5 shrink-0 place-items-center rounded-full border-2 bg-sidebar",
+                          on ? "border-primary" : "border-muted-foreground/40"
+                        )}
+                        aria-hidden
+                      >
+                        {on && <span className="size-1.5 rounded-full bg-primary" />}
+                      </span>
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-semibold tabular-nums">v{x.number}</span>
+                          {x.number === latest && (
+                            <span className="rounded-full bg-emerald-500/15 px-1.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                              current
+                            </span>
+                          )}
+                          <span className="ml-auto text-[11px] text-muted-foreground">{short(x.merged_at)}</span>
+                        </span>
+                        <span className={cn("line-clamp-2", on ? "text-foreground" : "text-muted-foreground")}>
+                          {x.summary || "No summary"}
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                )
+              })}
             </ol>
           </aside>
 
           <section className="flex min-h-0 min-w-0 flex-col" aria-label={`Version ${selected}`}>
-            <div className="flex flex-wrap items-center gap-3 border-b px-4 py-2">
-              <h1 className="font-heading text-base font-semibold">Version {selected}</h1>
-              <span className="text-sm text-muted-foreground">merged {when(current.merged_at)}</span>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-2.5">
+              <span className="grid size-7 place-items-center rounded-lg border bg-card text-muted-foreground">
+                <GitCommitHorizontal className="size-4" aria-hidden />
+              </span>
+              <div className="flex min-w-0 flex-col">
+                <h1 className="font-heading text-[15px] leading-tight font-semibold tracking-tight">
+                  Version {selected}
+                  {current.summary && <span className="font-normal text-muted-foreground"> · {current.summary}</span>}
+                </h1>
+                <span className="text-xs text-muted-foreground">merged {when(current.merged_at)}</span>
+              </div>
               <Link
                 to="/changesets/$id"
                 params={{ id: current.changeset_id }}
-                className="text-sm text-muted-foreground underline-offset-2 hover:underline"
+                className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground"
               >
-                Open changeset
+                Changeset <ArrowUpRight className="size-3" aria-hidden />
               </Link>
               <div className="ml-auto flex items-center gap-2">
                 <Label htmlFor="compare-with" className="text-sm text-muted-foreground">
@@ -155,7 +194,7 @@ function VersionBrowser() {
             </div>
 
             <Tabs value={tab} onValueChange={setTab} className="min-h-0 flex-1 gap-0">
-              <div className="flex items-center gap-3 px-4 pt-3">
+              <div className="flex items-center gap-3 px-4 pt-3 pb-1">
                 <TabsList className="w-auto">
                   <TabsTrigger value="model">Model</TabsTrigger>
                   <TabsTrigger value="changes">Changes</TabsTrigger>
@@ -189,7 +228,7 @@ function VersionBrowser() {
                 )}
               </TabsContent>
 
-              <TabsContent value="changes" className="min-h-0 overflow-y-auto p-4">
+              <TabsContent value="changes" className="min-h-0 overflow-y-auto px-4 py-4">
                 {!hasBase && (
                   <p className="text-sm text-muted-foreground">This is the first version; nothing to compare with.</p>
                 )}
@@ -199,9 +238,16 @@ function VersionBrowser() {
                   </StatePanel>
                 )}
                 {hasBase && !diff.isError && (
-                  <div className="mx-auto flex max-w-2xl flex-col gap-3">
-                    <p className="text-sm text-muted-foreground">
-                      Going from v{compareWith} to v{selected}.
+                  <div className="flex max-w-3xl flex-col gap-4">
+                    <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                      Comparing
+                      <Badge variant="outline" className="font-mono">
+                        v{compareWith}
+                      </Badge>
+                      →
+                      <Badge variant="outline" className="font-mono">
+                        v{selected}
+                      </Badge>
                     </p>
                     <DiffView
                       diff={diff.data}

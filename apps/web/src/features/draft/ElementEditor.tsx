@@ -53,14 +53,6 @@ export function ElementEditor({
         }
       }}
     >
-      <div className="flex gap-1.5">
-        <Button type="submit" size="sm" disabled={!canSave}>
-          <Check aria-hidden /> Save
-        </Button>
-        <Button type="button" size="sm" variant="outline" onClick={onCancel}>
-          <X aria-hidden /> Cancel
-        </Button>
-      </div>
       <ElementFields
         form={form}
         layerOptions={layerOptions}
@@ -69,6 +61,18 @@ export function ElementEditor({
         canProtect={canProtect}
         compact
       />
+      {/* Pinned to the bottom of the scrolling panel so Save is always reachable. */}
+      <div className="sticky bottom-0 z-10 -mx-4 flex items-center gap-1.5 border-t bg-sidebar/95 px-4 py-3 backdrop-blur">
+        <span className="mr-auto text-[11px] text-muted-foreground">
+          <kbd className="font-mono">Enter</kbd> save · <kbd className="font-mono">Esc</kbd> cancel
+        </span>
+        <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
+          <X aria-hidden /> Cancel
+        </Button>
+        <Button type="submit" size="sm" disabled={!canSave}>
+          <Check aria-hidden /> Save
+        </Button>
+      </div>
     </form>
   )
 }
