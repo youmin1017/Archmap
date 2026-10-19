@@ -1,16 +1,18 @@
 import { Link } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { getHealth } from "@archmap/api-client"
-import { Network } from "lucide-react"
+import { GitPullRequest, History, LayoutGrid, Network, Users } from "lucide-react"
 
 import "@/lib/api"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { devUsers, setDevUser } from "@/lib/dev-user"
+import { cn } from "@/lib/utils"
 import { useMe } from "@/features/draft/queries"
 
 const navLink =
-  "rounded-lg px-2.5 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
+  "inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-[current=page]:bg-muted aria-[current=page]:text-foreground [&_svg]:size-3.5"
 
 /** Dev-only: switch between the seeded users (viewer / editor / maintainer). */
 function DevUserSwitcher() {
@@ -28,7 +30,10 @@ function DevUserSwitcher() {
       }}
       items={devUsers.map((u) => ({ value: u, label: u.split("@")[0] ?? u }))}
     >
-      <SelectTrigger size="sm" aria-label="Acting as (dev only)" className="w-36">
+      <SelectTrigger size="sm" aria-label="Acting as (dev only)" className="w-32 gap-1">
+        <span className="rounded-sm bg-amber-500/15 px-1 font-mono text-[10px] font-semibold text-amber-700 uppercase dark:text-amber-400">
+          dev
+        </span>
         <SelectValue placeholder="user" />
       </SelectTrigger>
       <SelectContent>
@@ -42,43 +47,83 @@ function DevUserSwitcher() {
   )
 }
 
-/** Persistent top bar: brand, navigation, current context, API status, user, theme. */
-export function AppTopBar({ context }: { context?: React.ReactNode }) {
-  const me = useMe()
+/** API health as a status dot; the details are in the tooltip. */
+function ApiStatus() {
   const health = useQuery({
     queryKey: ["health"],
     queryFn: async () => (await getHealth({ throwOnError: true })).data,
   })
+  const label = health.isPending
+    ? "API: checking…"
+    : health.isError
+      ? "API unreachable"
+      : `API: ${health.data.status} · ${health.data.version}`
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={<span role="status" aria-live="polite" aria-label={label} />}
+        className="hidden size-7 items-center justify-center sm:inline-flex"
+      >
+        <span
+          className={cn(
+            "size-2 rounded-full",
+            health.isPending && "animate-pulse bg-muted-foreground/50",
+            health.isError && "bg-destructive",
+            health.isSuccess && "bg-emerald-500 shadow-[0_0_0_3px] shadow-emerald-500/20"
+          )}
+        />
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+/** Persistent top bar: brand, navigation, current context (breadcrumb), API status, user, theme. */
+export function AppTopBar({ context }: { context?: React.ReactNode }) {
+  const me = useMe()
 
   return (
-    <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-2">
-      <Link to="/" className="flex items-center gap-2">
-        <Network className="size-5 text-primary" aria-hidden />
-        <span className="font-heading text-lg font-semibold">Archmap</span>
+    <header className="flex h-12 shrink-0 items-center gap-2 border-b bg-background px-3">
+      <Link
+        to="/"
+        className="flex items-center gap-2 rounded-md pr-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
+        <span className="grid size-7 place-items-center rounded-lg bg-linear-to-br from-primary to-[oklch(0.55_0.2_300)] text-primary-foreground shadow-sm">
+          <Network className="size-4" aria-hidden />
+        </span>
+        <span className="hidden font-heading text-[15px] font-semibold tracking-tight sm:inline">Archmap</span>
       </Link>
-      <nav aria-label="Main" className="flex items-center gap-1">
+
+      <span className="mx-1 h-5 w-px bg-border" aria-hidden />
+
+      <nav aria-label="Main" className="flex items-center gap-0.5">
         <Link to="/" activeOptions={{ exact: true }} className={navLink}>
-          Main
+          <LayoutGrid aria-hidden /> <span className="hidden md:inline">Main</span>
         </Link>
         <Link to="/changesets" className={navLink}>
-          Changesets
+          <GitPullRequest aria-hidden /> <span className="hidden md:inline">Changesets</span>
         </Link>
         <Link to="/versions" className={navLink}>
-          Versions
+          <History aria-hidden /> <span className="hidden md:inline">Versions</span>
         </Link>
         {me.data?.role === "maintainer" && (
           <Link to="/users" className={navLink}>
-            Users
+            <Users aria-hidden /> <span className="hidden md:inline">Users</span>
           </Link>
         )}
       </nav>
-      {context && <div className="flex items-center gap-2">{context}</div>}
-      <div className="ml-auto flex items-center gap-3">
-        <span className="hidden text-xs text-muted-foreground sm:inline" aria-live="polite">
-          {health.isPending && "API: checking…"}
-          {health.isError && "API unreachable"}
-          {health.isSuccess && `API: ${health.data.status} · ${health.data.version}`}
-        </span>
+
+      {context && (
+        <div className="flex min-w-0 items-center gap-2 text-sm" aria-label="Current context">
+          <span className="text-muted-foreground/50 select-none" aria-hidden>
+            /
+          </span>
+          {context}
+        </div>
+      )}
+
+      <div className="ml-auto flex items-center gap-1.5">
+        <ApiStatus />
         {import.meta.env.DEV && <DevUserSwitcher />}
         <ThemeToggle />
       </div>

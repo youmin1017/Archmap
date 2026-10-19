@@ -41,7 +41,7 @@ export function ElementDialog(props: Props) {
   // Remount the form whenever the dialog opens so fields start fresh.
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="sm:max-w-md">{props.open && <NewElementForm {...props} />}</DialogContent>
+      <DialogContent className="sm:max-w-xl">{props.open && <NewElementForm {...props} />}</DialogContent>
     </Dialog>
   )
 }
@@ -65,7 +65,7 @@ function NewElementForm({
 
   return (
     <form
-      className="-mx-1 flex max-h-[85vh] flex-col gap-4 overflow-y-auto px-1"
+      className="flex max-h-[85vh] min-h-0 flex-col gap-4"
       onSubmit={(e) => {
         e.preventDefault()
         if (canSubmit) onSubmit(form.values())
@@ -76,15 +76,23 @@ function NewElementForm({
         <DialogDescription>The element is added to this draft, not to main.</DialogDescription>
       </DialogHeader>
 
-      <ElementFields
-        form={form}
-        layerOptions={layerOptions}
-        projectOptions={projectOptions}
-        technologyOptions={technologyOptions}
-        canProtect={canProtect}
-      />
+      {/* Only the fields scroll; the header and the buttons stay in view. */}
+      <div className="-mx-4 min-h-0 flex-1 overflow-y-auto px-4 pb-1">
+        <ElementFields
+          form={form}
+          layerOptions={layerOptions}
+          projectOptions={projectOptions}
+          technologyOptions={technologyOptions}
+          canProtect={canProtect}
+        />
+      </div>
 
-      <DialogFooter>
+      <DialogFooter className="items-center">
+        {!form.canSubmit && (
+          <span className="mr-auto hidden text-xs text-muted-foreground sm:inline">
+            {!form.nameValid ? "Name the element to add it." : "Fix the highlighted fields to add it."}
+          </span>
+        )}
         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
           Cancel
         </Button>

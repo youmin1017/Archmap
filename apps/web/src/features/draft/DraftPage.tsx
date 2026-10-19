@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "@tanstack/react-router"
 import { toast } from "sonner"
-import { CircleAlert, GitMerge, Plus, Redo2, TriangleAlert, Undo2 } from "lucide-react"
+import { ChevronDown, CircleAlert, GitCompare, GitMerge, Lock, Plus, Redo2, TriangleAlert, Undo2 } from "lucide-react"
 import type { Element, ElementKind, Relation } from "@archmap/api-client"
 
 import { AppTopBar } from "@/components/app-top-bar"
@@ -26,10 +26,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { NumberTicker } from "@/components/ui/number-ticker"
-import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Label } from "@/components/ui/label"
+import { Toggle } from "@/components/ui/toggle"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { technologySuggestions } from "@/components/tech-icon/catalog"
+import { cn } from "@/lib/utils"
 import { hostIds } from "../canvas/deployment"
 import { PropertyPanel } from "../canvas/PropertyPanel"
 import { allProjects, ancestorIds, buildTree, descendantCount } from "../canvas/graph"
@@ -75,6 +76,7 @@ import { layerViolation, onLayer, removeLayerFrom, renameLayerIn, shiftLayer, vi
 import { ViewTabs } from "../views/ViewTabs"
 import { useViewWorkspace } from "../views/useViewWorkspace"
 import { ReviewPanel } from "./ReviewPanel"
+import { StatusBadge } from "./StatusBadge"
 import { capabilities, statusLabel, undoRedoState, workflowActions, type WorkflowAction } from "./workflow"
 
 const actionLabel: Record<WorkflowAction, string> = {
@@ -407,125 +409,28 @@ export function DraftPage({
         context={
           cs && (
             <>
-              <Badge variant="secondary" aria-label="Current context">
-                Draft “{cs.title}”
+              <span className="max-w-[16rem] truncate font-medium" title={cs.title}>
+                {cs.title}
+              </span>
+              <StatusBadge status={cs.status} />
+              <Badge variant="outline" className="hidden font-mono text-muted-foreground lg:inline-flex">
+                base v{cs.base_version}
               </Badge>
-              <Badge variant="outline">{statusLabel[cs.status]}</Badge>
-              <span className="text-xs text-muted-foreground">based on v{cs.base_version}</span>
-              {diff.data?.stale && <Badge variant="outline">Main moved on</Badge>}
+              {diff.data?.stale && (
+                <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-400">
+                  Main moved on
+                </Badge>
+              )}
+              {!editable && (
+                <Badge variant="secondary" className="hidden text-muted-foreground lg:inline-flex">
+                  <Lock data-icon="inline-start" aria-hidden />
+                  {cs.status === "draft" ? "Not your draft" : "Read-only"}
+                </Badge>
+              )}
             </>
           )
         }
       />
-
-      {/* Draft bar: edit tools, lint status and the review workflow. */}
-      <div
-        className="flex flex-wrap items-center gap-2 border-b bg-muted/30 px-4 py-1.5"
-        role="toolbar"
-        aria-label="Draft actions"
-      >
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button size="sm" disabled={!editable} />}>
-            <Plus aria-hidden /> Add element
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Kind</DropdownMenuLabel>
-              {kinds.map((k) => {
-                const Icon = kindMeta[k].icon
-                return (
-                  <DropdownMenuItem
-                    key={k}
-                    onClick={() => {
-                      const sel = useCanvasStore.getState().selectedId
-                      setElementDialog({ kind: k, parentId: sel && !isGhost(sel) ? sel : null })
-                    }}
-                  >
-                    <Icon aria-hidden /> {kindMeta[k].label}
-                  </DropdownMenuItem>
-                )
-              })}
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!editable || !canUndo || busy}
-          onClick={() => undo.mutate()}
-          title="Undo (Ctrl+Z)"
-        >
-          <Undo2 aria-hidden /> Undo
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!editable || !canRedo || busy}
-          onClick={() => redo.mutate()}
-          title="Redo (Ctrl+Shift+Z)"
-        >
-          <Redo2 aria-hidden /> Redo
-        </Button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setTab("review")
-            setReviewTab("lint")
-          }}
-          className="ml-2 flex items-center gap-3 rounded-lg px-2 py-1 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          aria-label={`Lint: ${lintErrors} errors, ${lintWarnings} warnings. Show lint panel`}
-        >
-          <span className="flex items-center gap-1 text-destructive">
-            <CircleAlert className="size-4" aria-hidden />
-            <NumberTicker value={lintErrors} className="text-destructive tabular-nums" />
-            <span className="text-xs">errors</span>
-          </span>
-          <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
-            <TriangleAlert className="size-4" aria-hidden />
-            <NumberTicker value={lintWarnings} className="text-amber-600 tabular-nums dark:text-amber-400" />
-            <span className="text-xs">warnings</span>
-          </span>
-        </button>
-
-        <div className="flex items-center gap-2">
-          <Switch id="diff-overlay" checked={showDiff} onCheckedChange={setShowDiff} />
-          <Label htmlFor="diff-overlay" className="text-sm">
-            Diff overlay
-          </Label>
-        </div>
-
-        <div className="ml-auto flex items-center gap-1.5">
-          {!editable && cs && (
-            <span className="text-xs text-muted-foreground">
-              {cs.status === "draft"
-                ? "Read-only: not your draft"
-                : `Read-only: ${statusLabel[cs.status].toLowerCase()}`}
-            </span>
-          )}
-          {actions.map((a) => (
-            <Button
-              key={a.action}
-              size="sm"
-              variant={a.action === "merge" || a.action === "submit" ? "default" : "outline"}
-              disabled={
-                !a.enabled ||
-                submit.isPending ||
-                approve.isPending ||
-                reject.isPending ||
-                abandon.isPending ||
-                merge.isPending
-              }
-              title={a.reason}
-              onClick={() => runAction(a.action)}
-            >
-              {a.action === "merge" && <GitMerge aria-hidden />}
-              {actionLabel[a.action]}
-            </Button>
-          ))}
-        </div>
-      </div>
 
       {model.isSuccess && (
         <ViewTabs
@@ -534,6 +439,124 @@ export function DraftPage({
           onSelect={onViewChange}
           model={model.data}
           activeModel={ws.viewModel}
+          actions={
+            /* Draft tools, lint status and the review workflow. */
+            <div className="flex items-center gap-1.5" role="toolbar" aria-label="Draft actions">
+              {editable && (
+                <>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger render={<Button size="sm" variant="outline" />}>
+                      <Plus aria-hidden /> <span className="hidden lg:inline">Add</span>
+                      <ChevronDown aria-hidden className="text-muted-foreground" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuGroup>
+                        <DropdownMenuLabel>Add element</DropdownMenuLabel>
+                        {kinds.map((k) => {
+                          const Icon = kindMeta[k].icon
+                          return (
+                            <DropdownMenuItem
+                              key={k}
+                              onClick={() => {
+                                const sel = useCanvasStore.getState().selectedId
+                                setElementDialog({ kind: k, parentId: sel && !isGhost(sel) ? sel : null })
+                              }}
+                            >
+                              <Icon aria-hidden style={{ color: `var(--kind-${k})` }} /> {kindMeta[k].label}
+                            </DropdownMenuItem>
+                          )
+                        })}
+                      </DropdownMenuGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <div className="flex items-center">
+                    <IconAction
+                      label="Undo"
+                      shortcut="Ctrl+Z"
+                      disabled={!canUndo || busy}
+                      onClick={() => undo.mutate()}
+                    >
+                      <Undo2 aria-hidden />
+                    </IconAction>
+                    <IconAction
+                      label="Redo"
+                      shortcut="Ctrl+Shift+Z"
+                      disabled={!canRedo || busy}
+                      onClick={() => redo.mutate()}
+                    >
+                      <Redo2 aria-hidden />
+                    </IconAction>
+                  </div>
+                </>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTab("review")
+                  setReviewTab("lint")
+                }}
+                className="flex h-7 items-center gap-2.5 rounded-md border px-2 text-xs tabular-nums transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                aria-label={`Lint: ${lintErrors} errors, ${lintWarnings} warnings. Show lint panel`}
+                title="Lint: errors and warnings"
+              >
+                <span
+                  className={cn(
+                    "flex items-center gap-1",
+                    lintErrors > 0 ? "text-destructive" : "text-muted-foreground"
+                  )}
+                >
+                  <CircleAlert className="size-3.5" aria-hidden />
+                  <NumberTicker value={lintErrors} className="text-current tabular-nums" />
+                </span>
+                <span
+                  className={cn(
+                    "flex items-center gap-1",
+                    lintWarnings > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
+                  )}
+                >
+                  <TriangleAlert className="size-3.5" aria-hidden />
+                  <NumberTicker value={lintWarnings} className="text-current tabular-nums" />
+                </span>
+              </button>
+
+              <Toggle
+                size="sm"
+                variant="outline"
+                pressed={showDiff}
+                onPressedChange={setShowDiff}
+                aria-label="Diff overlay"
+                title="Highlight what this draft changes on the canvas"
+              >
+                <GitCompare aria-hidden /> <span className="hidden lg:inline">Diff</span>
+              </Toggle>
+
+              {actions.length > 0 && <span className="mx-0.5 h-5 w-px bg-border" aria-hidden />}
+              {actions.map((a) => (
+                <Button
+                  key={a.action}
+                  size="sm"
+                  variant={
+                    a.action === "merge" || a.action === "submit" || a.action === "approve" ? "default" : "ghost"
+                  }
+                  disabled={
+                    !a.enabled ||
+                    submit.isPending ||
+                    approve.isPending ||
+                    reject.isPending ||
+                    abandon.isPending ||
+                    merge.isPending
+                  }
+                  title={a.reason}
+                  onClick={() => runAction(a.action)}
+                >
+                  {a.action === "merge" && <GitMerge aria-hidden />}
+                  {actionLabel[a.action]}
+                </Button>
+              ))}
+            </div>
+          }
         />
       )}
 
@@ -574,9 +597,18 @@ export function DraftPage({
           menu={menu}
           renderPanel={(tree) => (
             <Tabs value={tab} onValueChange={setTab} className="h-full min-h-0 gap-0">
-              <TabsList className="mx-3 mt-3 w-auto">
-                <TabsTrigger value="details">Details</TabsTrigger>
-                <TabsTrigger value="review">Review</TabsTrigger>
+              <TabsList variant="line" className="h-11! w-full shrink-0 justify-start gap-3 border-b px-3">
+                <TabsTrigger value="details" className="flex-none">
+                  Details
+                </TabsTrigger>
+                <TabsTrigger value="review" className="flex-none">
+                  Review
+                  {lintErrors + lintWarnings > 0 && (
+                    <span className="rounded-full bg-muted px-1.5 text-[10px] tabular-nums">
+                      {lintErrors + lintWarnings}
+                    </span>
+                  )}
+                </TabsTrigger>
               </TabsList>
               <div className="min-h-0 flex-1 overflow-y-auto">
                 <TabsContent value="details">
@@ -739,6 +771,35 @@ export function DraftPage({
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  )
+}
+
+/** Icon-only toolbar button with a tooltip (label + keyboard shortcut). */
+function IconAction({
+  label,
+  shortcut,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string
+  shortcut?: string
+  disabled?: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={<Button size="icon-sm" variant="ghost" aria-label={label} disabled={disabled} onClick={onClick} />}
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        {label}
+        {shortcut && <kbd className="font-mono text-[10px] opacity-60">{shortcut}</kbd>}
+      </TooltipContent>
+    </Tooltip>
   )
 }
 

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { Boxes, Component, Globe, Layers, ListChecks, Network, Server, type LucideIcon } from "lucide-react"
 import type { Element, ElementKind, View, ViewInput, ViewKind } from "@archmap/api-client"
 
 import { Button } from "@/components/ui/button"
@@ -14,20 +15,30 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { cn } from "@/lib/utils"
 import { kindMeta } from "../canvas/kind"
 import { LayersEditor, defaultLayers } from "./LayersEditor"
 
 export const viewKinds: {
   value: ViewKind
   label: string
+  icon: LucideIcon
   hint: string
   scope: "none" | "required" | "optional"
   scopeKinds: ElementKind[]
 }[] = [
-  { value: "landscape", label: "Landscape", hint: "All people and systems.", scope: "none", scopeKinds: [] },
+  {
+    value: "landscape",
+    label: "Landscape",
+    icon: Globe,
+    hint: "All people and systems.",
+    scope: "none",
+    scopeKinds: [],
+  },
   {
     value: "context",
     label: "System context",
+    icon: Network,
     hint: "One system and the people and systems it talks to.",
     scope: "required",
     scopeKinds: ["system"],
@@ -35,6 +46,7 @@ export const viewKinds: {
   {
     value: "container",
     label: "Containers",
+    icon: Boxes,
     hint: "The containers of one system and what they connect to.",
     scope: "required",
     scopeKinds: ["system"],
@@ -42,6 +54,7 @@ export const viewKinds: {
   {
     value: "component",
     label: "Components",
+    icon: Component,
     hint: "The components of one container and its neighbours.",
     scope: "required",
     scopeKinds: ["container"],
@@ -49,14 +62,23 @@ export const viewKinds: {
   {
     value: "deployment",
     label: "Deployment",
+    icon: Server,
     hint: "Infrastructure nodes and what runs on them.",
     scope: "optional",
     scopeKinds: ["node"],
   },
-  { value: "custom", label: "Custom", hint: "A hand-picked set of elements.", scope: "none", scopeKinds: [] },
+  {
+    value: "custom",
+    label: "Custom",
+    icon: ListChecks,
+    hint: "A hand-picked set of elements.",
+    scope: "none",
+    scopeKinds: [],
+  },
   {
     value: "layers",
     label: "Layers",
+    icon: Layers,
     hint: "Flat plans stacked per layer, browsable one layer at a time, e.g. User, Services, Kubernetes, Physical.",
     scope: "none",
     scopeKinds: [],
@@ -97,6 +119,7 @@ function ViewForm({ elements, view, members, pending, onOpenChange, onSubmit }: 
   const [layers, setLayers] = useState<string[]>(view?.layers.length ? view.layers : defaultLayers)
   const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set(members ?? []))
   const [filter, setFilter] = useState("")
+  const [touched, setTouched] = useState(false)
 
   const spec = viewKinds.find((k) => k.value === kind)!
   const scopeOptions = useMemo(
@@ -149,36 +172,47 @@ function ViewForm({ elements, view, members, pending, onOpenChange, onSubmit }: 
         </DialogDescription>
       </DialogHeader>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="view-kind">Kind</Label>
-        <Select
-          value={kind}
-          onValueChange={(v) => changeKind(v as ViewKind)}
-          items={viewKinds.map((k) => ({ value: k.value, label: k.label }))}
-        >
-          <SelectTrigger id="view-kind" className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {viewKinds.map((k) => (
-              <SelectItem key={k.value} value={k.value}>
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className="mb-1.5 text-sm leading-none font-medium">Kind</legend>
+        {/* Kind picker as cards: every option visible at once, with its icon. */}
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4" role="radiogroup" aria-label="View kind">
+          {viewKinds.map((k) => {
+            const on = k.value === kind
+            const Icon = k.icon
+            return (
+              <button
+                key={k.value}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => changeKind(k.value)}
+                title={k.hint}
+                className={cn(
+                  "flex flex-col items-start gap-1.5 rounded-lg border p-2.5 text-left text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  on ? "border-primary bg-primary/5 ring-3 ring-primary/15" : "hover:bg-muted/60"
+                )}
+              >
+                <Icon className={cn("size-4", on ? "text-primary" : "text-muted-foreground")} aria-hidden />
                 {k.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+              </button>
+            )
+          })}
+        </div>
         <p className="text-xs text-muted-foreground">{spec.hint}</p>
-      </div>
+      </fieldset>
 
       {spec.scope !== "none" && (
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="view-scope">{spec.scopeKinds.map((k) => kindMeta[k].label).join(" / ")}</Label>
           <Select
             value={scope ?? (spec.scope === "optional" ? WHOLE : "")}
-            onValueChange={(v) => setScope(v === WHOLE || !v ? null : v)}
+            onValueChange={(v) => {
+              setScope(v === WHOLE || !v ? null : v)
+              setTouched(true)
+            }}
             items={scopeItems}
           >
-            <SelectTrigger id="view-scope" className="w-full" aria-invalid={!scopeValid}>
+            <SelectTrigger id="view-scope" className="w-full" aria-invalid={touched && !scopeValid}>
               <SelectValue placeholder={`Choose a ${spec.scopeKinds[0]}`} />
             </SelectTrigger>
             <SelectContent>
@@ -197,7 +231,15 @@ function ViewForm({ elements, view, members, pending, onOpenChange, onSubmit }: 
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="view-name">Name</Label>
-        <Input id="view-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus maxLength={120} />
+        <Input
+          id="view-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => setTouched(true)}
+          autoFocus
+          maxLength={120}
+          placeholder={`e.g. ${scopeOptions.find((e) => e.id === scope)?.name ?? "Shop"} ${spec.label.toLowerCase()}`}
+        />
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -218,12 +260,12 @@ function ViewForm({ elements, view, members, pending, onOpenChange, onSubmit }: 
             placeholder="Filter elements"
             aria-label="Filter elements"
           />
-          <ul className="max-h-48 overflow-y-auto rounded-xl border p-1">
+          <ul className="max-h-48 overflow-y-auto rounded-lg border p-1">
             {memberOptions.map((e) => {
               const Icon = kindMeta[e.kind].icon
               return (
                 <li key={e.id}>
-                  <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-accent">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-muted">
                     <input
                       type="checkbox"
                       checked={picked.has(e.id)}
@@ -245,7 +287,12 @@ function ViewForm({ elements, view, members, pending, onOpenChange, onSubmit }: 
         </fieldset>
       )}
 
-      <DialogFooter>
+      <DialogFooter className="items-center">
+        {!canSubmit && !pending && (
+          <span className="mr-auto hidden text-xs text-muted-foreground sm:inline">
+            {!scopeValid ? `Choose a ${spec.scopeKinds[0]} first.` : "Give the view a name."}
+          </span>
+        )}
         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
           Cancel
         </Button>

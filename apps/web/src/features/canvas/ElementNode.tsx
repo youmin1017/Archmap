@@ -1,14 +1,22 @@
 import { memo } from "react"
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react"
 import { ChevronDown, ChevronRight, CircleAlert, Lock, TriangleAlert } from "lucide-react"
-import { useReducedMotion } from "motion/react"
 import type { Element } from "@archmap/api-client"
 
-import { BorderBeam } from "@/components/ui/border-beam"
 import { TechBadge } from "@/components/tech-icon/tech-icon"
 import { cn } from "@/lib/utils"
 import { kindColor, kindMeta } from "./kind"
-import { DatabaseShape, endpointOf, HostBadge, ReplicaBackdrop, ReplicaBadge, type ShapeTone } from "./shapes"
+import {
+  cardClass,
+  DatabaseShape,
+  DiffMark,
+  endpointOf,
+  HostBadge,
+  KindTile,
+  ReplicaBackdrop,
+  ReplicaBadge,
+  type ShapeTone,
+} from "./shapes"
 import type { DiffStatus, LintSeverity } from "./decor"
 import { useCanvasStore } from "./store"
 
@@ -37,7 +45,7 @@ function ExpandButton({ element, childCount, expanded }: { element: Element; chi
     <button
       type="button"
       // nodrag / nopan: clicking the control must not start a drag or pan.
-      className="nodrag nopan inline-flex shrink-0 items-center gap-0.5 rounded-md border bg-background/80 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      className="nodrag nopan inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-[11px] text-muted-foreground tabular-nums transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       aria-expanded={expanded}
       aria-label={`${expanded ? "Collapse" : "Expand"} ${element.name} (${childCount} ${childCount === 1 ? "child" : "children"})`}
       onClick={(e) => {
@@ -53,7 +61,6 @@ function ExpandButton({ element, childCount, expanded }: { element: Element; chi
 
 function ElementNodeImpl({ data, selected }: NodeProps<ElementFlowNode>) {
   const { element, childCount, expanded, dimmed, diff, lint, hosts, editable } = data
-  const reducedMotion = useReducedMotion()
   const { icon: KindIcon, label } = kindMeta[element.kind]
   const isContainer = expanded && childCount > 0
   const db = element.kind === "database"
@@ -78,15 +85,11 @@ function ElementNodeImpl({ data, selected }: NodeProps<ElementFlowNode>) {
         aria-label={`${label} ${element.name}${diff ? ` (${diff})` : ""}`}
         style={{ "--kind": kindColor(element.kind) } as React.CSSProperties}
         className={cn(
-          "relative h-full w-full overflow-hidden text-card-foreground transition-[opacity,box-shadow] duration-200",
-          !db && "border border-(--kind)/40 bg-card shadow-sm",
-          !db && "rounded-xl border-l-4 border-l-(--kind)",
-          isContainer && "bg-card/50 shadow-none",
-          !db && selected && "ring-2 ring-primary ring-offset-1 ring-offset-background",
-          !db && diff === "added" && "outline-2 outline-offset-2 outline-emerald-500",
-          !db && diff === "modified" && "outline-2 outline-offset-2 outline-amber-500",
-          diff === "removed" &&
-            (db ? "opacity-60" : "border-dashed opacity-60 outline-2 outline-offset-2 outline-red-500"),
+          "relative h-full w-full overflow-hidden text-card-foreground duration-200",
+          !db && cardClass(tone),
+          // An expanded container is a quiet frame around its children.
+          isContainer && "bg-muted/25 shadow-none dark:bg-card/40",
+          db && diff === "removed" && "opacity-60",
           dimmed && "opacity-30"
         )}
       >
@@ -107,10 +110,11 @@ function ElementNodeImpl({ data, selected }: NodeProps<ElementFlowNode>) {
         )}
 
         {isContainer ? (
-          <div className="flex h-11 items-center gap-2 border-b px-3">
-            <KindIcon className="size-4 shrink-0 text-(--kind)" aria-hidden />
+          <div className="flex h-11 items-center gap-2 border-b bg-card/60 px-3">
+            <KindTile icon={KindIcon} />
             <span className="truncate font-heading text-sm font-semibold">{element.name}</span>
             {element.protected && <Lock className="size-3 shrink-0 text-muted-foreground" aria-label="Protected" />}
+            <DiffMark diff={diff} />
             <TechBadge technology={element.technology} className="ml-auto" />
             <ExpandButton element={element} childCount={childCount} expanded />
           </div>
@@ -119,9 +123,10 @@ function ElementNodeImpl({ data, selected }: NodeProps<ElementFlowNode>) {
             className={cn("relative flex h-full flex-col justify-between gap-1 px-3 py-2.5", db && "justify-end pt-8")}
           >
             <div className="flex items-center gap-2">
-              <KindIcon className="size-4 shrink-0 text-(--kind)" aria-hidden />
+              <KindTile icon={KindIcon} />
               <span className="truncate font-heading text-sm font-semibold">{element.name}</span>
               {element.protected && <Lock className="size-3 shrink-0 text-muted-foreground" aria-label="Protected" />}
+              <DiffMark diff={diff} />
               {childCount > 0 && (
                 <span className="ml-auto">
                   <ExpandButton element={element} childCount={childCount} expanded={false} />
@@ -137,7 +142,7 @@ function ElementNodeImpl({ data, selected }: NodeProps<ElementFlowNode>) {
               {element.tags.slice(0, hosts.length > 0 ? 1 : 2).map((t) => (
                 <span
                   key={t}
-                  className="truncate rounded-full bg-muted px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground"
+                  className="truncate rounded bg-muted px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground"
                 >
                   {t}
                 </span>
@@ -145,9 +150,6 @@ function ElementNodeImpl({ data, selected }: NodeProps<ElementFlowNode>) {
             </div>
           </div>
         )}
-
-        {/* Effects are limited to the selected protected node and respect reduced motion. */}
-        {selected && element.protected && !reducedMotion && <BorderBeam size={80} duration={6} />}
       </div>
     </div>
   )
