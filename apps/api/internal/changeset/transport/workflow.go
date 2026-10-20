@@ -45,6 +45,22 @@ func toDiff(res changeset.DiffResult, stale bool) api.Diff {
 			Before: modeltransport.ToRelation(m.Before), After: modeltransport.ToRelation(m.After), Fields: toFieldChanges(m.Fields),
 		}
 	}
+	out.Owners.Added = modeltransport.ToOwners(d.AddedOwners)
+	out.Owners.Removed = modeltransport.ToOwners(d.RemovedOwners)
+	out.Owners.Modified = make([]api.OwnerModification, len(d.ModifiedOwners))
+	for i, m := range d.ModifiedOwners {
+		out.Owners.Modified[i] = api.OwnerModification{
+			Before: modeltransport.ToOwner(m.Before), After: modeltransport.ToOwner(m.After), Fields: toFieldChanges(m.Fields),
+		}
+	}
+	out.Ownerships.Added = modeltransport.ToOwnerships(d.AddedOwnerships)
+	out.Ownerships.Removed = modeltransport.ToOwnerships(d.RemovedOwnerships)
+	out.Ownerships.Modified = make([]api.OwnershipModification, len(d.ModifiedOwnerships))
+	for i, m := range d.ModifiedOwnerships {
+		out.Ownerships.Modified[i] = api.OwnershipModification{
+			Before: modeltransport.ToOwnership(m.Before), After: modeltransport.ToOwnership(m.After), Fields: toFieldChanges(m.Fields),
+		}
+	}
 	return out
 }
 
@@ -143,6 +159,7 @@ func (h *Handler) ListVersions(ctx context.Context, _ api.ListVersionsRequestObj
 	for i, v := range versions {
 		out[i] = api.Version{
 			Number: v.Number, ChangesetId: v.ChangesetID, MergedBy: v.MergedBy, MergedAt: modeltransport.UTC(v.MergedAt), Summary: v.Summary,
+			Kind: changesetKind(v.Kind), Reverts: v.Reverts,
 		}
 	}
 	return api.ListVersions200JSONResponse{Versions: out}, nil

@@ -24,17 +24,131 @@ export type Role = 'viewer' | 'editor' | 'maintainer';
 
 export type Me = {
     id: string;
+    /**
+     * Contact email; empty when unknown
+     */
     email: string;
     name: string;
     role: Role;
+    /**
+     * The provider this session signed in with
+     */
+    provider: string;
+    /**
+     * The local password was set by a maintainer and must be changed now.
+     */
+    password_must_change: boolean;
+};
+
+export type Session = {
+    me: Me;
+    /**
+     * Send as X-CSRF-Token on unsafe requests
+     */
+    csrf_token: string;
+    /**
+     * Absolute expiry (idle expiry may come sooner)
+     */
+    expires_at: string;
+};
+
+export type AuthProviderKind = 'password' | 'redirect';
+
+export type AuthProvider = {
+    id: string;
+    name: string;
+    kind: AuthProviderKind;
+    /**
+     * Only maintainers may use it (local password once SSO is the default).
+     */
+    restricted: boolean;
+    /**
+     * Password-kind provider that takes no password (development sign-in).
+     */
+    username_only: boolean;
+};
+
+export type AuthProviderList = {
+    providers: Array<AuthProvider>;
+};
+
+export type LoginRequest = {
+    provider: string;
+    username: string;
+    password?: string;
+};
+
+export type ChangePasswordRequest = {
+    current_password: string;
+    new_password: string;
 };
 
 export type User = {
     id: string;
+    /**
+     * Contact email; empty when unknown
+     */
     email: string;
     name: string;
     role: Role;
     created_at: string;
+    disabled: boolean;
+    last_login_at?: string | null;
+    identity_count: number;
+};
+
+export type CreateUserRequest = {
+    name: string;
+    /**
+     * Also the local sign-in name
+     */
+    email: string;
+    role: Role;
+    password?: string;
+};
+
+export type CreatedUser = {
+    user: User;
+    /**
+     * Present only when the server generated the password
+     */
+    temporary_password?: string;
+};
+
+export type PasswordResetRequest = {
+    password?: string;
+};
+
+export type PasswordResetResult = {
+    /**
+     * Present only when the server generated the password
+     */
+    temporary_password?: string;
+};
+
+export type Identity = {
+    id: string;
+    provider: string;
+    issuer: string;
+    subject: string;
+    /**
+     * As reported at the last sign-in; informational only
+     */
+    email: string;
+    created_at: string;
+    last_login_at?: string | null;
+};
+
+export type IdentityList = {
+    identities: Array<Identity>;
+};
+
+export type LinkIdentityRequest = {
+    /**
+     * A configured external provider id
+     */
+    provider: string;
+    subject: string;
 };
 
 export type UserList = {
@@ -45,7 +159,136 @@ export type SetRoleRequest = {
     role: Role;
 };
 
-export type ElementKind = 'person' | 'system' | 'container' | 'component' | 'node' | 'database';
+/**
+ * `database` was retired in M10 (ADR-062): it is still accepted in change patches and
+ * normalized to a `container` of type `database`, but never returned.
+ *
+ */
+export type ElementKind = 'person' | 'system' | 'container' | 'component' | 'node';
+
+/**
+ * Refines the kind; datastore types are drawn as cylinders. Empty = none.
+ */
+export type ElementType = '' | 'database-server' | 'database' | 'schema' | 'cache' | 'queue' | 'proxy';
+
+/**
+ * Empty = inherited from the ancestors (see effective.environment).
+ */
+export type Environment = '' | 'prod' | 'staging' | 'dev';
+
+export type Lifecycle = 'active' | 'deprecated' | 'planned';
+
+export type Criticality = '' | 'low' | 'medium' | 'high' | 'critical';
+
+/**
+ * team / person are named owners without an account; user / group point at a login user or a group (principal_id).
+ */
+export type OwnerKind = 'team' | 'person' | 'user' | 'group';
+
+export type OwnerRole = 'owner' | 'maintainer' | 'oncall' | 'escalation';
+
+/**
+ * A team or person accountable for elements. Model data (changes go through drafts); not a login user.
+ */
+export type Owner = {
+    id: string;
+    kind: OwnerKind;
+    name: string;
+    /**
+     * Email, chat channel or similar
+     */
+    contact: string;
+    /**
+     * http(s) URL or empty
+     */
+    oncall_url: string;
+    /**
+     * The user or group of a user / group owner (null for named owners). Its id is derived
+     * from principal_id, so send no target_id when adding one; the live name comes from /directory.
+     *
+     */
+    principal_id?: string | null;
+    version: number;
+};
+
+/**
+ * Assigns an owner to an element in one role; at most one per (element, role). The id is
+ * derived from element_id and role (send no target_id when adding); updates may only change owner_id.
+ *
+ */
+export type Ownership = {
+    id: string;
+    element_id: string;
+    owner_id: string;
+    role: OwnerRole;
+    version: number;
+};
+
+export type EffectiveOwner = {
+    role: OwnerRole;
+    owner_id: string;
+    /**
+     * The element the assignment comes from (the element itself, or an ancestor when inherited).
+     */
+    source_element_id: string;
+};
+
+/**
+ * Values inherited from the ancestors, computed by the server (read-only).
+ */
+export type ElementEffective = {
+    environment: Environment;
+    environment_source_id: string | null;
+    owners: Array<EffectiveOwner>;
+    /**
+     * The element (itself or an ancestor) that has a deployed_on relation; null when none.
+     */
+    deployed_via_id: string | null;
+};
+
+export type DirectoryUser = {
+    id: string;
+    name: string;
+    email: string;
+    disabled: boolean;
+};
+
+export type Group = {
+    id: string;
+    name: string;
+    description: string;
+    /**
+     * User ids
+     */
+    members: Array<string>;
+    created_at: string;
+};
+
+export type GroupList = {
+    groups: Array<Group>;
+};
+
+export type GroupInput = {
+    name: string;
+    description?: string;
+};
+
+export type GroupMembersInput = {
+    user_ids: Array<string>;
+};
+
+/**
+ * Users and groups that can be picked as owners (no roles).
+ */
+export type Directory = {
+    users: Array<DirectoryUser>;
+    groups: Array<Group>;
+};
+
+export type OwnerDirectory = {
+    owners: Array<Owner>;
+    ownerships: Array<Ownership>;
+};
 
 export type RelationKind = 'uses' | 'deployed_on';
 
@@ -76,6 +319,20 @@ export type Element = {
     properties: {
         [key: string]: string;
     };
+    type: ElementType;
+    environment: Environment;
+    lifecycle: Lifecycle;
+    criticality: Criticality;
+    /**
+     * http(s) URL or empty
+     */
+    runbook_url: string;
+    /**
+     * http(s) URL or empty
+     */
+    docs_url: string;
+    last_reviewed_at: string | null;
+    effective?: ElementEffective;
     version: number;
     created_at: string;
     updated_at: string;
@@ -104,6 +361,8 @@ export type RelationList = {
 export type Model = {
     elements: Array<Element>;
     relations: Array<Relation>;
+    owners: Array<Owner>;
+    ownerships: Array<Ownership>;
 };
 
 export type ChangesetStatus = 'draft' | 'in_review' | 'merged' | 'rejected' | 'abandoned';
@@ -119,6 +378,51 @@ export type Changeset = {
     merged_at: string | null;
     approved_by?: string | null;
     approved_at?: string | null;
+    kind: ChangesetKind;
+    /**
+     * The direct edit this changeset undoes
+     */
+    reverts: string | null;
+};
+
+/**
+ * `direct`: an automatically merged edit of main (not listed with the drafts)
+ */
+export type ChangesetKind = 'draft' | 'direct';
+
+export type ReviewPolicy = 'required' | 'direct';
+
+export type Settings = {
+    review_policy: ReviewPolicy;
+    updated_by: string | null;
+    updated_at: string;
+};
+
+export type SettingsInput = {
+    review_policy: ReviewPolicy;
+};
+
+export type DirectChangesRequest = {
+    /**
+     * Version summary (defaults to "Direct edit")
+     */
+    summary?: string;
+    changes: Array<ChangeInput>;
+};
+
+export type DirectOutcome = 'merged' | 'draft' | 'in_review';
+
+export type DirectResult = {
+    outcome: DirectOutcome;
+    changeset: Changeset;
+    /**
+     * The new main version (0 unless merged)
+     */
+    version: number;
+    /**
+     * Why the edit was not merged directly (empty when merged)
+     */
+    reason: string;
 };
 
 export type ChangesetList = {
@@ -132,7 +436,7 @@ export type CreateChangesetRequest = {
 
 export type ChangeOp = 'add' | 'update' | 'delete';
 
-export type ChangeTarget = 'element' | 'relation';
+export type ChangeTarget = 'element' | 'relation' | 'owner' | 'ownership';
 
 export type Change = {
     id: string;
@@ -169,9 +473,13 @@ export type ChangeInput = {
      */
     target_id?: string;
     /**
-     * add: the entity fields (element - kind, name, parent_id, description, technology, tags, protected;
-     * relation - source_id, target_id, kind, description, technology).
-     * update: only the fields to change (null clears parent_id).
+     * add: the entity fields:
+     * element - kind, name, parent_id, description, technology, tags, protected, layer, projects,
+     * replicas, properties, type, environment, lifecycle, criticality, runbook_url, docs_url, last_reviewed_at;
+     * relation - source_id, target_id, kind, description, technology;
+     * owner - kind, name, contact, oncall_url;
+     * ownership - element_id, owner_id, role (the id is derived from element_id and role).
+     * update: only the fields to change (null clears parent_id / last_reviewed_at; an ownership update may only set owner_id).
      * delete: omitted.
      *
      */
@@ -179,7 +487,9 @@ export type ChangeInput = {
         [key: string]: unknown;
     };
     /**
-     * Delete an element that has children together with all its descendants.
+     * Element: delete it together with all its descendants (relations and ownerships always go with it).
+     * Owner: delete it together with its ownership assignments.
+     *
      */
     cascade?: boolean;
 };
@@ -206,6 +516,18 @@ export type RelationModification = {
     fields: Array<FieldChange>;
 };
 
+export type OwnerModification = {
+    before: Owner;
+    after: Owner;
+    fields: Array<FieldChange>;
+};
+
+export type OwnershipModification = {
+    before: Ownership;
+    after: Ownership;
+    fields: Array<FieldChange>;
+};
+
 export type Diff = {
     base_version: number;
     main_version: number;
@@ -222,6 +544,16 @@ export type Diff = {
         added: Array<Relation>;
         removed: Array<Relation>;
         modified: Array<RelationModification>;
+    };
+    owners: {
+        added: Array<Owner>;
+        removed: Array<Owner>;
+        modified: Array<OwnerModification>;
+    };
+    ownerships: {
+        added: Array<Ownership>;
+        removed: Array<Ownership>;
+        modified: Array<OwnershipModification>;
     };
 };
 
@@ -295,13 +627,18 @@ export type Version = {
     merged_by: string;
     merged_at: string;
     summary: string;
+    kind: ChangesetKind;
+    /**
+     * The direct edit this version undoes
+     */
+    reverts: string | null;
 };
 
 export type VersionList = {
     versions: Array<Version>;
 };
 
-export type ViewKind = 'landscape' | 'context' | 'container' | 'component' | 'deployment' | 'custom' | 'layers';
+export type ViewKind = 'landscape' | 'context' | 'container' | 'component' | 'deployment' | 'custom' | 'layers' | 'unowned';
 
 export type View = {
     id: string;
@@ -394,6 +731,8 @@ export type ViewModel = {
 
 export type Id = string;
 
+export type Provider = string;
+
 export type GetHealthData = {
     body?: never;
     path?: never;
@@ -444,6 +783,195 @@ export type GetMeResponses = {
 
 export type GetMeResponse = GetMeResponses[keyof GetMeResponses];
 
+export type ChangeMyPasswordData = {
+    body: ChangePasswordRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/password';
+};
+
+export type ChangeMyPasswordErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type ChangeMyPasswordError = ChangeMyPasswordErrors[keyof ChangeMyPasswordErrors];
+
+export type ChangeMyPasswordResponses = {
+    /**
+     * Password changed
+     */
+    204: void;
+};
+
+export type ChangeMyPasswordResponse = ChangeMyPasswordResponses[keyof ChangeMyPasswordResponses];
+
+export type ListAuthProvidersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/providers';
+};
+
+export type ListAuthProvidersErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type ListAuthProvidersError = ListAuthProvidersErrors[keyof ListAuthProvidersErrors];
+
+export type ListAuthProvidersResponses = {
+    /**
+     * Providers
+     */
+    200: AuthProviderList;
+};
+
+export type ListAuthProvidersResponse = ListAuthProvidersResponses[keyof ListAuthProvidersResponses];
+
+export type LoginData = {
+    body: LoginRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/login';
+};
+
+export type LoginErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type LoginError = LoginErrors[keyof LoginErrors];
+
+export type LoginResponses = {
+    /**
+     * Signed in (sets the session cookie)
+     */
+    200: Session;
+};
+
+export type LoginResponse = LoginResponses[keyof LoginResponses];
+
+export type StartAuthRedirectData = {
+    body?: never;
+    path: {
+        provider: string;
+    };
+    query?: {
+        /**
+         * Same-origin path to return to after signing in (anything else falls back to "/").
+         */
+        return_to?: string;
+    };
+    url: '/api/v1/auth/{provider}/start';
+};
+
+export type StartAuthRedirectErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type StartAuthRedirectError = StartAuthRedirectErrors[keyof StartAuthRedirectErrors];
+
+export type StartAuthRedirectResponses = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type StartAuthRedirectResponse = StartAuthRedirectResponses[keyof StartAuthRedirectResponses];
+
+export type AuthCallbackData = {
+    body?: never;
+    path: {
+        provider: string;
+    };
+    query?: {
+        code?: string;
+        state?: string;
+        error?: string;
+        error_description?: string;
+    };
+    url: '/api/v1/auth/{provider}/callback';
+};
+
+export type AuthCallbackErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type AuthCallbackError = AuthCallbackErrors[keyof AuthCallbackErrors];
+
+export type AuthCallbackResponses = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type AuthCallbackResponse = AuthCallbackResponses[keyof AuthCallbackResponses];
+
+export type LogoutData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/logout';
+};
+
+export type LogoutErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type LogoutError = LogoutErrors[keyof LogoutErrors];
+
+export type LogoutResponses = {
+    /**
+     * Signed out (also when there was no session)
+     */
+    204: void;
+};
+
+export type LogoutResponse = LogoutResponses[keyof LogoutResponses];
+
+export type GetSessionData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/session';
+};
+
+export type GetSessionErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type GetSessionError = GetSessionErrors[keyof GetSessionErrors];
+
+export type GetSessionResponses = {
+    /**
+     * Current session
+     */
+    200: Session;
+};
+
+export type GetSessionResponse = GetSessionResponses[keyof GetSessionResponses];
+
 export type ListUsersData = {
     body?: never;
     path?: never;
@@ -468,6 +996,31 @@ export type ListUsersResponses = {
 };
 
 export type ListUsersResponse = ListUsersResponses[keyof ListUsersResponses];
+
+export type CreateUserData = {
+    body: CreateUserRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/users';
+};
+
+export type CreateUserErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type CreateUserError = CreateUserErrors[keyof CreateUserErrors];
+
+export type CreateUserResponses = {
+    /**
+     * The new user
+     */
+    201: CreatedUser;
+};
+
+export type CreateUserResponse = CreateUserResponses[keyof CreateUserResponses];
 
 export type SetUserRoleData = {
     body: SetRoleRequest;
@@ -495,6 +1048,325 @@ export type SetUserRoleResponses = {
 };
 
 export type SetUserRoleResponse = SetUserRoleResponses[keyof SetUserRoleResponses];
+
+export type DisableUserData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/users/{id}/disable';
+};
+
+export type DisableUserErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type DisableUserError = DisableUserErrors[keyof DisableUserErrors];
+
+export type DisableUserResponses = {
+    /**
+     * The updated user
+     */
+    200: User;
+};
+
+export type DisableUserResponse = DisableUserResponses[keyof DisableUserResponses];
+
+export type EnableUserData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/users/{id}/enable';
+};
+
+export type EnableUserErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type EnableUserError = EnableUserErrors[keyof EnableUserErrors];
+
+export type EnableUserResponses = {
+    /**
+     * The updated user
+     */
+    200: User;
+};
+
+export type EnableUserResponse = EnableUserResponses[keyof EnableUserResponses];
+
+export type ResetUserPasswordData = {
+    body: PasswordResetRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/users/{id}/password-reset';
+};
+
+export type ResetUserPasswordErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type ResetUserPasswordError = ResetUserPasswordErrors[keyof ResetUserPasswordErrors];
+
+export type ResetUserPasswordResponses = {
+    /**
+     * Password reset
+     */
+    200: PasswordResetResult;
+};
+
+export type ResetUserPasswordResponse = ResetUserPasswordResponses[keyof ResetUserPasswordResponses];
+
+export type ListUserIdentitiesData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/users/{id}/identities';
+};
+
+export type ListUserIdentitiesErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type ListUserIdentitiesError = ListUserIdentitiesErrors[keyof ListUserIdentitiesErrors];
+
+export type ListUserIdentitiesResponses = {
+    /**
+     * Identities
+     */
+    200: IdentityList;
+};
+
+export type ListUserIdentitiesResponse = ListUserIdentitiesResponses[keyof ListUserIdentitiesResponses];
+
+export type LinkUserIdentityData = {
+    body: LinkIdentityRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/users/{id}/identities';
+};
+
+export type LinkUserIdentityErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type LinkUserIdentityError = LinkUserIdentityErrors[keyof LinkUserIdentityErrors];
+
+export type LinkUserIdentityResponses = {
+    /**
+     * The linked identity
+     */
+    201: Identity;
+};
+
+export type LinkUserIdentityResponse = LinkUserIdentityResponses[keyof LinkUserIdentityResponses];
+
+export type UnlinkUserIdentityData = {
+    body?: never;
+    path: {
+        id: string;
+        identityId: string;
+    };
+    query?: never;
+    url: '/api/v1/users/{id}/identities/{identityId}';
+};
+
+export type UnlinkUserIdentityErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type UnlinkUserIdentityError = UnlinkUserIdentityErrors[keyof UnlinkUserIdentityErrors];
+
+export type UnlinkUserIdentityResponses = {
+    /**
+     * Unlinked
+     */
+    204: void;
+};
+
+export type UnlinkUserIdentityResponse = UnlinkUserIdentityResponses[keyof UnlinkUserIdentityResponses];
+
+export type GetDirectoryData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/directory';
+};
+
+export type GetDirectoryErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type GetDirectoryError = GetDirectoryErrors[keyof GetDirectoryErrors];
+
+export type GetDirectoryResponses = {
+    /**
+     * Directory
+     */
+    200: Directory;
+};
+
+export type GetDirectoryResponse = GetDirectoryResponses[keyof GetDirectoryResponses];
+
+export type ListGroupsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/groups';
+};
+
+export type ListGroupsErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type ListGroupsError = ListGroupsErrors[keyof ListGroupsErrors];
+
+export type ListGroupsResponses = {
+    /**
+     * Groups
+     */
+    200: GroupList;
+};
+
+export type ListGroupsResponse = ListGroupsResponses[keyof ListGroupsResponses];
+
+export type CreateGroupData = {
+    body: GroupInput;
+    path?: never;
+    query?: never;
+    url: '/api/v1/groups';
+};
+
+export type CreateGroupErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type CreateGroupError = CreateGroupErrors[keyof CreateGroupErrors];
+
+export type CreateGroupResponses = {
+    /**
+     * The new group
+     */
+    201: Group;
+};
+
+export type CreateGroupResponse = CreateGroupResponses[keyof CreateGroupResponses];
+
+export type DeleteGroupData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/groups/{id}';
+};
+
+export type DeleteGroupErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type DeleteGroupError = DeleteGroupErrors[keyof DeleteGroupErrors];
+
+export type DeleteGroupResponses = {
+    /**
+     * Deleted
+     */
+    204: void;
+};
+
+export type DeleteGroupResponse = DeleteGroupResponses[keyof DeleteGroupResponses];
+
+export type UpdateGroupData = {
+    body: GroupInput;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/groups/{id}';
+};
+
+export type UpdateGroupErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type UpdateGroupError = UpdateGroupErrors[keyof UpdateGroupErrors];
+
+export type UpdateGroupResponses = {
+    /**
+     * The updated group
+     */
+    200: Group;
+};
+
+export type UpdateGroupResponse = UpdateGroupResponses[keyof UpdateGroupResponses];
+
+export type SetGroupMembersData = {
+    body: GroupMembersInput;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/groups/{id}/members';
+};
+
+export type SetGroupMembersErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type SetGroupMembersError = SetGroupMembersErrors[keyof SetGroupMembersErrors];
+
+export type SetGroupMembersResponses = {
+    /**
+     * The updated group
+     */
+    200: Group;
+};
+
+export type SetGroupMembersResponse = SetGroupMembersResponses[keyof SetGroupMembersResponses];
 
 export type ListElementsData = {
     body?: never;
@@ -554,6 +1426,31 @@ export type GetElementResponses = {
 
 export type GetElementResponse = GetElementResponses[keyof GetElementResponses];
 
+export type ListOwnersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/model/owners';
+};
+
+export type ListOwnersErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type ListOwnersError = ListOwnersErrors[keyof ListOwnersErrors];
+
+export type ListOwnersResponses = {
+    /**
+     * Owner directory of main
+     */
+    200: OwnerDirectory;
+};
+
+export type ListOwnersResponse = ListOwnersResponses[keyof ListOwnersResponses];
+
 export type ListRelationsData = {
     body?: never;
     path?: never;
@@ -608,6 +1505,108 @@ export type GetRelationResponses = {
 };
 
 export type GetRelationResponse = GetRelationResponses[keyof GetRelationResponses];
+
+export type GetSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/settings';
+};
+
+export type GetSettingsErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type GetSettingsError = GetSettingsErrors[keyof GetSettingsErrors];
+
+export type GetSettingsResponses = {
+    /**
+     * The settings
+     */
+    200: Settings;
+};
+
+export type GetSettingsResponse = GetSettingsResponses[keyof GetSettingsResponses];
+
+export type UpdateSettingsData = {
+    body: SettingsInput;
+    path?: never;
+    query?: never;
+    url: '/api/v1/settings';
+};
+
+export type UpdateSettingsErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type UpdateSettingsError = UpdateSettingsErrors[keyof UpdateSettingsErrors];
+
+export type UpdateSettingsResponses = {
+    /**
+     * The updated settings
+     */
+    200: Settings;
+};
+
+export type UpdateSettingsResponse = UpdateSettingsResponses[keyof UpdateSettingsResponses];
+
+export type ApplyDirectData = {
+    body: DirectChangesRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/model/changes';
+};
+
+export type ApplyDirectErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type ApplyDirectError = ApplyDirectErrors[keyof ApplyDirectErrors];
+
+export type ApplyDirectResponses = {
+    /**
+     * What happened to the edit
+     */
+    201: DirectResult;
+};
+
+export type ApplyDirectResponse = ApplyDirectResponses[keyof ApplyDirectResponses];
+
+export type RevertDirectData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/model/changes/{id}/revert';
+};
+
+export type RevertDirectErrors = {
+    /**
+     * Error
+     */
+    default: Problem;
+};
+
+export type RevertDirectError = RevertDirectErrors[keyof RevertDirectErrors];
+
+export type RevertDirectResponses = {
+    /**
+     * What happened to the undo
+     */
+    201: DirectResult;
+};
+
+export type RevertDirectResponse = RevertDirectResponses[keyof RevertDirectResponses];
 
 export type ListChangesetsData = {
     body?: never;

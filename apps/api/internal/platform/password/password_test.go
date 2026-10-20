@@ -1,9 +1,9 @@
-package user
+package password
 
 import "testing"
 
 func TestPasswordRoundTrip(t *testing.T) {
-	hash, err := HashPassword("s3cret")
+	hash, err := Hash("s3cret")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -18,13 +18,13 @@ func TestPasswordRoundTrip(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := VerifyPassword(tc.password, hash)
+			got, err := Verify(tc.password, hash)
 			if err != nil || got != tc.want {
-				t.Fatalf("VerifyPassword = %v, %v; want %v", got, err, tc.want)
+				t.Fatalf("Verify = %v, %v; want %v", got, err, tc.want)
 			}
 		})
 	}
-	if _, err := VerifyPassword("x", "not-a-hash"); err == nil {
+	if _, err := Verify("x", "not-a-hash"); err == nil {
 		t.Fatal("expected error for malformed hash")
 	}
 }

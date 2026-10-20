@@ -16,6 +16,7 @@ import {
   DiffMark,
   endpointOf,
   HostBadge,
+  OwnerBadge,
   KindTile,
   ReplicaBackdrop,
   ReplicaBadge,
@@ -24,6 +25,8 @@ import {
 import { useCanvasStore } from "../canvas/store"
 import { useLayerRules, useMe, useReplaceLayerRules } from "../draft/queries"
 import { LayerRulesDialog } from "./LayerRulesDialog"
+import { effectiveOwner, isDatastore } from "../canvas/element"
+import { useOwnerIndex } from "../canvas/owners"
 import {
   groupByLayer,
   laneModes,
@@ -592,7 +595,10 @@ function Card({
   onContextMenu: (e: React.MouseEvent) => void
 }) {
   const { icon: KindIcon, label } = kindMeta[element.kind]
-  const db = element.kind === "database"
+  const db = isDatastore(element)
+  const owners = useOwnerIndex()
+  const owner = effectiveOwner(element.effective, element.id)
+  const ownerView = owner ? owners.get(owner.ownerId) : undefined
   const tone: ShapeTone = selected ? "selected" : (diff ?? "default")
   const endpoint = endpointOf(element.properties)
   return (
@@ -657,8 +663,9 @@ function Card({
           <TechBadge technology={element.technology} />
           <ReplicaBadge replicas={element.replicas} />
           <HostBadge hosts={hosts} />
+          {ownerView && <OwnerBadge owner={ownerView} from={owner?.inherited ? "a parent" : undefined} />}
           {endpoint && <span className="truncate font-mono text-[11px] text-muted-foreground">{endpoint}</span>}
-          {!element.technology && !endpoint && hosts.length === 0 && (
+          {!element.technology && !endpoint && hosts.length === 0 && !ownerView && (
             <span className="truncate text-xs text-muted-foreground">{element.description || label}</span>
           )}
         </div>

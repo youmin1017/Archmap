@@ -1,4 +1,4 @@
-import { HeadContent, Link, Scripts, createRootRouteWithContext } from "@tanstack/react-router"
+import { HeadContent, Link, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { TanStackDevtools } from "@tanstack/react-devtools"
 import type { QueryClient } from "@tanstack/react-query"
@@ -7,6 +7,7 @@ import { themeInitScript } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { AuthGate } from "@/features/auth/AuthGate"
 import appCss from "../styles.css?url"
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -29,6 +30,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         </Button>
       </div>
     </main>
+  ),
+  component: () => (
+    <AuthGate>
+      <Outlet />
+    </AuthGate>
   ),
   shellComponent: RootDocument,
 })

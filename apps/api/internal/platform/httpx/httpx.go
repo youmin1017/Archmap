@@ -1,12 +1,14 @@
-// Package httpx builds the Echo v5 HTTP shell: middleware, RFC 9457 error
-// handling, request validation against the OpenAPI spec and the metrics
-// endpoint. Echo is confined to this package and to feature transport packages.
+// Package httpx builds the Echo v5 HTTP shell: middleware (request info,
+// cross-origin protection, session + CSRF), RFC 9457 error handling, request
+// validation against the OpenAPI spec and the metrics endpoint. Echo is confined to this package and to feature transport packages.
 package httpx
 
 import (
 	"log/slog"
+	"net"
 	"strings"
 
+	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/labstack/echo-contrib/v5/echoprometheus"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
@@ -21,9 +23,10 @@ type Options struct {
 	CORSOrigins []string
 	// Registry receives HTTP metrics and backs GET /metrics.
 	Registry *prometheus.Registry
-	// DevActorLookup, when set, enables the dev-only X-Dev-User header auth.
-	// Leave nil outside local development.
-	DevActorLookup ActorLookup
+	// Sessions resolves session cookies (required for authenticated routes).
+	Sessions SessionResolver
+	// TrustedProxies may set X-Forwarded-For; without any, the peer address is the client IP.
+	TrustedProxies []*net.IPNet
 }
 
 // New returns an Echo instance with all cross-cutting middleware installed.
@@ -37,6 +40,11 @@ func New(opts Options) (*echo.Echo, error) {
 	e := echo.New()
 	e.Logger = opts.Logger
 	e.HTTPErrorHandler = errorHandler()
+	e.IPExtractor = ipExtractor(opts.TrustedProxies)
+	cop, err := crossOrigin(opts.CORSOrigins)
+	if err != nil {
+		return nil, err
+	}
 
 	onlyAPI := func(c *echo.Context) bool { return !strings.HasPrefix(c.Request().URL.Path, "/api/") }
 
@@ -66,11 +74,13 @@ func New(opts Options) (*echo.Echo, error) {
 		},
 	}))
 	e.Use(middleware.Recover())
-	if opts.DevActorLookup != nil {
-		e.Use(devAuth(opts.DevActorLookup))
-	}
+	e.Use(requestInfo())
+	e.Use(cop)
 	if len(opts.CORSOrigins) > 0 {
 		e.Use(middleware.CORS(opts.CORSOrigins...))
+	}
+	if opts.Sessions != nil {
+		e.Use(sessionAuth(opts.Sessions))
 	}
 	e.Use(echoprometheus.NewMiddlewareWithConfig(echoprometheus.MiddlewareConfig{
 		Subsystem:                 "http",
@@ -80,6 +90,8 @@ func New(opts Options) (*echo.Echo, error) {
 	e.Use(oapimw.OapiRequestValidatorWithOptions(spec, &oapimw.Options{
 		Skipper:              onlyAPI,
 		DoNotValidateServers: true,
+		// The spec documents the session cookie; enforcement is sessionAuth + services (ADR-061).
+		Options: openapi3filter.Options{AuthenticationFunc: openapi3filter.NoopAuthenticationFunc},
 	}))
 
 	e.GET("/metrics", echoprometheus.NewHandlerWithConfig(echoprometheus.HandlerConfig{
@@ -87,4 +99,16 @@ func New(opts Options) (*echo.Echo, error) {
 	}))
 
 	return e, nil
+}
+
+// ipExtractor trusts X-Forwarded-For only from the configured proxies.
+func ipExtractor(trusted []*net.IPNet) echo.IPExtractor {
+	if len(trusted) == 0 {
+		return echo.ExtractIPDirect()
+	}
+	opts := []echo.TrustOption{echo.TrustLoopback(false), echo.TrustLinkLocal(false), echo.TrustPrivateNet(false)}
+	for _, n := range trusted {
+		opts = append(opts, echo.TrustIPRange(n))
+	}
+	return echo.ExtractIPFromXFFHeader(opts...)
 }

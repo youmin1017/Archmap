@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type ComponentProps } from "react"
+import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react"
 import { PanelLeft, PanelRight, X } from "lucide-react"
-import type { Element, Relation } from "@archmap/api-client"
+import type { Element, Owner, Relation } from "@archmap/api-client"
 
 import { StatePanel } from "@/components/state-panel"
 import { Button } from "@/components/ui/button"
@@ -8,9 +8,13 @@ import { cn } from "@/lib/utils"
 import { CanvasView } from "../canvas/CanvasView"
 import type { Decor } from "../canvas/decor"
 import { ElementTreePanel } from "../canvas/ElementTreePanel"
-import { buildTree, type ElementTree } from "../canvas/graph"
+import { buildTree, focusScope, type ElementTree } from "../canvas/graph"
 import { LayeredCanvas } from "../layers/LayeredCanvas"
 import { useCanvasStore } from "../canvas/store"
+import { OwnersProvider } from "../canvas/owners"
+import { FocusActionProvider } from "../canvas/focusAction"
+
+const noOwners: readonly Owner[] = []
 
 // Below these widths the side panels leave the grid and open as drawers over the canvas.
 const TREE_INLINE = "(min-width: 768px)"
@@ -20,6 +24,8 @@ const matches = (query: string) => typeof window !== "undefined" && window.match
 type Props = {
   elements: readonly Element[]
   relations: readonly Relation[]
+  /** Owners of the model shown (names for cards, the tree filter and the details panel). */
+  owners?: readonly Owner[]
   decor?: Decor
   onConnect?: (sourceId: string, targetId: string) => void
   onDeleteRequest?: (id: string) => void
@@ -32,12 +38,19 @@ type Props = {
   layers?: readonly string[]
   /** Right-hand panel; receives the tree so it can resolve names. */
   renderPanel: (tree: ElementTree) => React.ReactNode
+  /** Element the canvas is focused on (from the URL, ADR-071); undefined = whole canvas. */
+  focusId?: string
+  /** Changes the focus (updates the URL). Without it the canvas has no drill-down. */
+  onFocusChange?: (id: string | null) => void
+  /** Offer "Save as view" for a focused system / container. */
+  canSaveFocusView?: boolean
 }
 
 /** Element tree | canvas | side panel. Shared by main (read-only) and draft (editable) pages. */
 export function ModelWorkspace({
   elements,
   relations,
+  owners = noOwners,
   decor,
   onConnect,
   onDeleteRequest,
@@ -46,8 +59,33 @@ export function ModelWorkspace({
   viewKey,
   layers,
   renderPanel,
+  focusId,
+  onFocusChange,
+  canSaveFocusView,
 }: Props) {
   const tree = useMemo(() => buildTree(elements), [elements])
+
+  // The URL owns the focus; the canvas store mirrors it (an unknown or layers focus is ignored).
+  const focus = !layers && focusId && tree.byId.has(focusId) ? focusId : null
+  useEffect(() => {
+    useCanvasStore.getState().setFocus(focus)
+  }, [focus])
+  useEffect(() => () => useCanvasStore.getState().setFocus(null), [])
+  const scope = useMemo(() => (focus ? focusScope(tree, relations, focus) : null), [tree, relations, focus])
+  const inFocus = useMemo(() => (scope ? new Set([...scope.inside, ...scope.context]) : undefined), [scope])
+  const focusChange = layers ? undefined : onFocusChange
+
+  // Revealing an element the focused canvas does not show moves the focus to its parent (or out).
+  const revealToken = useCanvasStore((s) => s.revealToken)
+  const seenReveal = useRef(revealToken)
+  useEffect(() => {
+    if (revealToken === seenReveal.current) return
+    seenReveal.current = revealToken
+    const id = useCanvasStore.getState().selectedId
+    if (!focusChange || !inFocus || !id || inFocus.has(id)) return
+    const parent = tree.byId.get(id)?.parent_id
+    focusChange(parent && tree.byId.has(parent) ? parent : null)
+  }, [revealToken, inFocus, focusChange, tree])
   const [treeOpen, setTreeOpen] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)
 
@@ -64,86 +102,97 @@ export function ModelWorkspace({
 
   const drawer = "absolute inset-y-0 z-30 shadow-xl"
   return (
-    <div className="relative grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[248px_minmax(0,1fr)] lg:grid-cols-[248px_minmax(0,1fr)_300px] xl:grid-cols-[264px_minmax(0,1fr)_340px]">
-      <aside
-        data-open={treeOpen}
-        className={cn(
-          "min-h-0 w-[min(280px,85vw)] border-r bg-sidebar text-sidebar-foreground md:static md:block md:w-auto md:shadow-none",
-          drawer,
-          "left-0 max-md:data-[open=false]:hidden"
-        )}
-        aria-label="Elements"
-      >
-        <ElementTreePanel tree={tree} elements={elements} />
-      </aside>
-      <main className="relative min-h-0 min-w-0 bg-[radial-gradient(ellipse_at_top,color-mix(in_oklch,var(--primary)_4%,transparent),transparent_60%)]">
-        {/* Drawer toggles, only where the panels are not shown inline. */}
-        <div className="absolute top-3 right-3 z-20 flex gap-1 lg:hidden">
-          <Button
-            variant="outline"
-            size="icon-sm"
-            className="bg-card/90 shadow-island backdrop-blur md:hidden"
-            aria-label="Show elements"
-            aria-expanded={treeOpen}
-            onClick={() => setTreeOpen((o) => !o)}
+    <OwnersProvider owners={owners}>
+      <FocusActionProvider value={focusChange}>
+        <div className="relative grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[248px_minmax(0,1fr)] lg:grid-cols-[248px_minmax(0,1fr)_300px] xl:grid-cols-[264px_minmax(0,1fr)_340px]">
+          <aside
+            data-open={treeOpen}
+            className={cn(
+              "min-h-0 w-[min(280px,85vw)] border-r bg-sidebar text-sidebar-foreground md:relative md:block md:w-auto md:shadow-none",
+              drawer,
+              "left-0 max-md:data-[open=false]:hidden"
+            )}
+            aria-label="Elements"
           >
-            <PanelLeft aria-hidden />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon-sm"
-            className="bg-card/90 shadow-island backdrop-blur"
-            aria-label="Show details"
-            aria-expanded={panelOpen}
-            onClick={() => setPanelOpen((o) => !o)}
+            <ElementTreePanel
+              tree={tree}
+              elements={elements}
+              inFocus={inFocus}
+              onFocus={focusChange ? (id) => focusChange(id) : undefined}
+            />
+          </aside>
+          <main className="relative min-h-0 min-w-0 bg-[radial-gradient(ellipse_at_top,color-mix(in_oklch,var(--primary)_4%,transparent),transparent_60%)]">
+            {/* Drawer toggles, only where the panels are not shown inline. */}
+            <div className="absolute top-3 right-3 z-20 flex gap-1 lg:hidden">
+              <Button
+                variant="outline"
+                size="icon-sm"
+                className="bg-card/90 shadow-island backdrop-blur md:hidden"
+                aria-label="Show elements"
+                aria-expanded={treeOpen}
+                onClick={() => setTreeOpen((o) => !o)}
+              >
+                <PanelLeft aria-hidden />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                className="bg-card/90 shadow-island backdrop-blur"
+                aria-label="Show details"
+                aria-expanded={panelOpen}
+                onClick={() => setPanelOpen((o) => !o)}
+              >
+                <PanelRight aria-hidden />
+              </Button>
+            </div>
+            {layers ? (
+              <LayeredCanvas
+                key={viewKey ?? "layers"}
+                elements={elements}
+                relations={relations}
+                layers={layers}
+                decor={decor}
+                onConnect={onConnect}
+                onMoveToLayer={onMoveToLayer}
+                menu={menu}
+              />
+            ) : (
+              <CanvasView
+                key={viewKey ?? "all"}
+                elements={elements}
+                relations={relations}
+                decor={decor}
+                onConnect={onConnect}
+                onDeleteRequest={onDeleteRequest}
+                menu={menu}
+                onFocus={focusChange}
+                canSaveFocusView={canSaveFocusView}
+              />
+            )}
+          </main>
+          <aside
+            data-open={panelOpen}
+            className={cn(
+              "min-h-0 w-[min(340px,90vw)] overflow-y-auto border-l bg-sidebar text-sidebar-foreground lg:relative lg:block lg:w-auto lg:shadow-none",
+              drawer,
+              "right-0 max-lg:data-[open=false]:hidden"
+            )}
+            aria-label="Details"
           >
-            <PanelRight aria-hidden />
-          </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="absolute top-2 right-2 z-10 lg:hidden"
+              aria-label="Close details"
+              onClick={() => setPanelOpen(false)}
+            >
+              <X aria-hidden />
+            </Button>
+            {renderPanel(tree)}
+          </aside>
         </div>
-        {layers ? (
-          <LayeredCanvas
-            key={viewKey ?? "layers"}
-            elements={elements}
-            relations={relations}
-            layers={layers}
-            decor={decor}
-            onConnect={onConnect}
-            onMoveToLayer={onMoveToLayer}
-            menu={menu}
-          />
-        ) : (
-          <CanvasView
-            key={viewKey ?? "all"}
-            elements={elements}
-            relations={relations}
-            decor={decor}
-            onConnect={onConnect}
-            onDeleteRequest={onDeleteRequest}
-            menu={menu}
-          />
-        )}
-      </main>
-      <aside
-        data-open={panelOpen}
-        className={cn(
-          "min-h-0 w-[min(340px,90vw)] overflow-y-auto border-l bg-sidebar text-sidebar-foreground lg:static lg:block lg:w-auto lg:shadow-none",
-          drawer,
-          "right-0 max-lg:data-[open=false]:hidden"
-        )}
-        aria-label="Details"
-      >
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="absolute top-2 right-2 z-10 lg:hidden"
-          aria-label="Close details"
-          onClick={() => setPanelOpen(false)}
-        >
-          <X aria-hidden />
-        </Button>
-        {renderPanel(tree)}
-      </aside>
-    </div>
+      </FocusActionProvider>
+    </OwnersProvider>
   )
 }
 

@@ -13,18 +13,30 @@ import {
   type NodeChange,
   type OnMove,
 } from "@xyflow/react"
-import { ChevronsDownUp, ChevronsUpDown, Crosshair, Maximize, RotateCcw, Shrink, Expand } from "lucide-react"
+import {
+  BookmarkPlus,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  Crosshair,
+  Expand,
+  Focus,
+  Maximize,
+  RotateCcw,
+  Shrink,
+} from "lucide-react"
 import type { Element, Relation } from "@archmap/api-client"
 
 import "@xyflow/react/dist/style.css"
 
 import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useColorMode } from "@/lib/use-color-mode"
+import { cn } from "@/lib/utils"
 import { AggregatedEdge } from "./AggregatedEdge"
 import { CanvasContextMenu, joinGroups, type MenuEntry, type MenuPosition } from "./CanvasContextMenu"
 import { ElementNode, type ElementFlowNode } from "./ElementNode"
-import { expandableIds } from "./graph"
+import { expandableIds, pathTo, visibleElements, type ElementTree } from "./graph"
 import { useCanvasStore } from "./store"
 import type { Decor } from "./decor"
 import { useCanvasGraph } from "./useCanvasGraph"
@@ -35,6 +47,18 @@ const edgeTypes = { aggregated: AggregatedEdge }
 
 /** Semantic zoom: a collapsed node that is zoomed past this on-screen width expands in place. */
 export const ZOOM_EXPAND_WIDTH_PX = 340
+/** Above this many elements "Expand all" opens one more level instead of everything. */
+export const EXPAND_ALL_LIMIT = 300
+
+/** Ids to expand for "Expand all": everything, or one more level for large models. */
+export function expandAllIds(tree: ElementTree, expanded: ReadonlySet<string>): string[] {
+  if (tree.byId.size <= EXPAND_ALL_LIMIT) return expandableIds(tree)
+  const shown = visibleElements(tree, expanded)
+  return [...new Set([...expanded, ...shown.filter((e) => tree.children.has(e.id)).map((e) => e.id)])]
+}
+
+/** Element kinds a focus can be saved as a view for, and the view kind (ADR-071). */
+export const focusViewKind = { system: "container", container: "component" } as const
 
 // SVG fill attributes cannot use var(); resolve the kind's CSS variable to a concrete color.
 function minimapColor(kind: string) {
@@ -59,10 +83,23 @@ type CanvasProps = {
     /** Right-click on the empty area of a layers view. */
     stack?: () => MenuEntry[]
   }
+  /** Drill-down (ADR-071): focus an element (null = whole canvas). Without it, double-click expands. */
+  onFocus?: (id: string | null) => void
+  /** Offer "Save as view" for the focused element (editors on pages with view tabs). */
+  canSaveFocusView?: boolean
 }
 
-function Canvas({ elements, relations, decor, onConnect, onDeleteRequest, menu }: CanvasProps) {
-  const { tree, nodes, edges, ready } = useCanvasGraph(elements, relations, decor)
+function Canvas({
+  elements,
+  relations,
+  decor,
+  onConnect,
+  onDeleteRequest,
+  menu,
+  onFocus,
+  canSaveFocusView,
+}: CanvasProps) {
+  const { tree, fullTree, focusId, nodes, edges, ready, boxes } = useCanvasGraph(elements, relations, decor)
   const rf = useReactFlow()
   const flowStore = useStoreApi()
   const colorMode = useColorMode()
@@ -75,6 +112,8 @@ function Canvas({ elements, relations, decor, onConnect, onDeleteRequest, menu }
   const setPosition = useCanvasStore((s) => s.setPosition)
   const resetPositions = useCanvasStore((s) => s.resetPositions)
   const revealToken = useCanvasStore((s) => s.revealToken)
+  const requestView = useCanvasStore((s) => s.requestView)
+  const expandAll = () => setExpanded(expandAllIds(tree, useCanvasStore.getState().expanded))
 
   // Fit the first layout into view once.
   const fitted = useRef(false)
@@ -96,10 +135,38 @@ function Canvas({ elements, relations, decor, onConnect, onDeleteRequest, menu }
     return () => clearTimeout(timer)
   }, [revealToken, rf])
 
-  // After a bulk expand / collapse, refit once the layout animation has finished.
+  // After a bulk expand / collapse or a focus change, refit once the new layout (computed
+  // in a worker, so its timing varies) has arrived and its animation has finished.
+  // Time of the pending request; one that got no new layout within 3 s (nothing changed) lapses.
+  const fitRequested = useRef(0)
   const fitSoon = useCallback(() => {
-    setTimeout(() => void rf.fitView({ padding: 0.2, duration: 300 }), 340)
-  }, [rf])
+    fitRequested.current = Date.now()
+  }, [])
+  useEffect(() => {
+    if (Date.now() - fitRequested.current > 3000 || boxes.size === 0) return
+    fitRequested.current = 0
+    const timer = setTimeout(() => void rf.fitView({ padding: 0.2, duration: 300 }), 320)
+    return () => clearTimeout(timer)
+  }, [boxes, rf])
+
+  // Entering, switching or leaving a focus shows a different graph: refit it.
+  const shownFocus = useRef(focusId)
+  useEffect(() => {
+    if (shownFocus.current === focusId) return
+    shownFocus.current = focusId
+    fitSoon()
+  }, [focusId, fitSoon])
+
+  // A double click drills into an element with children; on the focused element itself it does nothing.
+  const canFocus = (id: string) => onFocus !== undefined && id !== focusId && fullTree.children.has(id)
+  const focusUp = () => {
+    if (!onFocus || !focusId) return
+    const parent = fullTree.byId.get(focusId)?.parent_id
+    onFocus(parent && fullTree.byId.has(parent) ? parent : null)
+  }
+  const focusPath = focusId ? pathTo(fullTree, focusId) : []
+  const focused = focusId ? fullTree.byId.get(focusId) : undefined
+  const savableKind = focused !== undefined && focused.kind in focusViewKind
 
   // Controlled nodes: apply only what the model-independent UI state cares about.
   const onNodesChange = useCallback(
@@ -148,6 +215,7 @@ function Canvas({ elements, relations, decor, onConnect, onDeleteRequest, menu }
   const viewEntriesForNode = (id: string): MenuEntry[] => {
     const node = nodes.find((n) => n.id === id)
     const out: MenuEntry[] = []
+    if (canFocus(id)) out.push({ label: "Focus", icon: Focus, onSelect: () => onFocus?.(id) })
     if (node && node.data.childCount > 0) {
       out.push({
         label: node.data.expanded ? "Collapse" : "Expand",
@@ -168,7 +236,7 @@ function Canvas({ elements, relations, decor, onConnect, onDeleteRequest, menu }
       label: "Expand all",
       icon: ChevronsUpDown,
       onSelect: () => {
-        setExpanded(expandableIds(tree))
+        expandAll()
         fitSoon()
       },
     },
@@ -221,7 +289,9 @@ function Canvas({ elements, relations, decor, onConnect, onDeleteRequest, menu }
         }}
         onPaneContextMenu={(e) => openMenu(e, joinGroups(menu?.pane?.() ?? [], viewEntriesForPane()))}
         onNodeDoubleClick={(_, node) => {
-          if (node.data.childCount > 0) toggle(node.id)
+          if (onFocus) {
+            if (canFocus(node.id)) onFocus(node.id)
+          } else if (node.data.childCount > 0) toggle(node.id)
         }}
         onEdgeClick={(_, edge) =>
           selectRelations((edge.data as { relationIds?: string[] } | undefined)?.relationIds ?? [])
@@ -243,11 +313,22 @@ function Canvas({ elements, relations, decor, onConnect, onDeleteRequest, menu }
           else onConnect?.(state.fromNode.id, otherId)
         }}
         onKeyDown={(e) => {
-          if (!onDeleteRequest || (e.key !== "Delete" && e.key !== "Backspace")) return
           if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
           const id = useCanvasStore.getState().selectedId
+          // F focuses the selected element, Escape goes up one level (unless connecting).
+          if (e.key === "f" && !e.ctrlKey && !e.metaKey && !e.altKey && id && canFocus(id)) {
+            e.preventDefault()
+            onFocus?.(id)
+            return
+          }
+          if (e.key === "Escape" && focusId && !connectFrom) {
+            focusUp()
+            return
+          }
+          if (!onDeleteRequest || (e.key !== "Delete" && e.key !== "Backspace")) return
           if (id) onDeleteRequest(id)
         }}
+        onlyRenderVisibleElements
         deleteKeyCode={null}
         onMoveEnd={onMoveEnd}
         zoomOnDoubleClick={false}
@@ -283,9 +364,9 @@ function Canvas({ elements, relations, decor, onConnect, onDeleteRequest, menu }
           aria-label="Canvas"
         >
           <ToolButton
-            label="Expand all"
+            label={tree.byId.size > EXPAND_ALL_LIMIT ? "Expand one more level" : "Expand all"}
             onClick={() => {
-              setExpanded(expandableIds(tree))
+              expandAll()
               fitSoon()
             }}
           >
@@ -307,10 +388,84 @@ function Canvas({ elements, relations, decor, onConnect, onDeleteRequest, menu }
           <ToolButton label="Reset layout" onClick={resetPositions}>
             <RotateCcw aria-hidden />
           </ToolButton>
+          {focusId && onFocus && (
+            <>
+              <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
+              <FocusBreadcrumb path={focusPath} onFocus={onFocus} />
+              {canSaveFocusView && savableKind && (
+                <ToolButton label="Save as view" onClick={() => requestView(focusId)}>
+                  <BookmarkPlus aria-hidden />
+                </ToolButton>
+              )}
+            </>
+          )}
         </Panel>
       </ReactFlow>
       <CanvasContextMenu position={menuPos} entries={menuEntries} onClose={() => setMenuPos(null)} />
     </>
+  )
+}
+
+const crumb =
+  "max-w-40 truncate rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+
+/**
+ * Where a focused canvas is: Whole model / ancestors / focused element. Deep paths
+ * keep the last two levels; the ones above are in a menu.
+ */
+function FocusBreadcrumb({
+  path,
+  onFocus,
+}: {
+  path: readonly { id: string; name: string }[]
+  onFocus: (id: string | null) => void
+}) {
+  const shown = path.length > 3 ? path.slice(-2) : path
+  const hidden = path.length > 3 ? path.slice(0, -2) : []
+  const sep = (
+    <span className="text-xs text-muted-foreground/60" aria-hidden>
+      /
+    </span>
+  )
+  return (
+    <nav aria-label="Focus" className="flex min-w-0 items-center gap-0.5">
+      <button type="button" className={crumb} onClick={() => onFocus(null)}>
+        Whole model
+      </button>
+      {hidden.length > 0 && (
+        <>
+          {sep}
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<button type="button" className={crumb} aria-label="More levels" />}>
+              …
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {hidden.map((e) => (
+                <DropdownMenuItem key={e.id} onClick={() => onFocus(e.id)}>
+                  {e.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
+      )}
+      {shown.map((e, i) => {
+        const last = i === shown.length - 1
+        return (
+          <span key={e.id} className="flex min-w-0 items-center gap-0.5">
+            {sep}
+            <button
+              type="button"
+              className={cn(crumb, last && "font-medium text-foreground")}
+              aria-current={last ? "location" : undefined}
+              onClick={() => !last && onFocus(e.id)}
+            >
+              {e.name}
+            </button>
+          </span>
+        )
+      })}
+    </nav>
   )
 }
 

@@ -85,8 +85,8 @@ func TestIntegrationBootstrapSample(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(els) != 12 || len(rels) != 12 {
-		t.Fatalf("sample has %d elements / %d relations, want 12 / 12", len(els), len(rels))
+	if len(els) != 14 || len(rels) != 12 {
+		t.Fatalf("sample has %d elements / %d relations, want 14 / 12", len(els), len(rels))
 	}
 
 	// Deployment tree: physical host -> docker host -> nginx.

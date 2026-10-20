@@ -92,20 +92,24 @@ Taskfile.yml  AGENTS.md  pnpm-workspace.yaml
 
 Core idea: **Model (structure / semantics) is strictly separated from Layout (positions / visual state).** A pure drag of a node must never create a model change.
 
-Entities (UUIDv7 ids):
+Entities (UUIDv7 ids). Updated through M10; `docs/DECISIONS.md` has the reasons.
 
-- `elements`: id, parent_id (nullable tree), kind (`person|system|container|component|node`), name, description, technology, tags text[], protected bool, version int, deleted_at, created_at, updated_at
+- `elements`: id, parent_id (nullable tree), kind (`person|system|container|component|node`), name, description, technology, tags text[], protected bool, layer, projects text[], replicas, properties jsonb, type, environment, lifecycle, criticality, runbook_url, docs_url, last_reviewed_at, version int, deleted_at, created_at, updated_at
   - `node` = deployment infrastructure (physical machine, VM, k8s cluster, namespace, docker host, reverse proxy like Nginx / Traefik…), nestable via parent_id.
-- `relations`: id, source_id, target_id, kind (`uses|deployed_on`), description, technology, version, deleted_at
-  - `deployed_on` links container / component → node (how "app runs on infra" is expressed).
-- `views`: id, name, kind (`landscape|context|container|component|deployment|custom`), scope_element_id (nullable), description
-- `view_elements` (LAYOUT only): view_id, element_id, x, y, w, h, collapsed bool
-- `changesets`: id, title, description, author_id, base_version int, status (`draft|in_review|merged|rejected|abandoned`), created_at, merged_at
-- `changes`: id, changeset_id, seq, op (`add|update|delete`), target_type (`element|relation`), target_id, patch jsonb, before jsonb
-- `model_versions`: number (monotonic), changeset_id, merged_by, merged_at, summary
-- `users`: id, email, name, role (`viewer|editor|maintainer`)
+  - `type` refines the kind (`database-server|database|schema|cache|queue|proxy`); a database server is a container and its logical databases are components under it (ADR-062). The `database` kind of M6 was retired into `container` + type `database`.
+- `relations`: id, source_id, target_id, kind (`uses|deployed_on`), description, technology, version, deleted_at, created_at, updated_at
+  - `deployed_on` links container / component → node (how "app runs on infra" is expressed). Descendants inherit their ancestors' deployment.
+- `owners` (team or person, contact, on-call URL) and `element_owners` (element, owner, role `owner|maintainer|oncall|escalation`, one owner per role): versioned model data; owners and environment are inherited from ancestors (ADR-063, ADR-064). An owner is a named team / person, or stands for a user or a group (`principal_id`, id `uuidv5(principal)`, live name shown; ADR-069).
+- `groups` (name unique ignoring case, description, soft delete) and `group_members`: account administration managed by maintainers, not versioned (ADR-070).
+- `views`: id, name, kind (`landscape|context|container|component|deployment|custom|layers|unowned`), scope_element_id (nullable), description, layers text[]
+- `view_elements` (LAYOUT only): view_id, element_id, x, y, w, h, collapsed bool, included bool (custom view membership)
+- `changesets`: id, title, description, author_id, base_version int, status (`draft|in_review|merged|rejected|abandoned`), approved_by, approved_at, created_at, merged_at
+- `changes`: id, changeset_id, seq, batch_id, op (`add|update|delete`), target_type (`element|relation|owner|ownership`), target_id, patch jsonb, before jsonb, undone_at
+- `model_versions`: number (monotonic), changeset_id, merged_by, merged_at, summary; `model_snapshots` (full model per version, base of 3-way merges); `merge_resolutions`
+- `layer_rules`: which element classes (kind or type) may sit on which layers (ADR-048)
+- `users` (id, email, name, role `viewer|editor|maintainer`, disabled_at, last_login_at), `user_identities`, `sessions`, `auth_flows` (M7, ADR-053..061)
 - Reserve (table only, no logic): `bindings` (element_id, kind, config jsonb) for future Prometheus / health bindings.
-- Custom icons (see M6): store uploaded icons with size / type limits.
+- Custom icons: deferred (ADR-052).
 
 `elements` / `relations` hold the CURRENT main (materialized) state. History = `changes` of merged changesets + `model_versions`.
 
@@ -113,13 +117,13 @@ Entities (UUIDv7 ids):
 
 ### 5.1 Draft / merge workflow (most important part)
 
-- Main is read-only through the API. Every modification happens inside a **changeset (draft)**.
+- Every modification is a change inside a **changeset**. Under the default review policy (`required`) main is read-only and edits happen in drafts. Under `direct` (a maintainer setting, ADR-072) an editor's save on main is a changeset merged at once as a new version. Protected elements still go to review, and edits that add lint errors are kept as drafts.
 - Reads inside a draft return "main at base_version + applied changes" (effective model; keep simple, optimize later).
 - Each GUI edit becomes one or more `changes` (with `before` captured) → per-draft undo / redo + audit trail.
-- A draft can be submitted for review, approved + merged by a `maintainer`, rejected, or abandoned. Authors may not merge their own draft unless they are maintainers (configurable flag).
+- A draft can be submitted for review, approved and merged by a `maintainer`, rejected, or abandoned. Approval is a separate step; an author may approve and merge their own draft only when `MERGE_ALLOW_SELF` is set, and changes to protected elements always need an approver and merger other than the author (ADR-022, ADR-023).
 - **Diff** endpoint: structured diff main vs draft (added / removed / modified elements and relations, field-level for modified).
 - **Merge** (optimistic concurrency): if main version == base_version → fast-forward. Otherwise rebase with per-target field-level 3-way merge; disjoint fields auto-merge; same-field edits or delete-vs-update produce a `conflict` list requiring explicit resolution ("mine" / "theirs"). Never silently overwrite.
-  - If time-boxed, the acceptable MVP fallback is: reject the merge when base_version is stale and require a fresh draft. Record this in `docs/DECISIONS.md` and implement full rebase later.
+  - The full rebase is implemented (`changeset.Merge3`); the "reject stale merges" fallback was never needed.
 - `protected` elements change only via a changeset that was `in_review` and merged by a maintainer.
 - Soft delete only; deleting an element with children requires an explicit cascade flag visible in the diff.
 - Drafts may stay unmerged forever (this is how temporary diagrams are supported). Views can be created inside a draft.
@@ -129,12 +133,18 @@ Entities (UUIDv7 ids):
 
 Small rule engine (`lint.Rule` interface):
 
-- ERROR: parent kind hierarchy valid (component → container, container → system, node may nest in node).
-- ERROR: relation endpoints exist and are not soft-deleted; no duplicate (source, target, kind).
-- ERROR: duplicate sibling names under the same parent.
-- WARN: orphan element (no relations, no parent) other than person / system.
-- WARN: `uses` relation without technology.
-- WARN: container / component without any `deployed_on` relation.
+- ERROR `hierarchy`: component → container, container → system (both require a parent), node may nest in node, person / system are roots.
+- ERROR `relation`: endpoints exist; no duplicate (source, target, kind); `deployed_on` goes from a container / component to a node.
+- ERROR `duplicate-sibling-name`: same name (ignoring case and surrounding spaces) under the same parent.
+- ERROR `type-kind`: an element type fits its kind (M10). ERROR `ownership`: assignments point at live elements / owners; named owners' names are unique; a user / group owner points at an existing, active principal.
+- ERROR `owner-required`: an element whose effective environment is prod has an effective owner (M10).
+- WARN `orphan`: no relations, no parent and no children, other than person / system.
+- WARN `uses-technology`: `uses` relation without technology.
+- WARN `deployment`: container / component not deployed on a node, directly or through an ancestor (effective deployment, M10).
+- WARN `stale-review`: last review older than `LINT_REVIEW_MAX_AGE` (180 days); never reviewed only for prod (M10).
+- WARN `deprecated-dependency`: an active element uses or is deployed on a deprecated one (M10).
+- WARN `owner-inactive`: an element is assigned to a disabled user or a deleted group (ADR-069).
+- Layer rules (ADR-048) are enforced when editing, not by lint.
 
 ### 5.3 Auth (MVP)
 
@@ -143,14 +153,15 @@ Small rule engine (`lint.Rule` interface):
 
 ## 6. API (REST / JSON, `/api/v1`, defined in `contracts/openapi.yaml`)
 
-- `GET /model/elements?version=&parent_id=&q=`, `GET /model/elements/{id}`; same for relations (main, read-only)
+- `GET /model/elements?parent_id=&q=`, `GET /model/elements/{id}`; same for relations; `GET /model/owners` (main, read-only; older versions via `/versions/{n}/model`)
 - `POST /changesets`, `GET /changesets`, `GET /changesets/{id}`
 - `GET /changesets/{id}/model`, `GET /changesets/{id}/diff`, `GET /changesets/{id}/lint`
 - `POST /changesets/{id}/changes` (batch of ops), `DELETE /changesets/{id}/changes/last` (undo), `POST /changesets/{id}/changes/redo`
 - `POST /changesets/{id}/submit | approve | reject | abandon | merge | resolve`
 - `GET /versions`, `GET /versions/{n}/model`
-- `GET / POST / PUT /views`, `PUT /views/{id}/layout` (layout writes create NO changes / versions)
-- `GET /me`, auth endpoints; `GET /metrics` (Prometheus)
+- `GET /versions/{from}/diff/{to}`, `GET /changesets/{id}/conflicts`
+- `GET / POST /views`, `PUT / DELETE /views/{id}`, `GET /views/{id}/model`, `PUT /views/{id}/layout` (layout writes create NO changes / versions)
+- `GET / PUT /layer-rules`, `/users*` (maintainers), `GET / PUT /settings` (review policy; writes: maintainers), `POST /model/changes` and `POST /model/changes/{id}/revert` (direct edits), `GET /directory` (users and groups for pickers), `/groups*` (writes: maintainers), `/auth/*`, `GET /me`, `PUT /me/password`; `GET /metrics` (Prometheus)
 
 ## 7. Frontend requirements
 
@@ -159,7 +170,7 @@ Small rule engine (`lint.Rule` interface):
 - Layout: ELK for new / untouched nodes; user drags persist as Layout only.
 - Sidebar: element tree (search, filter by kind / tag) and property panel (shadcn form components).
 - Edit mode only inside a draft. Persistent top bar: context (Main @ vN, or Draft "title"), Undo / Redo, Lint status (NumberTicker), "Submit for review".
-- Pages: `/` landscape of main, `/views/:id`, `/changesets`, `/changesets/:id` (canvas + diff + lint + conflicts), `/versions` (history; open a past version read-only).
+- Pages: `/` main (views are chosen with `?view=`, not a separate page), `/changesets`, `/changesets/:id` (canvas + diff + lint + conflicts), `/versions` (history; open a past version read-only; consecutive direct edits are grouped), `/users`, `/settings`, `/login`.
 - Diff overlay: green added / red removed / amber modified + list panel.
 - TanStack Query with optimistic updates for drafts; typed client from `packages/api-client`.
 - Accessibility basics: keyboard navigation in tree / sidebar, visible focus, `prefers-reduced-motion` respected, sufficient contrast in both themes.

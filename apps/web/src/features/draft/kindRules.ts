@@ -8,10 +8,9 @@ export const allowedParentKinds: Record<ElementKind, readonly ElementKind[]> = {
   container: ["system"],
   component: ["container"],
   node: ["node"],
-  database: ["system"],
 }
 
-export const requiresParent = (kind: ElementKind) => kind === "container" || kind === "component" || kind === "database"
+export const requiresParent = (kind: ElementKind) => kind === "container" || kind === "component"
 
 /** Parses "a, b ,,c" into ["a", "b", "c"] (trimmed, de-duplicated, empty entries dropped). */
 export function parseTags(input: string): string[] {

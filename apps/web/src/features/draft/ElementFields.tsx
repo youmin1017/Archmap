@@ -1,21 +1,57 @@
 import { useMemo, useState } from "react"
-import { Check, Plus, Server, X } from "lucide-react"
-import type { Element, ElementKind, LayerRule } from "@archmap/api-client"
+import { Check, Plus, Server, UserRound, Users, UsersRound, X } from "lucide-react"
+import type {
+  Criticality,
+  Element,
+  ElementKind,
+  ElementType,
+  Environment,
+  LayerRule,
+  Lifecycle,
+  Owner,
+  OwnerRole,
+  Ownership,
+} from "@archmap/api-client"
 
 import { Button } from "@/components/ui/button"
 import { TextAutocomplete } from "@/components/ui/autocomplete"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { TechIcon } from "@/components/tech-icon/tech-icon"
 import { cn } from "@/lib/utils"
 import { canBeDeployed } from "../canvas/deployment"
+import {
+  criticalities,
+  daysSinceReview,
+  effectiveOwner,
+  environments,
+  labelOf as optionLabel,
+  lifecycles,
+  ownerRoles,
+  REVIEW_MAX_DAYS,
+  today,
+  typesForKind,
+} from "../canvas/element"
 import { ancestorIds, type ElementTree } from "../canvas/graph"
 import { kinds, kindMeta } from "../canvas/kind"
 import { layerViolation, violationMessage } from "../layers/layers"
+import { useDirectory } from "../users/queries"
 import { allowedParentKinds, parseTags, requiresParent } from "./kindRules"
+import { ownerSections } from "./ownerPicker"
+
+const choiceIcon = { user: UserRound, group: Users, team: UsersRound, person: UserRound } as const
 
 export type ElementFormValues = {
   kind: ElementKind
@@ -31,6 +67,28 @@ export type ElementFormValues = {
   properties: Record<string, string>
   /** Ids of the nodes the element is deployed on (empty for kinds that cannot be deployed). */
   deployedOn: string[]
+  type: ElementType
+  environment: Environment
+  lifecycle: Lifecycle
+  criticality: Criticality
+  runbookUrl: string
+  docsUrl: string
+  lastReviewedAt: string | null
+  /** The element's own owner per role ("" = none here, inherit from the parents). */
+  ownership: Record<OwnerRole, string>
+}
+
+const emptyOwnership = (): Record<OwnerRole, string> => ({ owner: "", maintainer: "", oncall: "", escalation: "" })
+
+/** Accepts an empty value or an absolute http(s) URL (the API checks it too). */
+export function urlProblem(u: string): string | null {
+  if (u.trim() === "") return null
+  try {
+    const url = new URL(u.trim())
+    return url.protocol === "http:" || url.protocol === "https:" ? null : "Use an http(s) link."
+  } catch {
+    return "Use a full link, e.g. https://…"
+  }
 }
 
 export type ElementFormInit = {
@@ -42,6 +100,8 @@ export type ElementFormInit = {
   defaultParentId?: string | null
   /** Layer preselected for a new element (e.g. the plane that was right-clicked). */
   defaultLayer?: string
+  /** The existing element's own ownership assignments. */
+  ownerships?: readonly Ownership[]
 }
 
 const NONE = "__none__"
@@ -63,6 +123,18 @@ export function useElementForm(init: ElementFormInit, tree: ElementTree, layerRu
   const [parentId, setParentId] = useState<string | null>(element ? element.parent_id : (init.defaultParentId ?? null))
   const [isProtected, setIsProtected] = useState(element?.protected ?? false)
   const [deployedOn, setDeployedOn] = useState<string[]>(() => [...(init.deployedOn ?? [])])
+  const [type, setType] = useState<ElementType>(element?.type ?? "")
+  const [environment, setEnvironment] = useState<Environment>(element?.environment ?? "")
+  const [lifecycle, setLifecycle] = useState<Lifecycle>(element?.lifecycle ?? "active")
+  const [criticality, setCriticality] = useState<Criticality>(element?.criticality ?? "")
+  const [runbookUrl, setRunbookUrl] = useState(element?.runbook_url ?? "")
+  const [docsUrl, setDocsUrl] = useState(element?.docs_url ?? "")
+  const [lastReviewedAt, setLastReviewedAt] = useState(element?.last_reviewed_at ?? "")
+  const [ownership, setOwnership] = useState<Record<OwnerRole, string>>(() => {
+    const own = emptyOwnership()
+    for (const o of init.ownerships ?? []) own[o.role] = o.owner_id
+    return own
+  })
   const [touched, setTouched] = useState(false)
 
   const parentOptions = useMemo(() => {
@@ -98,10 +170,20 @@ export function useElementForm(init: ElementFormInit, tree: ElementTree, layerRu
   // The chosen parent may stop being valid when the kind changes.
   const parentValid = parentId === null ? !requiresParent(kind) : parentOptions.some((p) => p.id === parentId)
   const nameValid = name.trim() !== ""
-  const violated = layerViolation(layerRules, { kind }, layer)
+  const violated = layerViolation(layerRules, { kind, type }, layer)
   const replicaCount = Number(replicas)
   const replicasValid = Number.isInteger(replicaCount) && replicaCount >= 1 && replicaCount <= 100
-  const canSubmit = nameValid && parentValid && replicasValid && violated === null
+  const runbookProblem = urlProblem(runbookUrl)
+  const docsProblem = urlProblem(docsUrl)
+  const typeFits = type === "" || typesForKind(kind).some((t) => t.value === type)
+  const canSubmit =
+    nameValid && parentValid && replicasValid && violated === null && !runbookProblem && !docsProblem && typeFits
+
+  // A type that does not fit the new kind is cleared (the API's lint would reject it).
+  function changeKind(next: ElementKind) {
+    setKind(next)
+    if (type !== "" && !typesForKind(next).some((t) => t.value === type)) setType("")
+  }
 
   function values(): ElementFormValues {
     return {
@@ -119,13 +201,21 @@ export function useElementForm(init: ElementFormInit, tree: ElementTree, layerRu
         props.map((p) => [p.key.trim(), p.value.trim()] as const).filter(([k, v]) => k !== "" && v !== "")
       ),
       deployedOn: canBeDeployed(kind) ? deployedOn : [],
+      type,
+      environment,
+      lifecycle,
+      criticality,
+      runbookUrl: runbookUrl.trim(),
+      docsUrl: docsUrl.trim(),
+      lastReviewedAt: lastReviewedAt === "" ? null : lastReviewedAt,
+      ownership,
     }
   }
 
   return {
     editing: element !== undefined,
     kind,
-    setKind,
+    setKind: changeKind,
     name,
     setName,
     description,
@@ -148,6 +238,24 @@ export function useElementForm(init: ElementFormInit, tree: ElementTree, layerRu
     setIsProtected,
     deployedOn,
     setDeployedOn,
+    type,
+    setType,
+    environment,
+    setEnvironment,
+    lifecycle,
+    setLifecycle,
+    criticality,
+    setCriticality,
+    runbookUrl,
+    setRunbookUrl,
+    docsUrl,
+    setDocsUrl,
+    lastReviewedAt,
+    setLastReviewedAt,
+    ownership,
+    setOwnership,
+    runbookProblem,
+    docsProblem,
     touched,
     setTouched,
     parentOptions,
@@ -156,6 +264,7 @@ export function useElementForm(init: ElementFormInit, tree: ElementTree, layerRu
     violated,
     replicasValid,
     nodes,
+    tree,
     canSubmit,
     values,
   }
@@ -175,6 +284,8 @@ type FieldsProps = {
   canProtect: boolean
   /** One column (side panel) instead of pairing kind and technology. */
   compact?: boolean
+  /** Owners of the draft's model, offered per role. */
+  owners?: readonly Owner[]
 }
 
 /** Small uppercase heading that groups related fields. */
@@ -221,6 +332,49 @@ function Field({
 const chip =
   "inline-flex h-6 items-center rounded-md border px-2 text-xs transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-pressed:border-primary/40 aria-pressed:bg-primary/10 aria-pressed:text-foreground"
 
+/** A few mutually exclusive options as selectable chips (role="radio"). */
+function ChipGroup({
+  label,
+  hint,
+  options,
+  value,
+  onChange,
+}: {
+  label: string
+  hint?: string
+  options: readonly { value: string; label: string }[]
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <span className="text-sm font-medium" id={`chips-${label}`}>
+        {label}
+      </span>
+      <div role="radiogroup" aria-labelledby={`chips-${label}`} className="flex flex-wrap gap-1">
+        {options.map((o) => (
+          <button
+            key={o.value || "none"}
+            type="button"
+            role="radio"
+            aria-checked={value === o.value}
+            onClick={() => onChange(o.value)}
+            className={cn(
+              chip,
+              value === o.value
+                ? "border-primary/40 bg-primary/10 text-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  )
+}
+
 /** The element's fields, shared by the "Add element" dialog and the in-place editor of the details panel. */
 export function ElementFields({
   form,
@@ -229,6 +383,7 @@ export function ElementFields({
   technologyOptions = [],
   canProtect,
   compact = false,
+  owners = [],
 }: FieldsProps) {
   const { kind } = form
   const parentItems = [
@@ -242,6 +397,14 @@ export function ElementFields({
   const parentError = !form.parentValid && (form.parentId !== null || form.touched)
   const pair = compact ? "flex flex-col gap-3" : "grid grid-cols-2 gap-3"
   const currentProjects = parseTags(form.projects)
+  const parent = form.parentId ? form.tree.byId.get(form.parentId) : undefined
+  const inheritedEnv = parent?.effective?.environment ?? ""
+  const reviewAge = daysSinceReview(form.lastReviewedAt || null)
+  const directory = useDirectory()
+  const sections = ownerSections(owners, directory.data, Object.values(form.ownership))
+  const choices = sections.flatMap((sec) => sec.choices)
+  const ownerName = (id: string) =>
+    choices.find((c) => c.value === id)?.label ?? owners.find((o) => o.id === id)?.name ?? "Unknown owner"
 
   return (
     <div className="flex flex-col gap-4">
@@ -435,6 +598,155 @@ export function ElementFields({
         </div>
       </Section>
 
+      <Section title="Operations">
+        {typesForKind(kind).length > 0 && (
+          <ChipGroup
+            label="Type"
+            hint="Datastore types are drawn as cylinders."
+            options={[{ value: "", label: "None" }, ...typesForKind(kind)]}
+            value={form.type}
+            onChange={(v) => form.setType(v as ElementType)}
+          />
+        )}
+        <ChipGroup
+          label="Environment"
+          hint={
+            form.environment === "" && inheritedEnv
+              ? `Inherits ${optionLabel(environments, inheritedEnv).toLowerCase()} from ${parent?.name}.`
+              : "Children inherit it unless they set their own."
+          }
+          options={[
+            { value: "", label: inheritedEnv ? `Inherit (${optionLabel(environments, inheritedEnv)})` : "Not set" },
+            ...environments,
+          ]}
+          value={form.environment}
+          onChange={(v) => form.setEnvironment(v as Environment)}
+        />
+        <div className={pair}>
+          <ChipGroup
+            label="Lifecycle"
+            options={lifecycles}
+            value={form.lifecycle}
+            onChange={(v) => form.setLifecycle(v as Lifecycle)}
+          />
+          <ChipGroup
+            label="Criticality"
+            options={[{ value: "", label: "Not set" }, ...criticalities]}
+            value={form.criticality}
+            onChange={(v) => form.setCriticality(v as Criticality)}
+          />
+        </div>
+        <div className={pair}>
+          <Field id="el-runbook" label="Runbook" error={form.runbookProblem}>
+            <Input
+              id="el-runbook"
+              type="url"
+              value={form.runbookUrl}
+              onChange={(e) => form.setRunbookUrl(e.target.value)}
+              placeholder="https://…"
+              aria-invalid={form.runbookProblem !== null}
+            />
+          </Field>
+          <Field id="el-docs" label="Docs" error={form.docsProblem}>
+            <Input
+              id="el-docs"
+              type="url"
+              value={form.docsUrl}
+              onChange={(e) => form.setDocsUrl(e.target.value)}
+              placeholder="https://…"
+              aria-invalid={form.docsProblem !== null}
+            />
+          </Field>
+        </div>
+        <Field
+          id="el-reviewed"
+          label="Last reviewed"
+          hint={
+            reviewAge === null
+              ? "Never reviewed."
+              : reviewAge > REVIEW_MAX_DAYS
+                ? `${reviewAge} days ago; review it again.`
+                : `${reviewAge} days ago.`
+          }
+        >
+          <div className="flex items-center gap-1.5">
+            <Input
+              id="el-reviewed"
+              type="date"
+              value={form.lastReviewedAt}
+              onChange={(e) => form.setLastReviewedAt(e.target.value)}
+              className="w-40"
+            />
+            <Button type="button" variant="outline" size="sm" onClick={() => form.setLastReviewedAt(today())}>
+              Today
+            </Button>
+            {form.lastReviewedAt && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => form.setLastReviewedAt("")}>
+                Clear
+              </Button>
+            )}
+          </div>
+        </Field>
+      </Section>
+
+      <Section title="Ownership">
+        <div className={compact ? "flex flex-col gap-3" : "grid grid-cols-2 gap-3"}>
+          {ownerRoles.map((r) => {
+            const inherited = parent ? effectiveOwner(parent.effective, parent.id, r.value) : null
+            const inheritLabel = inherited ? `Inherit: ${ownerName(inherited.ownerId)}` : "None (nothing to inherit)"
+            const items = [
+              { value: "", label: inheritLabel },
+              ...choices.map((c) => ({ value: c.value, label: c.label })),
+            ]
+            return (
+              <Field key={r.value} id={`el-owner-${r.value}`} label={r.label} hint={r.hint}>
+                <Select
+                  value={form.ownership[r.value]}
+                  onValueChange={(v) =>
+                    form.setOwnership((cur) => ({ ...cur, [r.value]: typeof v === "string" ? v : "" }))
+                  }
+                  items={items}
+                >
+                  <SelectTrigger id={`el-owner-${r.value}`} className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">{inheritLabel}</SelectItem>
+                    {sections.map((sec) => (
+                      <SelectGroup key={sec.label}>
+                        <SelectSeparator />
+                        <SelectLabel>{sec.label}</SelectLabel>
+                        {sec.choices.map((c) => {
+                          const Icon = choiceIcon[c.kind]
+                          return (
+                            <SelectItem
+                              key={c.value}
+                              value={c.value}
+                              disabled={c.inactive && form.ownership[r.value] !== c.value}
+                            >
+                              <Icon className="text-muted-foreground" aria-hidden />
+                              <span className={cn("truncate", c.inactive && "line-through")}>{c.label}</span>
+                              {(c.detail || c.inactive) && (
+                                <span className="truncate text-xs text-muted-foreground">
+                                  {c.inactive ? (c.kind === "group" ? "deleted" : "disabled") : c.detail}
+                                </span>
+                              )}
+                            </SelectItem>
+                          )
+                        })}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )
+          })}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Pick a user, a group or a named team. Add teams without accounts with Owners in the draft bar.
+        </p>
+      </Section>
+
       <Section title="Organization">
         <Field id="el-projects" label="Projects">
           <Input
@@ -481,7 +793,7 @@ export function ElementFields({
       </Section>
 
       <Section title="Properties">
-        <fieldset className="flex flex-col gap-1.5">
+        <fieldset className="relative flex flex-col gap-1.5">
           <legend className="sr-only">Properties</legend>
           {form.props.length === 0 && (
             <p className="text-xs text-muted-foreground">Key / value details such as ip, port or namespace.</p>

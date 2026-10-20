@@ -1,7 +1,7 @@
 import type { Element, ElementKind, Relation } from "@archmap/api-client"
 
-/** Kinds that can be deployed on a node (lint: deployed_on goes container / component / database -> node). */
-export const deployableKinds: readonly ElementKind[] = ["container", "component", "database"]
+/** Kinds that can be deployed on a node (lint: deployed_on goes container / component -> node). */
+export const deployableKinds: readonly ElementKind[] = ["container", "component"]
 
 export const canBeDeployed = (kind: ElementKind) => deployableKinds.includes(kind)
 

@@ -20,6 +20,9 @@ type Result struct {
 	Expanded []uuid.UUID
 	// ScopeMissing: the view's scope element does not exist in the model being shown.
 	ScopeMissing bool
+	// Effective holds the inherited values of every element, computed on the whole model
+	// (a view shows a subset, but ownership and deployment come from all ancestors).
+	Effective map[uuid.UUID]model.Effective
 }
 
 type index struct {
@@ -147,24 +150,35 @@ func Compute(v View, members []uuid.UUID, snap model.Snapshot) Result {
 		}
 	}
 
-	roots = dedupe(roots)
-	// Roots that sit inside another root are not roots of the view.
-	inSubtree := map[uuid.UUID]bool{}
-	for _, r := range roots {
-		for _, d := range ix.subtree(r)[1:] {
-			inSubtree[d] = true
+	var shown map[uuid.UUID]bool
+	if v.Kind == KindUnowned {
+		// Flat membership: no subtree pull-in, so owned children of an unowned parent stay out.
+		shown = unownedMembers(ix, snap)
+		for _, e := range snap.Elements {
+			if p, ok := ix.parent(e.ID); shown[e.ID] && (!ok || !shown[p]) {
+				roots = append(roots, e.ID)
+			}
+		}
+	} else {
+		roots = dedupe(roots)
+		// Roots that sit inside another root are not roots of the view.
+		inSubtree := map[uuid.UUID]bool{}
+		for _, r := range roots {
+			for _, d := range ix.subtree(r)[1:] {
+				inSubtree[d] = true
+			}
+		}
+		roots = slices.DeleteFunc(roots, func(r uuid.UUID) bool { return inSubtree[r] })
+
+		shown = map[uuid.UUID]bool{}
+		for _, r := range roots {
+			for _, id := range ix.subtree(r) {
+				shown[id] = true
+			}
 		}
 	}
-	roots = slices.DeleteFunc(roots, func(r uuid.UUID) bool { return inSubtree[r] })
 
-	shown := map[uuid.UUID]bool{}
-	for _, r := range roots {
-		for _, id := range ix.subtree(r) {
-			shown[id] = true
-		}
-	}
-
-	res := Result{Roots: roots}
+	res := Result{Roots: roots, Effective: model.ComputeEffective(snap)}
 	for _, e := range snap.Elements {
 		if shown[e.ID] {
 			res.Elements = append(res.Elements, e)
@@ -183,6 +197,15 @@ func Compute(v View, members []uuid.UUID, snap model.Snapshot) Result {
 	}
 
 	switch {
+	case v.Kind == KindUnowned:
+		for _, e := range res.Elements {
+			for _, c := range ix.children[e.ID] {
+				if shown[c] {
+					res.Expanded = append(res.Expanded, e.ID)
+					break
+				}
+			}
+		}
 	case expandScope:
 		res.Expanded = []uuid.UUID{scope}
 	case v.Kind == KindDeployment:
@@ -271,4 +294,24 @@ func dedupe(ids []uuid.UUID) []uuid.UUID {
 		}
 	}
 	return out
+}
+
+// unownedMembers returns the systems, containers, components and nodes without an
+// effective owner, plus their ancestors (context to find them in the tree).
+func unownedMembers(ix index, snap model.Snapshot) map[uuid.UUID]bool {
+	eff := model.ComputeEffective(snap)
+	shown := map[uuid.UUID]bool{}
+	for _, e := range snap.Elements {
+		if e.Kind == model.KindPerson {
+			continue
+		}
+		if _, owned := eff[e.ID].Owner(model.RoleOwner); owned {
+			continue
+		}
+		shown[e.ID] = true
+		for _, a := range ix.ancestors(e.ID) {
+			shown[a] = true
+		}
+	}
+	return shown
 }

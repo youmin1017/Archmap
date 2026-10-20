@@ -19,6 +19,8 @@ describe("diffOverlay", () => {
       modified: [{ before: el(ids.api), after: el(ids.api), fields: [{ field: "name", before: "API", after: "X" }] }],
     },
     relations: { added: [], removed: [rel("106")], modified: [] },
+    owners: { added: [], removed: [], modified: [] },
+    ownerships: { added: [], removed: [], modified: [] },
   }
 
   it("maps ids to statuses and collects ghosts", () => {

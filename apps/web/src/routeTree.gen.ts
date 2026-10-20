@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as VersionsRouteImport } from './routes/versions'
 import { Route as ChangesetsIndexRouteImport } from './routes/changesets.index'
@@ -18,6 +20,16 @@ import { Route as ChangesetsIdRouteImport } from './routes/changesets.$id'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UsersRoute = UsersRouteImport.update({
@@ -43,6 +55,8 @@ const ChangesetsIdRoute = ChangesetsIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/settings': typeof SettingsRoute
   '/users': typeof UsersRoute
   '/versions': typeof VersionsRoute
   '/changesets/$id': typeof ChangesetsIdRoute
@@ -50,6 +64,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/settings': typeof SettingsRoute
   '/users': typeof UsersRoute
   '/versions': typeof VersionsRoute
   '/changesets/$id': typeof ChangesetsIdRoute
@@ -58,6 +74,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/settings': typeof SettingsRoute
   '/users': typeof UsersRoute
   '/versions': typeof VersionsRoute
   '/changesets/$id': typeof ChangesetsIdRoute
@@ -65,12 +83,28 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/users' | '/versions' | '/changesets/$id' | '/changesets/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/settings'
+    | '/users'
+    | '/versions'
+    | '/changesets/$id'
+    | '/changesets/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/users' | '/versions' | '/changesets/$id' | '/changesets'
+  to:
+    | '/'
+    | '/login'
+    | '/settings'
+    | '/users'
+    | '/versions'
+    | '/changesets/$id'
+    | '/changesets'
   id:
     | '__root__'
     | '/'
+    | '/login'
+    | '/settings'
     | '/users'
     | '/versions'
     | '/changesets/$id'
@@ -79,6 +113,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LoginRoute: typeof LoginRoute
+  SettingsRoute: typeof SettingsRoute
   UsersRoute: typeof UsersRoute
   VersionsRoute: typeof VersionsRoute
   ChangesetsIdRoute: typeof ChangesetsIdRoute
@@ -92,6 +128,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/users': {
@@ -127,6 +177,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LoginRoute: LoginRoute,
+  SettingsRoute: SettingsRoute,
   UsersRoute: UsersRoute,
   VersionsRoute: VersionsRoute,
   ChangesetsIdRoute: ChangesetsIdRoute,

@@ -9,10 +9,18 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"archmap/api/internal/apiserver"
+	"archmap/api/internal/auth"
+	"archmap/api/internal/auth/authtest"
+	"archmap/api/internal/auth/devlogin"
+	"archmap/api/internal/auth/local"
+	authrepo "archmap/api/internal/auth/repository"
+	authtransport "archmap/api/internal/auth/transport"
 	"archmap/api/internal/changeset"
 	changesetrepo "archmap/api/internal/changeset/repository"
 	changesettransport "archmap/api/internal/changeset/transport"
@@ -27,6 +35,9 @@ import (
 	"archmap/api/internal/platform/authctx"
 	"archmap/api/internal/platform/httpx"
 	"archmap/api/internal/seed"
+	"archmap/api/internal/settings"
+	settingsrepo "archmap/api/internal/settings/repository"
+	settingstransport "archmap/api/internal/settings/transport"
 	"archmap/api/internal/testdb"
 	"archmap/api/internal/user"
 	userrepo "archmap/api/internal/user/repository"
@@ -36,13 +47,58 @@ import (
 	viewtransport "archmap/api/internal/view/transport"
 )
 
-type client struct {
-	t   *testing.T
-	srv http.Handler
+const sessionCookie = "archmap_session" // the harness runs with insecure (dev) cookies
+
+// session is a signed-in browser: its cookie and CSRF token.
+type session struct {
+	token, csrf string
 }
 
-// do sends a request as the given dev user ("" = anonymous) and decodes JSON into out when non-nil.
+type client struct {
+	t    *testing.T
+	srv  http.Handler
+	pool *pgxpool.Pool
+	// now is the clock of the auth service; tests move it to expire sessions.
+	now time.Time
+	// sessions caches one dev-provider session per user ("" key never used).
+	sessions map[string]session
+	// idp is the fake redirect provider registered as "idp".
+	idp *authtest.Provider
+}
+
+// do sends a request as the given user ("" = anonymous) and decodes JSON into out when non-nil.
+// The user signs in through the dev provider once; the session cookie and CSRF token are reused.
+// A user who cannot sign in (unknown, disabled) acts anonymously.
 func (c *client) do(method, path, user string, body any, out any) *httptest.ResponseRecorder {
+	c.t.Helper()
+	var s *session
+	if user != "" {
+		s = c.session(user)
+	}
+	return c.raw(method, path, s, body, out, nil)
+}
+
+// session returns the cached session of user, signing in when there is none.
+func (c *client) session(user string) *session {
+	c.t.Helper()
+	if s, ok := c.sessions[user]; ok {
+		return &s
+	}
+	var got api.Session
+	rec := c.raw("POST", "/api/v1/auth/login", nil, obj{"provider": "dev", "username": user}, &got, nil)
+	if rec.Code != http.StatusOK {
+		return nil
+	}
+	s := session{token: cookieValue(rec, sessionCookie), csrf: got.CsrfToken}
+	c.sessions[user] = s
+	return &s
+}
+
+// forget drops a cached session so the next request signs in again.
+func (c *client) forget(user string) { delete(c.sessions, user) }
+
+// raw sends one request with an optional session (cookie + CSRF header) and extra headers.
+func (c *client) raw(method, path string, s *session, body any, out any, headers map[string]string) *httptest.ResponseRecorder {
 	c.t.Helper()
 	var rd io.Reader
 	if body != nil {
@@ -56,8 +112,12 @@ func (c *client) do(method, path, user string, body any, out any) *httptest.Resp
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	if user != "" {
-		req.Header.Set("X-Dev-User", user)
+	if s != nil {
+		req.AddCookie(&http.Cookie{Name: sessionCookie, Value: s.token})
+		req.Header.Set(httpx.CSRFHeader, s.csrf)
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
 	}
 	rec := httptest.NewRecorder()
 	c.srv.ServeHTTP(rec, req)
@@ -67,6 +127,16 @@ func (c *client) do(method, path, user string, body any, out any) *httptest.Resp
 		}
 	}
 	return rec
+}
+
+// cookieValue returns the value the response set for a cookie ("" when absent or cleared).
+func cookieValue(rec *httptest.ResponseRecorder, name string) string {
+	for _, ck := range rec.Result().Cookies() {
+		if ck.Name == name && ck.MaxAge >= 0 {
+			return ck.Value
+		}
+	}
+	return ""
 }
 
 func (c *client) decode(rec *httptest.ResponseRecorder, out any) {
@@ -86,35 +156,66 @@ func (c *client) expect(rec *httptest.ResponseRecorder, status int, contentType 
 	}
 }
 
+type clientOptions struct {
+	mergeAllowSelf bool
+	localPassword  bool // restrict local password sign-in to maintainers
+}
+
 func newClient(t *testing.T) (*client, string) {
+	return newClientWith(t, clientOptions{})
+}
+
+// newClientWith builds the full HTTP stack the way cmd/api does, with the dev, local
+// and fake redirect ("idp") providers and a controllable clock.
+func newClientWith(t *testing.T, o clientOptions) (*client, string) {
 	t.Helper()
 	pool := testdb.Pool(t)
 	actors := testdb.Actors(t, pool)
+	c := &client{t: t, pool: pool, now: time.Now(), sessions: map[string]session{}}
 
 	layerRules := layerrule.NewService(layerrulerepo.New(pool))
-	csSvc := changeset.NewService(changesetrepo.New(pool), changeset.WithLayerRules(layerRules))
+	csSvc := changeset.NewService(changesetrepo.New(pool), changeset.WithLayerRules(layerRules), changeset.WithSelfMerge(o.mergeAllowSelf),
+		changeset.WithPrincipals(userrepo.NewGroups(pool)), changeset.WithPolicy(settingsrepo.New(pool)))
 	if _, err := csSvc.Bootstrap(authctx.With(t.Context(), actors[authctx.RoleMaintainer]), "Sample", seed.SampleModel()); err != nil {
 		t.Fatal(err)
 	}
 
+	repo := authrepo.New(pool)
+	localProvider, err := local.New(repo, o.localPassword)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.idp = &authtest.Provider{ID: "idp", Identities: map[string]auth.Identity{}}
+	authSvc, err := auth.NewService(repo, []auth.Provider{localProvider, devlogin.New(), c.idp}, auth.Options{
+		IdleTimeout: time.Hour, MaxAge: 24 * time.Hour, Now: func() time.Time { return c.now },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	e, err := httpx.New(httpx.Options{
-		Logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Registry:       prometheus.NewRegistry(),
-		DevActorLookup: userrepo.New(pool).ActorByEmail,
+		Logger:      log,
+		Registry:    prometheus.NewRegistry(),
+		CORSOrigins: []string{"http://localhost:3000"},
+		Sessions:    authSvc,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	server := apiserver.New(
+		authtransport.NewHandler(authSvc, log),
 		health.NewHandler(health.NewService("test", pool)),
 		modeltransport.NewHandler(model.NewService(modelrepo.New(pool))),
 		changesettransport.NewHandler(csSvc),
-		usertransport.NewHandler(user.NewService(userrepo.New(pool))),
+		usertransport.NewHandler(user.NewService(userrepo.New(pool), user.WithProviders(authSvc))),
+		usertransport.NewGroupHandler(user.NewGroupService(userrepo.NewGroups(pool))),
 		viewtransport.NewHandler(view.NewService(viewrepo.New(pool), apiserver.NewViewModelSource(modelrepo.New(pool), csSvc))),
 		layerruletransport.NewHandler(layerRules),
+		settingstransport.NewHandler(settings.NewService(settingsrepo.New(pool))),
 	)
 	api.RegisterHandlers(e, api.NewStrictHandler(server, nil))
-	return &client{t: t, srv: e}, "editor@test.local"
+	c.srv = e
+	return c, "editor@test.local"
 }
 
 func TestHTTPDraftWorkflow(t *testing.T) {

@@ -15,7 +15,7 @@ Work milestone by milestone (M0..M6); stop and summarize after each. Check curre
 | `task dev-api` / `task dev-web` | API (air, :8080) / web (Vite, :3000, proxies `/api`) |
 | `task test` / `task lint` | all tests (integration tests need Docker; `go test -short` skips them) / vet + eslint + tsc + oxfmt check |
 
-Auth is not built yet: with `AUTH_DEV_HEADER=true` (in `.env.example`) send `X-Dev-User: editor@archmap.local` (or viewer / maintainer) to act as a seeded user. The web dev server does this for you via `DEV_USER` (default viewer). Web unit tests: `pnpm --filter web test` (vitest).
+Auth (M7, ADR-053..061): server-side sessions (HttpOnly cookie) + CSRF token header on unsafe requests. In development (`APP_ENV=development`, `AUTH_DEV_LOGIN=true` in `.env.example`) the login page offers one-click sign-in as the seeded viewer / editor / maintainer; the seeded local password is `archmap-dev-password`. Scripts: `POST /api/v1/auth/login` `{"provider":"dev","username":"editor@archmap.local"}`, keep the cookie, send `X-CSRF-Token` from the response on POST/PUT/DELETE. Break-glass / first maintainer: `go run ./cmd/admin ensure-maintainer -email … -name …` (password on stdin). Never add a header-based or email-matching login path. Web unit tests: `pnpm --filter web test` (vitest).
 
 Pre-commit hooks: **lefthook** (`lefthook.yml`; Go tool dep in `apps/api/go.mod`; install with `task hooks` once the repo is a git repo). Runs oxfmt + eslint on staged web files, gofmt + go vet on Go files.
 
@@ -32,7 +32,7 @@ Web formatter is **oxfmt** (`pnpm --filter web format`), config `apps/web/.oxfmt
 - Echo v5: `github.com/labstack/echo/v5`, handlers `func(c *echo.Context) error`. Never write v4 style.
 - Never hand-write DTOs duplicating generated types (`internal/gen/api`); map between domain and transport types.
 - Errors: return `internal/platform/apperr` errors from services; `httpx` maps them to RFC 9457 problem+json (Echo's `ProblemDetailsHTTPErrorHandler`).
-- Main is read-only through the API; every edit is a change in a changeset (draft). Roles are checked in services via `authctx.Actor` from the context.
+- Every edit is a change in a changeset. Main is read-only unless the review policy is `direct` (ADR-072); a direct edit is then an automatically merged changeset (`changeset.Service.ApplyDirect`), never a write around the changeset tables. Roles are checked in services via `authctx.Actor` from the context.
 - sqlc: one package per feature, queries in `db/queries/<feature>.sql`; change SQL/spec, then `task gen`.
 - No global state; interfaces defined on the consumer side; table-driven service tests; testcontainers-go for repository/merge integration tests.
 - All business rules in Go; web has UI validation only (no TanStack server functions for business logic).

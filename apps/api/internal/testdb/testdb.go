@@ -34,6 +34,17 @@ var (
 // Pool returns a pool on a new migrated database. It is closed on test cleanup.
 func Pool(t testing.TB) *pgxpool.Pool {
 	t.Helper()
+	pool := EmptyPool(t)
+	if err := migrate(context.Background(), pool); err != nil {
+		t.Fatal(err)
+	}
+	return pool
+}
+
+// EmptyPool returns a pool on a new database without any migration applied
+// (for migration tests; see Migrations and Apply).
+func EmptyPool(t testing.TB) *pgxpool.Pool {
+	t.Helper()
 	if testing.Short() {
 		t.Skip("integration test (needs Docker); skipped with -short")
 	}
@@ -77,36 +88,50 @@ func Pool(t testing.TB) *pgxpool.Pool {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-
-	if err := migrate(ctx, pool); err != nil {
-		t.Fatal(err)
-	}
 	return pool
+}
+
+// Migration is one goose migration file split into its halves.
+type Migration struct {
+	Name     string
+	Up, Down string
+}
+
+// Migrations reads db/migrations in order.
+func Migrations() ([]Migration, error) {
+	_, file, _, _ := runtime.Caller(0)
+	dir := filepath.Join(filepath.Dir(file), "..", "..", "db", "migrations")
+	files, err := filepath.Glob(filepath.Join(dir, "*.sql"))
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(files)
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no migrations found in %s", dir)
+	}
+	out := make([]Migration, len(files))
+	for i, f := range files {
+		raw, err := os.ReadFile(f)
+		if err != nil {
+			return nil, err
+		}
+		up, down, _ := strings.Cut(string(raw), "-- +goose Down")
+		out[i] = Migration{Name: filepath.Base(f), Up: strings.Replace(up, "-- +goose Up", "", 1), Down: down}
+	}
+	return out, nil
 }
 
 // migrate applies the "Up" section of every goose migration in db/migrations.
 // goose itself is not a library dependency (see ADR-009); the migrations are
 // plain SQL, so running the Up halves in order is equivalent for tests.
 func migrate(ctx context.Context, pool *pgxpool.Pool) error {
-	_, file, _, _ := runtime.Caller(0)
-	dir := filepath.Join(filepath.Dir(file), "..", "..", "db", "migrations")
-	files, err := filepath.Glob(filepath.Join(dir, "*.sql"))
+	ms, err := Migrations()
 	if err != nil {
 		return err
 	}
-	sort.Strings(files)
-	if len(files) == 0 {
-		return fmt.Errorf("no migrations found in %s", dir)
-	}
-	for _, f := range files {
-		raw, err := os.ReadFile(f)
-		if err != nil {
-			return err
-		}
-		up, _, _ := strings.Cut(string(raw), "-- +goose Down")
-		up = strings.Replace(up, "-- +goose Up", "", 1)
-		if _, err := pool.Exec(ctx, up); err != nil {
-			return fmt.Errorf("apply %s: %w", filepath.Base(f), err)
+	for _, m := range ms {
+		if _, err := pool.Exec(ctx, m.Up); err != nil {
+			return fmt.Errorf("apply %s: %w", m.Name, err)
 		}
 	}
 	return nil

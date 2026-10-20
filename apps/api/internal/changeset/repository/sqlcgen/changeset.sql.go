@@ -7,12 +7,13 @@ package sqlcgen
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
 
 const approveChangeset = `-- name: ApproveChangeset :one
-UPDATE changesets SET approved_by = $2, approved_at = now() WHERE id = $1 RETURNING id, title, description, author_id, base_version, status, created_at, merged_at, approved_by, approved_at
+UPDATE changesets SET approved_by = $2, approved_at = now() WHERE id = $1 RETURNING id, title, description, author_id, base_version, status, created_at, merged_at, approved_by, approved_at, kind, reverts
 `
 
 type ApproveChangesetParams struct {
@@ -34,6 +35,8 @@ func (q *Queries) ApproveChangeset(ctx context.Context, arg ApproveChangesetPara
 		&i.MergedAt,
 		&i.ApprovedBy,
 		&i.ApprovedAt,
+		&i.Kind,
+		&i.Reverts,
 	)
 	return i, err
 }
@@ -59,7 +62,7 @@ func (q *Queries) DeleteUndoneChanges(ctx context.Context, changesetID uuid.UUID
 }
 
 const getChangeset = `-- name: GetChangeset :one
-SELECT id, title, description, author_id, base_version, status, created_at, merged_at, approved_by, approved_at FROM changesets WHERE id = $1
+SELECT id, title, description, author_id, base_version, status, created_at, merged_at, approved_by, approved_at, kind, reverts FROM changesets WHERE id = $1
 `
 
 func (q *Queries) GetChangeset(ctx context.Context, id uuid.UUID) (Changeset, error) {
@@ -76,12 +79,14 @@ func (q *Queries) GetChangeset(ctx context.Context, id uuid.UUID) (Changeset, er
 		&i.MergedAt,
 		&i.ApprovedBy,
 		&i.ApprovedAt,
+		&i.Kind,
+		&i.Reverts,
 	)
 	return i, err
 }
 
 const getChangesetForUpdate = `-- name: GetChangesetForUpdate :one
-SELECT id, title, description, author_id, base_version, status, created_at, merged_at, approved_by, approved_at FROM changesets WHERE id = $1 FOR UPDATE
+SELECT id, title, description, author_id, base_version, status, created_at, merged_at, approved_by, approved_at, kind, reverts FROM changesets WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) GetChangesetForUpdate(ctx context.Context, id uuid.UUID) (Changeset, error) {
@@ -98,6 +103,8 @@ func (q *Queries) GetChangesetForUpdate(ctx context.Context, id uuid.UUID) (Chan
 		&i.MergedAt,
 		&i.ApprovedBy,
 		&i.ApprovedAt,
+		&i.Kind,
+		&i.Reverts,
 	)
 	return i, err
 }
@@ -159,9 +166,9 @@ func (q *Queries) InsertChange(ctx context.Context, arg InsertChangeParams) (Cha
 }
 
 const insertChangeset = `-- name: InsertChangeset :one
-INSERT INTO changesets (title, description, author_id, base_version, status)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, title, description, author_id, base_version, status, created_at, merged_at, approved_by, approved_at
+INSERT INTO changesets (title, description, author_id, base_version, status, reverts)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, title, description, author_id, base_version, status, created_at, merged_at, approved_by, approved_at, kind, reverts
 `
 
 type InsertChangesetParams struct {
@@ -170,6 +177,7 @@ type InsertChangesetParams struct {
 	AuthorID    uuid.UUID
 	BaseVersion int32
 	Status      ChangesetStatus
+	Reverts     *uuid.UUID
 }
 
 func (q *Queries) InsertChangeset(ctx context.Context, arg InsertChangesetParams) (Changeset, error) {
@@ -179,6 +187,7 @@ func (q *Queries) InsertChangeset(ctx context.Context, arg InsertChangesetParams
 		arg.AuthorID,
 		arg.BaseVersion,
 		arg.Status,
+		arg.Reverts,
 	)
 	var i Changeset
 	err := row.Scan(
@@ -192,6 +201,8 @@ func (q *Queries) InsertChangeset(ctx context.Context, arg InsertChangesetParams
 		&i.MergedAt,
 		&i.ApprovedBy,
 		&i.ApprovedAt,
+		&i.Kind,
+		&i.Reverts,
 	)
 	return i, err
 }
@@ -230,6 +241,17 @@ type InsertSnapshotParams struct {
 func (q *Queries) InsertSnapshot(ctx context.Context, arg InsertSnapshotParams) error {
 	_, err := q.db.Exec(ctx, insertSnapshot, arg.Version, arg.Data)
 	return err
+}
+
+const isReverted = `-- name: IsReverted :one
+SELECT EXISTS (SELECT 1 FROM changesets WHERE reverts = $1 AND status = 'merged')
+`
+
+func (q *Queries) IsReverted(ctx context.Context, reverts *uuid.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, isReverted, reverts)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const listActiveChanges = `-- name: ListActiveChanges :many
@@ -305,8 +327,9 @@ func (q *Queries) ListChanges(ctx context.Context, changesetID uuid.UUID) ([]Cha
 }
 
 const listChangesets = `-- name: ListChangesets :many
-SELECT id, title, description, author_id, base_version, status, created_at, merged_at, approved_by, approved_at FROM changesets
-WHERE ($1::changeset_status IS NULL OR status = $1::changeset_status)
+SELECT id, title, description, author_id, base_version, status, created_at, merged_at, approved_by, approved_at, kind, reverts FROM changesets
+WHERE kind = 'draft'
+  AND ($1::changeset_status IS NULL OR status = $1::changeset_status)
   AND ($2::uuid IS NULL OR author_id = $2::uuid)
 ORDER BY created_at DESC, id DESC
 `
@@ -316,6 +339,7 @@ type ListChangesetsParams struct {
 	AuthorID *uuid.UUID
 }
 
+// Direct edits of main (ADR-072) are versions, not drafts: they are not listed.
 func (q *Queries) ListChangesets(ctx context.Context, arg ListChangesetsParams) ([]Changeset, error) {
 	rows, err := q.db.Query(ctx, listChangesets, arg.Status, arg.AuthorID)
 	if err != nil {
@@ -336,6 +360,8 @@ func (q *Queries) ListChangesets(ctx context.Context, arg ListChangesetsParams) 
 			&i.MergedAt,
 			&i.ApprovedBy,
 			&i.ApprovedAt,
+			&i.Kind,
+			&i.Reverts,
 		); err != nil {
 			return nil, err
 		}
@@ -348,24 +374,38 @@ func (q *Queries) ListChangesets(ctx context.Context, arg ListChangesetsParams) 
 }
 
 const listModelVersions = `-- name: ListModelVersions :many
-SELECT number, changeset_id, merged_by, merged_at, summary FROM model_versions ORDER BY number DESC
+SELECT v.number, v.changeset_id, v.merged_by, v.merged_at, v.summary, c.kind, c.reverts
+FROM model_versions v JOIN changesets c ON c.id = v.changeset_id
+ORDER BY v.number DESC
 `
 
-func (q *Queries) ListModelVersions(ctx context.Context) ([]ModelVersion, error) {
+type ListModelVersionsRow struct {
+	Number      int32
+	ChangesetID uuid.UUID
+	MergedBy    uuid.UUID
+	MergedAt    time.Time
+	Summary     string
+	Kind        string
+	Reverts     *uuid.UUID
+}
+
+func (q *Queries) ListModelVersions(ctx context.Context) ([]ListModelVersionsRow, error) {
 	rows, err := q.db.Query(ctx, listModelVersions)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ModelVersion
+	var items []ListModelVersionsRow
 	for rows.Next() {
-		var i ModelVersion
+		var i ListModelVersionsRow
 		if err := rows.Scan(
 			&i.Number,
 			&i.ChangesetID,
 			&i.MergedBy,
 			&i.MergedAt,
 			&i.Summary,
+			&i.Kind,
+			&i.Reverts,
 		); err != nil {
 			return nil, err
 		}
@@ -419,6 +459,15 @@ SELECT pg_advisory_xact_lock(7201)
 
 func (q *Queries) LockMain(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, lockMain)
+	return err
+}
+
+const markChangesetDirect = `-- name: MarkChangesetDirect :exec
+UPDATE changesets SET kind = 'direct' WHERE id = $1
+`
+
+func (q *Queries) MarkChangesetDirect(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markChangesetDirect, id)
 	return err
 }
 
@@ -485,7 +534,7 @@ func (q *Queries) RedoNextBatch(ctx context.Context, changesetID uuid.UUID) ([]C
 }
 
 const setChangesetStatus = `-- name: SetChangesetStatus :one
-UPDATE changesets SET status = $2 WHERE id = $1 RETURNING id, title, description, author_id, base_version, status, created_at, merged_at, approved_by, approved_at
+UPDATE changesets SET status = $2 WHERE id = $1 RETURNING id, title, description, author_id, base_version, status, created_at, merged_at, approved_by, approved_at, kind, reverts
 `
 
 type SetChangesetStatusParams struct {
@@ -507,6 +556,8 @@ func (q *Queries) SetChangesetStatus(ctx context.Context, arg SetChangesetStatus
 		&i.MergedAt,
 		&i.ApprovedBy,
 		&i.ApprovedAt,
+		&i.Kind,
+		&i.Reverts,
 	)
 	return i, err
 }
@@ -577,4 +628,15 @@ func (q *Queries) UpsertResolution(ctx context.Context, arg UpsertResolutionPara
 		arg.Choice,
 	)
 	return err
+}
+
+const versionOfChangeset = `-- name: VersionOfChangeset :one
+SELECT number FROM model_versions WHERE changeset_id = $1
+`
+
+func (q *Queries) VersionOfChangeset(ctx context.Context, changesetID uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, versionOfChangeset, changesetID)
+	var number int32
+	err := row.Scan(&number)
+	return number, err
 }

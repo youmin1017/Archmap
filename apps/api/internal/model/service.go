@@ -24,6 +24,7 @@ type Reader interface {
 	GetElement(ctx context.Context, id uuid.UUID) (Element, error)
 	ListRelations(ctx context.Context, f RelationFilter) ([]Relation, error)
 	GetRelation(ctx context.Context, id uuid.UUID) (Relation, error)
+	Snapshot(ctx context.Context) (Snapshot, error)
 }
 
 // Service exposes the read-only main model. Main is never written through the
@@ -60,4 +61,21 @@ func (s *Service) GetRelation(ctx context.Context, id uuid.UUID) (Relation, erro
 		return Relation{}, err
 	}
 	return s.r.GetRelation(ctx, id)
+}
+
+// Snapshot returns all of main (elements, relations, owners, ownerships).
+func (s *Service) Snapshot(ctx context.Context) (Snapshot, error) {
+	if _, err := authctx.Require(ctx); err != nil {
+		return Snapshot{}, err
+	}
+	return s.r.Snapshot(ctx)
+}
+
+// Effective returns the inherited values of every element of main (ADR-064).
+func (s *Service) Effective(ctx context.Context) (map[uuid.UUID]Effective, error) {
+	snap, err := s.Snapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return ComputeEffective(snap), nil
 }

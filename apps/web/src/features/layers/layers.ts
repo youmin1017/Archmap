@@ -14,8 +14,7 @@ const kindOrder: Record<ElementKind, number> = {
   system: 1,
   container: 2,
   component: 3,
-  database: 4,
-  node: 5,
+  node: 4,
 }
 
 const byKindThenName = (a: Element, b: Element) =>
@@ -117,17 +116,37 @@ export function shiftLayer(layers: readonly string[], name: string, delta: -1 | 
 export const onLayer = (elements: readonly Element[], layer: string) =>
   elements.filter((e) => sameLayer(e.layer, layer))
 
-/** Classes a layer rule can name: the element kinds. */
-export const ruleClasses = ["person", "system", "container", "component", "database", "node"] as const
+/** Classes a layer rule can name: element kinds and element types (ADR-062; the names do not overlap). */
+export const ruleClasses = [
+  "person",
+  "system",
+  "container",
+  "component",
+  "node",
+  "database-server",
+  "database",
+  "schema",
+  "cache",
+  "queue",
+  "proxy",
+] as const
 
 const classLabel: Record<string, string> = {
   person: "People",
   system: "Systems",
   container: "Containers",
   component: "Components",
-  database: "Databases",
   node: "Nodes",
+  "database-server": "Database servers",
+  database: "Databases",
+  schema: "Schemas",
+  cache: "Caches",
+  queue: "Queues",
+  proxy: "Proxies",
 }
+
+/** Whether an element belongs to a rule class (its kind or its type). */
+const inClass = (e: Pick<Element, "kind" | "type">, c: string) => e.kind === c || (e.type !== "" && e.type === c)
 export const ruleClassLabel = (c: string) => classLabel[c] ?? c
 
 /**
@@ -135,23 +154,27 @@ export const ruleClassLabel = (c: string) => classLabel[c] ?? c
  * null. Matches the API (an element without a layer is always fine); the API
  * stays the authority.
  */
-export function layerViolation(rules: readonly LayerRule[], e: Pick<Element, "kind">, layer: string): LayerRule | null {
+export function layerViolation(
+  rules: readonly LayerRule[],
+  e: Pick<Element, "kind" | "type">,
+  layer: string
+): LayerRule | null {
   if (layer.trim() === "") return null
   return (
     rules.find(
-      (r) => r.layers.length > 0 && r.element_class === e.kind && !r.layers.some((l) => sameLayer(l, layer))
+      (r) => r.layers.length > 0 && inClass(e, r.element_class) && !r.layers.some((l) => sameLayer(l, layer))
     ) ?? null
   )
 }
 
-export const layerAllowed = (rules: readonly LayerRule[], e: Pick<Element, "kind">, layer: string) =>
+export const layerAllowed = (rules: readonly LayerRule[], e: Pick<Element, "kind" | "type">, layer: string) =>
   layerViolation(rules, e, layer) === null
 
 /** Human wording of a violated rule. */
 export const violationMessage = (r: LayerRule) =>
   `${ruleClassLabel(r.element_class)} can only be placed on: ${r.layers.join(", ")}.`
 
-/** Whether any element of `kind` may go on `layer` (kind rules only; "database" depends on the element). */
+/** Whether any element of `kind` may go on `layer` (kind rules only; type rules depend on the element). */
 export const kindAllowedOnLayer = (rules: readonly LayerRule[], kind: ElementKind, layer: string) =>
   layer === "" ||
   rules.every((r) => r.element_class !== kind || r.layers.length === 0 || r.layers.some((l) => sameLayer(l, layer)))

@@ -1,4 +1,6 @@
-import type { ChangeInput, Element, Model, Relation } from "@archmap/api-client"
+import type { ChangeInput, Element, Model, Owner, Ownership, Relation } from "@archmap/api-client"
+
+import { elementDefaults } from "../canvas/element"
 
 /**
  * UI-level optimistic preview of a batch of changes on a cached draft model.
@@ -9,6 +11,8 @@ import type { ChangeInput, Element, Model, Relation } from "@archmap/api-client"
 export function applyInputs(model: Model, inputs: readonly ChangeInput[], now = new Date().toISOString()): Model {
   let elements = [...model.elements]
   let relations = [...model.relations]
+  let owners = [...model.owners]
+  let ownerships = [...model.ownerships]
 
   for (const input of inputs) {
     const id = input.target_id
@@ -17,19 +21,10 @@ export function applyInputs(model: Model, inputs: readonly ChangeInput[], now = 
     if (input.target_type === "element") {
       if (input.op === "add" && id) {
         elements.push({
+          ...elementDefaults,
           id,
-          parent_id: null,
           kind: "container",
           name: "",
-          description: "",
-          technology: "",
-          tags: [],
-          protected: false,
-          layer: "",
-          projects: [],
-          replicas: 1,
-          properties: {},
-          version: 1,
           created_at: now,
           updated_at: now,
           ...(patch as Partial<Element>),
@@ -74,5 +69,45 @@ export function applyInputs(model: Model, inputs: readonly ChangeInput[], now = 
       }
     }
   }
-  return { elements, relations }
+  // Owners and ownerships: previewed as-is; inherited values stay as the server computed
+  // them until the refetch.
+  for (const input of inputs) {
+    const id = input.target_id
+    const patch = input.patch ?? {}
+    if (input.target_type === "owner" && id) {
+      if (input.op === "add") {
+        owners.push({
+          id,
+          kind: "team",
+          name: "",
+          contact: "",
+          oncall_url: "",
+          version: 1,
+          ...(patch as Partial<Owner>),
+        })
+      } else if (input.op === "update") {
+        owners = owners.map((o) => (o.id === id ? { ...o, ...(patch as Partial<Owner>) } : o))
+      } else {
+        owners = owners.filter((o) => o.id !== id)
+        ownerships = ownerships.filter((o) => o.owner_id !== id)
+      }
+    } else if (input.target_type === "ownership") {
+      const p = patch as Partial<Ownership>
+      if (input.op === "add" && p.element_id && p.owner_id && p.role) {
+        // The server derives the real id from element and role; this preview key is replaced on refetch.
+        ownerships.push({
+          id: id ?? `${p.element_id}:${p.role}`,
+          element_id: p.element_id,
+          owner_id: p.owner_id,
+          role: p.role,
+          version: 1,
+        })
+      } else if (input.op === "update" && id) {
+        ownerships = ownerships.map((o) => (o.id === id ? { ...o, ...p } : o))
+      } else if (input.op === "delete" && id) {
+        ownerships = ownerships.filter((o) => o.id !== id)
+      }
+    }
+  }
+  return { elements, relations, owners, ownerships }
 }

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState, type ComponentProps } from "react"
 import { Eye, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react"
 import type { Element, Me, Model, View, ViewModel } from "@archmap/api-client"
 
@@ -17,6 +17,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { cn } from "@/lib/utils"
 import { useCreateView, useDeleteView, useUpdateView, useViews } from "../draft/queries"
 import { ViewDialog, viewKinds } from "./ViewDialog"
+import { focusViewKind } from "../canvas/CanvasView"
+import { useCanvasStore } from "../canvas/store"
+
+type ViewPreset = NonNullable<ComponentProps<typeof ViewDialog>["preset"]>
 
 type Props = {
   me: Me | undefined
@@ -45,7 +49,20 @@ export function ViewTabs({ me, activeId, onSelect, model, activeModel, actions }
   const update = useUpdateView()
   const remove = useDeleteView()
 
-  const [dialog, setDialog] = useState<{ view?: View } | null>(null)
+  const [dialog, setDialog] = useState<{ view?: View; preset?: ViewPreset } | null>(null)
+
+  // "Save as view" on a focused canvas: open the dialog prefilled for that element.
+  const viewRequest = useCanvasStore((s) => s.viewRequest)
+  useEffect(() => {
+    if (!viewRequest) return
+    useCanvasStore.getState().requestView(null)
+    const e = model?.elements.find((x) => x.id === viewRequest)
+    if (!e || !(e.kind in focusViewKind)) return
+    const kind = focusViewKind[e.kind as keyof typeof focusViewKind]
+    setDialog({
+      preset: { kind, scope: e.id, name: `${e.name} ${kind === "container" ? "containers" : "components"}` },
+    })
+  }, [viewRequest, model])
   const [deleting, setDeleting] = useState<View | null>(null)
 
   const canEditRole = me?.role === "editor" || me?.role === "maintainer"
@@ -122,6 +139,7 @@ export function ViewTabs({ me, activeId, onSelect, model, activeModel, actions }
         onOpenChange={(o) => !o && setDialog(null)}
         elements={elements}
         view={dialog?.view}
+        preset={dialog?.preset}
         members={dialog?.view && dialog.view.id === activeId ? members : undefined}
         pending={create.isPending || update.isPending}
         onSubmit={(input) => {

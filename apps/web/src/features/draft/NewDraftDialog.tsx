@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { useSettings } from "../settings/queries"
 import { useCreateChangeset, useMe } from "./queries"
 
 /** Button + dialog that opens a new draft (editors and maintainers) and navigates to it. */
@@ -45,6 +46,7 @@ export function NewDraftButton({ variant = "default" }: { variant?: "default" | 
 function Form({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
   const create = useCreateChangeset()
+  const live = useSettings().data?.review_policy === "direct"
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
 
@@ -68,7 +70,9 @@ function Form({ onClose }: { onClose: () => void }) {
       <DialogHeader>
         <DialogTitle>New draft</DialogTitle>
         <DialogDescription>
-          All edits happen in a draft. Main only changes when a maintainer merges it.
+          {live
+            ? "A draft collects larger changes for review; main stays as it is until the draft is merged."
+            : "All edits happen in a draft. Main only changes when a maintainer merges it."}
         </DialogDescription>
       </DialogHeader>
       <div className="flex flex-col gap-1.5">

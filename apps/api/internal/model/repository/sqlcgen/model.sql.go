@@ -7,13 +7,14 @@ package sqlcgen
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getElement = `-- name: GetElement :one
-SELECT id, parent_id, kind, name, description, technology, tags, protected, version, deleted_at, created_at, updated_at, layer, projects, replicas, properties FROM elements WHERE id = $1 AND deleted_at IS NULL
+SELECT id, parent_id, kind, name, description, technology, tags, protected, version, deleted_at, created_at, updated_at, layer, projects, replicas, properties, type, environment, lifecycle, criticality, runbook_url, docs_url, last_reviewed_at FROM elements WHERE id = $1 AND deleted_at IS NULL
 `
 
 func (q *Queries) GetElement(ctx context.Context, id uuid.UUID) (Element, error) {
@@ -36,6 +37,77 @@ func (q *Queries) GetElement(ctx context.Context, id uuid.UUID) (Element, error)
 		&i.Projects,
 		&i.Replicas,
 		&i.Properties,
+		&i.Type,
+		&i.Environment,
+		&i.Lifecycle,
+		&i.Criticality,
+		&i.RunbookUrl,
+		&i.DocsUrl,
+		&i.LastReviewedAt,
+	)
+	return i, err
+}
+
+const getOwner = `-- name: GetOwner :one
+SELECT id, kind, name, contact, oncall_url, principal_id, version, created_at, updated_at
+FROM owners WHERE id = $1 AND deleted_at IS NULL
+`
+
+type GetOwnerRow struct {
+	ID          uuid.UUID
+	Kind        OwnerKind
+	Name        string
+	Contact     string
+	OncallUrl   string
+	PrincipalID *uuid.UUID
+	Version     int32
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+func (q *Queries) GetOwner(ctx context.Context, id uuid.UUID) (GetOwnerRow, error) {
+	row := q.db.QueryRow(ctx, getOwner, id)
+	var i GetOwnerRow
+	err := row.Scan(
+		&i.ID,
+		&i.Kind,
+		&i.Name,
+		&i.Contact,
+		&i.OncallUrl,
+		&i.PrincipalID,
+		&i.Version,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getOwnership = `-- name: GetOwnership :one
+SELECT id, element_id, owner_id, role, version, created_at, updated_at
+FROM element_owners WHERE id = $1 AND deleted_at IS NULL
+`
+
+type GetOwnershipRow struct {
+	ID        uuid.UUID
+	ElementID uuid.UUID
+	OwnerID   uuid.UUID
+	Role      OwnerRole
+	Version   int32
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (q *Queries) GetOwnership(ctx context.Context, id uuid.UUID) (GetOwnershipRow, error) {
+	row := q.db.QueryRow(ctx, getOwnership, id)
+	var i GetOwnershipRow
+	err := row.Scan(
+		&i.ID,
+		&i.ElementID,
+		&i.OwnerID,
+		&i.Role,
+		&i.Version,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -63,23 +135,31 @@ func (q *Queries) GetRelation(ctx context.Context, id uuid.UUID) (Relation, erro
 }
 
 const insertElement = `-- name: InsertElement :exec
-INSERT INTO elements (id, parent_id, kind, name, description, technology, tags, protected, layer, projects, replicas, properties)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO elements (id, parent_id, kind, name, description, technology, tags, protected, layer, projects, replicas, properties,
+                      type, environment, lifecycle, criticality, runbook_url, docs_url, last_reviewed_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 `
 
 type InsertElementParams struct {
-	ID          uuid.UUID
-	ParentID    *uuid.UUID
-	Kind        ElementKind
-	Name        string
-	Description string
-	Technology  string
-	Tags        []string
-	Protected   bool
-	Layer       string
-	Projects    []string
-	Replicas    int32
-	Properties  []byte
+	ID             uuid.UUID
+	ParentID       *uuid.UUID
+	Kind           ElementKind
+	Name           string
+	Description    string
+	Technology     string
+	Tags           []string
+	Protected      bool
+	Layer          string
+	Projects       []string
+	Replicas       int32
+	Properties     []byte
+	Type           string
+	Environment    string
+	Lifecycle      string
+	Criticality    string
+	RunbookUrl     string
+	DocsUrl        string
+	LastReviewedAt pgtype.Date
 }
 
 func (q *Queries) InsertElement(ctx context.Context, arg InsertElementParams) error {
@@ -96,6 +176,63 @@ func (q *Queries) InsertElement(ctx context.Context, arg InsertElementParams) er
 		arg.Projects,
 		arg.Replicas,
 		arg.Properties,
+		arg.Type,
+		arg.Environment,
+		arg.Lifecycle,
+		arg.Criticality,
+		arg.RunbookUrl,
+		arg.DocsUrl,
+		arg.LastReviewedAt,
+	)
+	return err
+}
+
+const insertOwner = `-- name: InsertOwner :exec
+INSERT INTO owners (id, kind, name, contact, oncall_url, principal_id) VALUES ($1, $2, $3, $4, $5, $6)
+`
+
+type InsertOwnerParams struct {
+	ID          uuid.UUID
+	Kind        OwnerKind
+	Name        string
+	Contact     string
+	OncallUrl   string
+	PrincipalID *uuid.UUID
+}
+
+func (q *Queries) InsertOwner(ctx context.Context, arg InsertOwnerParams) error {
+	_, err := q.db.Exec(ctx, insertOwner,
+		arg.ID,
+		arg.Kind,
+		arg.Name,
+		arg.Contact,
+		arg.OncallUrl,
+		arg.PrincipalID,
+	)
+	return err
+}
+
+const insertOwnership = `-- name: InsertOwnership :exec
+INSERT INTO element_owners (id, element_id, owner_id, role) VALUES ($1, $2, $3, $4)
+ON CONFLICT (id) DO UPDATE
+SET element_id = EXCLUDED.element_id, owner_id = EXCLUDED.owner_id, role = EXCLUDED.role,
+    deleted_at = NULL, version = element_owners.version + 1, updated_at = now()
+`
+
+type InsertOwnershipParams struct {
+	ID        uuid.UUID
+	ElementID uuid.UUID
+	OwnerID   uuid.UUID
+	Role      OwnerRole
+}
+
+// A (element, role) assignment removed earlier is revived under the same id.
+func (q *Queries) InsertOwnership(ctx context.Context, arg InsertOwnershipParams) error {
+	_, err := q.db.Exec(ctx, insertOwnership,
+		arg.ID,
+		arg.ElementID,
+		arg.OwnerID,
+		arg.Role,
 	)
 	return err
 }
@@ -127,7 +264,7 @@ func (q *Queries) InsertRelation(ctx context.Context, arg InsertRelationParams) 
 }
 
 const listElements = `-- name: ListElements :many
-SELECT id, parent_id, kind, name, description, technology, tags, protected, version, deleted_at, created_at, updated_at, layer, projects, replicas, properties FROM elements
+SELECT id, parent_id, kind, name, description, technology, tags, protected, version, deleted_at, created_at, updated_at, layer, projects, replicas, properties, type, environment, lifecycle, criticality, runbook_url, docs_url, last_reviewed_at FROM elements
 WHERE deleted_at IS NULL
   AND ($1::uuid IS NULL OR parent_id = $1::uuid)
   AND ($2::text IS NULL OR name ILIKE '%' || $2::text || '%')
@@ -165,6 +302,103 @@ func (q *Queries) ListElements(ctx context.Context, arg ListElementsParams) ([]E
 			&i.Projects,
 			&i.Replicas,
 			&i.Properties,
+			&i.Type,
+			&i.Environment,
+			&i.Lifecycle,
+			&i.Criticality,
+			&i.RunbookUrl,
+			&i.DocsUrl,
+			&i.LastReviewedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOwners = `-- name: ListOwners :many
+SELECT id, kind, name, contact, oncall_url, principal_id, version, created_at, updated_at
+FROM owners WHERE deleted_at IS NULL ORDER BY lower(name), id
+`
+
+type ListOwnersRow struct {
+	ID          uuid.UUID
+	Kind        OwnerKind
+	Name        string
+	Contact     string
+	OncallUrl   string
+	PrincipalID *uuid.UUID
+	Version     int32
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+func (q *Queries) ListOwners(ctx context.Context) ([]ListOwnersRow, error) {
+	rows, err := q.db.Query(ctx, listOwners)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOwnersRow
+	for rows.Next() {
+		var i ListOwnersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.Name,
+			&i.Contact,
+			&i.OncallUrl,
+			&i.PrincipalID,
+			&i.Version,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOwnerships = `-- name: ListOwnerships :many
+SELECT id, element_id, owner_id, role, version, created_at, updated_at
+FROM element_owners WHERE deleted_at IS NULL ORDER BY element_id, role
+`
+
+type ListOwnershipsRow struct {
+	ID        uuid.UUID
+	ElementID uuid.UUID
+	OwnerID   uuid.UUID
+	Role      OwnerRole
+	Version   int32
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (q *Queries) ListOwnerships(ctx context.Context) ([]ListOwnershipsRow, error) {
+	rows, err := q.db.Query(ctx, listOwnerships)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOwnershipsRow
+	for rows.Next() {
+		var i ListOwnershipsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ElementID,
+			&i.OwnerID,
+			&i.Role,
+			&i.Version,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -231,6 +465,26 @@ func (q *Queries) SoftDeleteElement(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const softDeleteOwner = `-- name: SoftDeleteOwner :exec
+UPDATE owners SET deleted_at = now(), version = version + 1, updated_at = now()
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) SoftDeleteOwner(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, softDeleteOwner, id)
+	return err
+}
+
+const softDeleteOwnership = `-- name: SoftDeleteOwnership :exec
+UPDATE element_owners SET deleted_at = now(), version = version + 1, updated_at = now()
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) SoftDeleteOwnership(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, softDeleteOwnership, id)
+	return err
+}
+
 const softDeleteRelation = `-- name: SoftDeleteRelation :exec
 UPDATE relations
 SET deleted_at = now(), version = version + 1, updated_at = now()
@@ -245,23 +499,32 @@ func (q *Queries) SoftDeleteRelation(ctx context.Context, id uuid.UUID) error {
 const updateElement = `-- name: UpdateElement :exec
 UPDATE elements
 SET parent_id = $2, kind = $3, name = $4, description = $5, technology = $6,
-    tags = $7, protected = $8, layer = $9, projects = $10, replicas = $11, properties = $12, version = version + 1, updated_at = now()
+    tags = $7, protected = $8, layer = $9, projects = $10, replicas = $11, properties = $12,
+    type = $13, environment = $14, lifecycle = $15, criticality = $16, runbook_url = $17, docs_url = $18, last_reviewed_at = $19,
+    version = version + 1, updated_at = now()
 WHERE id = $1 AND deleted_at IS NULL
 `
 
 type UpdateElementParams struct {
-	ID          uuid.UUID
-	ParentID    *uuid.UUID
-	Kind        ElementKind
-	Name        string
-	Description string
-	Technology  string
-	Tags        []string
-	Protected   bool
-	Layer       string
-	Projects    []string
-	Replicas    int32
-	Properties  []byte
+	ID             uuid.UUID
+	ParentID       *uuid.UUID
+	Kind           ElementKind
+	Name           string
+	Description    string
+	Technology     string
+	Tags           []string
+	Protected      bool
+	Layer          string
+	Projects       []string
+	Replicas       int32
+	Properties     []byte
+	Type           string
+	Environment    string
+	Lifecycle      string
+	Criticality    string
+	RunbookUrl     string
+	DocsUrl        string
+	LastReviewedAt pgtype.Date
 }
 
 func (q *Queries) UpdateElement(ctx context.Context, arg UpdateElementParams) error {
@@ -278,6 +541,63 @@ func (q *Queries) UpdateElement(ctx context.Context, arg UpdateElementParams) er
 		arg.Projects,
 		arg.Replicas,
 		arg.Properties,
+		arg.Type,
+		arg.Environment,
+		arg.Lifecycle,
+		arg.Criticality,
+		arg.RunbookUrl,
+		arg.DocsUrl,
+		arg.LastReviewedAt,
+	)
+	return err
+}
+
+const updateOwner = `-- name: UpdateOwner :exec
+UPDATE owners
+SET kind = $2, name = $3, contact = $4, oncall_url = $5, principal_id = $6, version = version + 1, updated_at = now()
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+type UpdateOwnerParams struct {
+	ID          uuid.UUID
+	Kind        OwnerKind
+	Name        string
+	Contact     string
+	OncallUrl   string
+	PrincipalID *uuid.UUID
+}
+
+func (q *Queries) UpdateOwner(ctx context.Context, arg UpdateOwnerParams) error {
+	_, err := q.db.Exec(ctx, updateOwner,
+		arg.ID,
+		arg.Kind,
+		arg.Name,
+		arg.Contact,
+		arg.OncallUrl,
+		arg.PrincipalID,
+	)
+	return err
+}
+
+const updateOwnership = `-- name: UpdateOwnership :exec
+UPDATE element_owners
+SET element_id = $2, owner_id = $3, role = $4, version = version + 1, updated_at = now()
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+type UpdateOwnershipParams struct {
+	ID        uuid.UUID
+	ElementID uuid.UUID
+	OwnerID   uuid.UUID
+	Role      OwnerRole
+}
+
+func (q *Queries) UpdateOwnership(ctx context.Context, arg UpdateOwnershipParams) error {
+	_, err := q.db.Exec(ctx, updateOwnership,
+		arg.ID,
+		arg.ElementID,
+		arg.OwnerID,
+		arg.Role,
 	)
 	return err
 }

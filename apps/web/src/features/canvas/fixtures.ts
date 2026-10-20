@@ -1,5 +1,7 @@
 import type { Element, ElementKind, Relation, RelationKind } from "@archmap/api-client"
 
+import { elementDefaults } from "./element"
+
 // Small model mirroring the API's seeded sample (see apps/api/internal/seed),
 // used by unit tests and as an offline story for layout checks.
 
@@ -13,19 +15,11 @@ function el(
   extra: Partial<Element> = {}
 ): Element {
   return {
+    ...elementDefaults,
     id: id(key),
     parent_id: parent ? id(parent) : null,
     kind,
     name,
-    description: "",
-    technology: "",
-    tags: [],
-    protected: false,
-    layer: "",
-    projects: [],
-    replicas: 1,
-    properties: {},
-    version: 1,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
     ...extra,

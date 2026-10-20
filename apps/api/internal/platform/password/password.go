@@ -1,5 +1,5 @@
-// Package user holds users, roles and credential handling.
-package user
+// Package password hashes and checks local passwords (argon2id) and holds the password policy.
+package password
 
 import (
 	"crypto/rand"
@@ -20,8 +20,8 @@ const (
 	argonSaltLen = 16
 )
 
-// HashPassword returns a PHC-formatted argon2id hash.
-func HashPassword(password string) (string, error) {
+// Hash returns a PHC-formatted argon2id hash.
+func Hash(password string) (string, error) {
 	salt := make([]byte, argonSaltLen)
 	if _, err := rand.Read(salt); err != nil {
 		return "", err
@@ -32,8 +32,8 @@ func HashPassword(password string) (string, error) {
 		base64.RawStdEncoding.EncodeToString(salt), base64.RawStdEncoding.EncodeToString(key)), nil
 }
 
-// VerifyPassword checks password against a hash produced by HashPassword.
-func VerifyPassword(password, encoded string) (bool, error) {
+// Verify checks password against a hash produced by Hash.
+func Verify(password, encoded string) (bool, error) {
 	parts := strings.Split(encoded, "$")
 	if len(parts) != 6 || parts[1] != "argon2id" {
 		return false, fmt.Errorf("unsupported hash format")

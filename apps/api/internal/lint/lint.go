@@ -6,6 +6,7 @@ import (
 	"cmp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -20,8 +21,10 @@ const (
 )
 
 const (
-	TargetElement  = "element"
-	TargetRelation = "relation"
+	TargetElement   = "element"
+	TargetRelation  = "relation"
+	TargetOwner     = "owner"
+	TargetOwnership = "ownership"
 )
 
 type Finding struct {
@@ -55,8 +58,27 @@ func (r Report) count(sev Severity) int {
 	return n
 }
 
-// DefaultRules is the MVP rule set (brief section 5.2).
-func DefaultRules() []Rule {
+// Options configure the rules that depend on time.
+type Options struct {
+	// Now is the clock for review staleness (default time.Now).
+	Now func() time.Time
+	// ReviewMaxAge is how old last_reviewed_at may be before stale-review warns (default 180 days).
+	ReviewMaxAge time.Duration
+	// Principals is the directory of users and groups, for owner-inactive (nil = skip the rule).
+	Principals model.Principals
+}
+
+// DefaultReviewMaxAge is the stale-review threshold when none is configured.
+const DefaultReviewMaxAge = 180 * 24 * time.Hour
+
+// Rules returns the full rule set (ADR-024, ADR-066).
+func Rules(o Options) []Rule {
+	if o.Now == nil {
+		o.Now = time.Now
+	}
+	if o.ReviewMaxAge <= 0 {
+		o.ReviewMaxAge = DefaultReviewMaxAge
+	}
 	return []Rule{
 		hierarchyRule{},
 		relationRule{},
@@ -64,8 +86,17 @@ func DefaultRules() []Rule {
 		orphanRule{},
 		usesTechnologyRule{},
 		deploymentRule{},
+		typeKindRule{},
+		ownershipRule{},
+		ownerRequiredRule{},
+		staleReviewRule{now: o.Now, maxAge: o.ReviewMaxAge},
+		deprecatedDependencyRule{},
+		ownerInactiveRule{principals: o.Principals},
 	}
 }
+
+// DefaultRules is Rules with default options.
+func DefaultRules() []Rule { return Rules(Options{}) }
 
 // Run applies rules (DefaultRules when none are given) and returns findings
 // ordered errors-first, then by rule and target for stable output.
@@ -115,10 +146,9 @@ var allowedParents = map[model.ElementKind]struct {
 	model.KindContainer: {[]model.ElementKind{model.KindSystem}, true},
 	model.KindComponent: {[]model.ElementKind{model.KindContainer}, true},
 	model.KindNode:      {[]model.ElementKind{model.KindNode}, false},
-	model.KindDatabase:  {[]model.ElementKind{model.KindSystem}, true},
 }
 
-// ERROR: parent kind hierarchy (component -> container -> system; database -> system; node nests in node).
+// ERROR: parent kind hierarchy (component -> container -> system; node nests in node).
 type hierarchyRule struct{}
 
 func (hierarchyRule) ID() string { return "hierarchy" }
@@ -182,9 +212,9 @@ func (relationRule) Check(s model.Snapshot) []Finding {
 		}
 		seen[k] = true
 		if r.Kind == model.RelDeployedOn &&
-			((src.Kind != model.KindContainer && src.Kind != model.KindComponent && src.Kind != model.KindDatabase) || dst.Kind != model.KindNode) {
+			((src.Kind != model.KindContainer && src.Kind != model.KindComponent) || dst.Kind != model.KindNode) {
 			out = append(out, Finding{"relation", SeverityError,
-				"deployed_on must link a container, component or database to a node (\"" + src.Name + "\" -> \"" + dst.Name + "\")",
+				"deployed_on must link a container or component to a node (\"" + src.Name + "\" -> \"" + dst.Name + "\")",
 				TargetRelation, r.ID})
 		}
 	}
@@ -270,17 +300,16 @@ type deploymentRule struct{}
 func (deploymentRule) ID() string { return "deployment" }
 
 func (deploymentRule) Check(s model.Snapshot) []Finding {
-	deployed := map[uuid.UUID]bool{}
-	for _, r := range s.Relations {
-		if r.Kind == model.RelDeployedOn {
-			deployed[r.SourceID] = true
-		}
-	}
+	eff := model.ComputeEffective(s)
 	var out []Finding
 	for _, e := range s.Elements {
-		if (e.Kind == model.KindContainer || e.Kind == model.KindComponent || e.Kind == model.KindDatabase) && !deployed[e.ID] {
+		if e.Kind != model.KindContainer && e.Kind != model.KindComponent {
+			continue
+		}
+		// Effective deployment (ADR-064): a logical database inside a deployed server is deployed.
+		if eff[e.ID].DeployedVia == nil {
 			out = append(out, Finding{"deployment", SeverityWarning,
-				string(e.Kind) + " \"" + e.Name + "\" is not deployed on any node", TargetElement, e.ID})
+				string(e.Kind) + " \"" + e.Name + "\" is not deployed on any node, directly or through a parent", TargetElement, e.ID})
 		}
 	}
 	return out

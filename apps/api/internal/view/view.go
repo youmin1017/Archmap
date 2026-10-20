@@ -20,11 +20,14 @@ const (
 	KindCustom     Kind = "custom"
 	// KindLayers shows every element on a stacked plane per layer (3D); the layers belong to the view.
 	KindLayers Kind = "layers"
+	// KindUnowned shows the systems, containers, components and nodes without an
+	// effective owner (ADR-063), with their ancestors as context.
+	KindUnowned Kind = "unowned"
 )
 
 func (k Kind) Valid() bool {
 	switch k {
-	case KindLandscape, KindContext, KindContainer, KindComponent, KindDeployment, KindCustom, KindLayers:
+	case KindLandscape, KindContext, KindContainer, KindComponent, KindDeployment, KindCustom, KindLayers, KindUnowned:
 		return true
 	}
 	return false

@@ -158,19 +158,21 @@ describe("layer rules", () => {
     { element_class: "database", layers: ["Services", "Data"] },
     { element_class: "node", layers: ["Physical"] },
   ]
-  const kind = (k: Element["kind"]) => ({ kind: k })
+  const kind = (k: Element["kind"], type: Element["type"] = "") => ({ kind: k, type })
+  const db = kind("component", "database")
 
-  it("restricts the kinds named by a rule", () => {
-    expect(layerAllowed(rules, kind("database"), "data")).toBe(true)
-    expect(layerAllowed(rules, kind("database"), "Physical")).toBe(false)
+  it("restricts the kinds and types named by a rule", () => {
+    expect(layerAllowed(rules, db, "data")).toBe(true)
+    expect(layerAllowed(rules, db, "Physical")).toBe(false)
     expect(layerAllowed(rules, kind("container"), "Physical")).toBe(true)
+    expect(layerAllowed(rules, kind("container", "database-server"), "Physical")).toBe(true)
     expect(layerAllowed(rules, kind("node"), "Services")).toBe(false)
-    expect(layerAllowed(rules, kind("database"), "")).toBe(true)
-    expect(layerAllowed([], kind("database"), "Physical")).toBe(true)
+    expect(layerAllowed(rules, db, "")).toBe(true)
+    expect(layerAllowed([], db, "Physical")).toBe(true)
   })
 
   it("explains the violated rule", () => {
-    const r = layerViolation(rules, kind("database"), "Physical")
+    const r = layerViolation(rules, db, "Physical")
     expect(r && violationMessage(r)).toBe("Databases can only be placed on: Services, Data.")
   })
 

@@ -17,6 +17,7 @@ import (
 )
 
 type service interface {
+	directService
 	Create(ctx context.Context, title, description string) (changeset.Changeset, error)
 	List(ctx context.Context, f changeset.Filter) ([]changeset.Changeset, error)
 	Get(ctx context.Context, id uuid.UUID) (changeset.Detail, error)
@@ -171,7 +172,16 @@ func toChangeset(cs changeset.Changeset) api.Changeset {
 		Id: cs.ID, Title: cs.Title, Description: cs.Description, AuthorId: cs.AuthorID,
 		BaseVersion: cs.BaseVersion, Status: api.ChangesetStatus(cs.Status),
 		CreatedAt: modeltransport.UTC(cs.CreatedAt), MergedAt: modeltransport.UTCPtr(cs.MergedAt),
+		Kind: changesetKind(cs.Kind), Reverts: cs.Reverts,
 	}
+}
+
+// changesetKind maps the kind; rows that predate kinds are drafts.
+func changesetKind(k changeset.Kind) api.ChangesetKind {
+	if k == changeset.KindDirect {
+		return api.ChangesetKindDirect
+	}
+	return api.ChangesetKindDraft
 }
 
 func toChanges(cs []changeset.Change) ([]api.Change, error) {

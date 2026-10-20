@@ -1,6 +1,6 @@
 -- name: InsertChangeset :one
-INSERT INTO changesets (title, description, author_id, base_version, status)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO changesets (title, description, author_id, base_version, status, reverts)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: GetChangeset :one
@@ -10,8 +10,10 @@ SELECT * FROM changesets WHERE id = $1;
 SELECT * FROM changesets WHERE id = $1 FOR UPDATE;
 
 -- name: ListChangesets :many
+-- Direct edits of main (ADR-072) are versions, not drafts: they are not listed.
 SELECT * FROM changesets
-WHERE (sqlc.narg('status')::changeset_status IS NULL OR status = sqlc.narg('status')::changeset_status)
+WHERE kind = 'draft'
+  AND (sqlc.narg('status')::changeset_status IS NULL OR status = sqlc.narg('status')::changeset_status)
   AND (sqlc.narg('author_id')::uuid IS NULL OR author_id = sqlc.narg('author_id')::uuid)
 ORDER BY created_at DESC, id DESC;
 
@@ -71,7 +73,18 @@ SELECT data FROM model_snapshots WHERE version = $1;
 INSERT INTO model_snapshots (version, data) VALUES ($1, $2);
 
 -- name: ListModelVersions :many
-SELECT number, changeset_id, merged_by, merged_at, summary FROM model_versions ORDER BY number DESC;
+SELECT v.number, v.changeset_id, v.merged_by, v.merged_at, v.summary, c.kind, c.reverts
+FROM model_versions v JOIN changesets c ON c.id = v.changeset_id
+ORDER BY v.number DESC;
+
+-- name: VersionOfChangeset :one
+SELECT number FROM model_versions WHERE changeset_id = $1;
+
+-- name: IsReverted :one
+SELECT EXISTS (SELECT 1 FROM changesets WHERE reverts = $1 AND status = 'merged');
+
+-- name: MarkChangesetDirect :exec
+UPDATE changesets SET kind = 'direct' WHERE id = $1;
 
 -- name: ApproveChangeset :one
 UPDATE changesets SET approved_by = $2, approved_at = now() WHERE id = $1 RETURNING *;

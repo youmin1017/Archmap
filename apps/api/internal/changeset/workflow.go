@@ -79,7 +79,11 @@ func (s *Service) Lint(ctx context.Context, id uuid.UUID) (lint.Report, error) {
 	if err != nil {
 		return lint.Report{}, err
 	}
-	return lint.Run(st.Snapshot()), nil
+	rules, err := s.lintRules(ctx)
+	if err != nil {
+		return lint.Report{}, err
+	}
+	return lint.Run(st.Snapshot(), rules...), nil
 }
 
 // Submit moves a draft into review.
@@ -316,33 +320,19 @@ func (s *Service) Merge(ctx context.Context, id uuid.UUID) (MergeResult, error) 
 			res = MergeResult{Changeset: cs, Conflicts: conflicts}
 			return nil
 		}
-		if report := lint.Run(result); report.Errors() > 0 {
+		rules, err := s.lintRules(ctx)
+		if err != nil {
+			return err
+		}
+		if report := lint.Run(result, rules...); report.Errors() > 0 {
 			return apperr.Conflict("merge blocked by %d lint error(s); see the lint report", report.Errors())
 		}
-		if touchesProtected(Between(in.base, in.mine)) &&
+		if touchesProtected(in.base, Between(in.base, in.mine)) &&
 			(cs.AuthorID == actor.ID || *cs.ApprovedBy == cs.AuthorID) {
 			return apperr.Forbidden("changes to protected elements need an approval and merge by a maintainer other than the author")
 		}
 
-		changes, err := Between(in.theirs, result).Changes(time.Now().UTC())
-		if err != nil {
-			return err
-		}
-		if err := r.MaterializeChanges(ctx, changes); err != nil {
-			return err
-		}
-		version := in.current + 1
-		snap, err := r.MainSnapshot(ctx)
-		if err != nil {
-			return err
-		}
-		if err := r.RecordVersion(ctx, version, cs.ID, actor.ID, cs.Title, snap); err != nil {
-			return err
-		}
-		if err := r.MarkMerged(ctx, cs.ID); err != nil {
-			return err
-		}
-		merged, err := r.GetChangeset(ctx, cs.ID)
+		version, merged, err := commit(ctx, r, cs, in.theirs, result, in.current, actor.ID)
 		if err != nil {
 			return err
 		}
@@ -350,6 +340,31 @@ func (s *Service) Merge(ctx context.Context, id uuid.UUID) (MergeResult, error) 
 		return nil
 	})
 	return res, err
+}
+
+// commit writes a merge result into main as version current+1 (main must be
+// locked and equal `theirs`) and marks the changeset merged by `by`.
+func commit(ctx context.Context, r Repository, cs Changeset, theirs, result model.Snapshot, current int, by uuid.UUID) (int, Changeset, error) {
+	changes, err := Between(theirs, result).Changes(time.Now().UTC())
+	if err != nil {
+		return 0, Changeset{}, err
+	}
+	if err := r.MaterializeChanges(ctx, changes); err != nil {
+		return 0, Changeset{}, err
+	}
+	version := current + 1
+	snap, err := r.MainSnapshot(ctx)
+	if err != nil {
+		return 0, Changeset{}, err
+	}
+	if err := r.RecordVersion(ctx, version, cs.ID, by, cs.Title, snap); err != nil {
+		return 0, Changeset{}, err
+	}
+	if err := r.MarkMerged(ctx, cs.ID); err != nil {
+		return 0, Changeset{}, err
+	}
+	merged, err := r.GetChangeset(ctx, cs.ID)
+	return version, merged, err
 }
 
 // Versions lists merged model versions, newest first.
@@ -386,7 +401,29 @@ func (s *Service) VersionDiff(ctx context.Context, from, to int) (DiffResult, er
 }
 
 // touchesProtected reports whether the diff modifies or removes a protected element.
-func touchesProtected(d Diff) bool {
+func touchesProtected(base model.Snapshot, d Diff) bool {
+	protected := map[uuid.UUID]bool{}
+	for _, e := range base.Elements {
+		if e.Protected {
+			protected[e.ID] = true
+		}
+	}
+	// Who owns a protected element is part of it (ADR-063).
+	for _, o := range d.AddedOwnerships {
+		if protected[o.ElementID] {
+			return true
+		}
+	}
+	for _, o := range d.RemovedOwnerships {
+		if protected[o.ElementID] {
+			return true
+		}
+	}
+	for _, m := range d.ModifiedOwnerships {
+		if protected[m.Before.ElementID] {
+			return true
+		}
+	}
 	for _, m := range d.ModifiedElements {
 		if m.Before.Protected {
 			return true

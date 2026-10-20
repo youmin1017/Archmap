@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type ChangeOp string
@@ -58,8 +59,10 @@ func (ns NullChangeOp) Value() (driver.Value, error) {
 type ChangeTarget string
 
 const (
-	ChangeTargetElement  ChangeTarget = "element"
-	ChangeTargetRelation ChangeTarget = "relation"
+	ChangeTargetElement   ChangeTarget = "element"
+	ChangeTargetRelation  ChangeTarget = "relation"
+	ChangeTargetOwner     ChangeTarget = "owner"
+	ChangeTargetOwnership ChangeTarget = "ownership"
 )
 
 func (e *ChangeTarget) Scan(src interface{}) error {
@@ -186,6 +189,94 @@ func (ns NullElementKind) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.ElementKind), nil
+}
+
+type OwnerKind string
+
+const (
+	OwnerKindTeam   OwnerKind = "team"
+	OwnerKindPerson OwnerKind = "person"
+	OwnerKindUser   OwnerKind = "user"
+	OwnerKindGroup  OwnerKind = "group"
+)
+
+func (e *OwnerKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = OwnerKind(s)
+	case string:
+		*e = OwnerKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for OwnerKind: %T", src)
+	}
+	return nil
+}
+
+type NullOwnerKind struct {
+	OwnerKind OwnerKind
+	Valid     bool // Valid is true if OwnerKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullOwnerKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.OwnerKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.OwnerKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullOwnerKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.OwnerKind), nil
+}
+
+type OwnerRole string
+
+const (
+	OwnerRoleOwner      OwnerRole = "owner"
+	OwnerRoleMaintainer OwnerRole = "maintainer"
+	OwnerRoleOncall     OwnerRole = "oncall"
+	OwnerRoleEscalation OwnerRole = "escalation"
+)
+
+func (e *OwnerRole) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = OwnerRole(s)
+	case string:
+		*e = OwnerRole(s)
+	default:
+		return fmt.Errorf("unsupported scan type for OwnerRole: %T", src)
+	}
+	return nil
+}
+
+type NullOwnerRole struct {
+	OwnerRole OwnerRole
+	Valid     bool // Valid is true if OwnerRole is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullOwnerRole) Scan(value interface{}) error {
+	if value == nil {
+		ns.OwnerRole, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.OwnerRole.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullOwnerRole) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.OwnerRole), nil
 }
 
 type RelationKind string
@@ -325,6 +416,7 @@ const (
 	ViewKindDeployment ViewKind = "deployment"
 	ViewKindCustom     ViewKind = "custom"
 	ViewKindLayers     ViewKind = "layers"
+	ViewKindUnowned    ViewKind = "unowned"
 )
 
 func (e *ViewKind) Scan(src interface{}) error {
@@ -362,6 +454,16 @@ func (ns NullViewKind) Value() (driver.Value, error) {
 	return string(ns.ViewKind), nil
 }
 
+type AuthFlow struct {
+	ID           string
+	Provider     string
+	State        string
+	Nonce        string
+	PkceVerifier string
+	ReturnTo     string
+	ExpiresAt    time.Time
+}
+
 type Binding struct {
 	ID        uuid.UUID
 	ElementID uuid.UUID
@@ -394,25 +496,58 @@ type Changeset struct {
 	MergedAt    *time.Time
 	ApprovedBy  *uuid.UUID
 	ApprovedAt  *time.Time
+	Kind        string
+	Reverts     *uuid.UUID
 }
 
 type Element struct {
+	ID             uuid.UUID
+	ParentID       *uuid.UUID
+	Kind           ElementKind
+	Name           string
+	Description    string
+	Technology     string
+	Tags           []string
+	Protected      bool
+	Version        int32
+	DeletedAt      *time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	Layer          string
+	Projects       []string
+	Replicas       int32
+	Properties     []byte
+	Type           string
+	Environment    string
+	Lifecycle      string
+	Criticality    string
+	RunbookUrl     string
+	DocsUrl        string
+	LastReviewedAt pgtype.Date
+}
+
+type ElementOwner struct {
+	ID        uuid.UUID
+	ElementID uuid.UUID
+	OwnerID   uuid.UUID
+	Role      OwnerRole
+	Version   int32
+	DeletedAt *time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type Group struct {
 	ID          uuid.UUID
-	ParentID    *uuid.UUID
-	Kind        ElementKind
 	Name        string
 	Description string
-	Technology  string
-	Tags        []string
-	Protected   bool
-	Version     int32
-	DeletedAt   *time.Time
 	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	Layer       string
-	Projects    []string
-	Replicas    int32
-	Properties  []byte
+	DeletedAt   *time.Time
+}
+
+type GroupMember struct {
+	GroupID uuid.UUID
+	UserID  uuid.UUID
 }
 
 type LayerRule struct {
@@ -441,6 +576,20 @@ type ModelVersion struct {
 	Summary     string
 }
 
+type Owner struct {
+	ID          uuid.UUID
+	Kind        OwnerKind
+	Name        string
+	Contact     string
+	OncallUrl   string
+	ExternalRef pgtype.Text
+	Version     int32
+	DeletedAt   *time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	PrincipalID *uuid.UUID
+}
+
 type Relation struct {
 	ID          uuid.UUID
 	SourceID    uuid.UUID
@@ -454,13 +603,48 @@ type Relation struct {
 	UpdatedAt   time.Time
 }
 
+type Session struct {
+	TokenHash     []byte
+	UserID        uuid.UUID
+	IdentityID    *uuid.UUID
+	Provider      string
+	CsrfToken     string
+	CreatedAt     time.Time
+	LastSeenAt    time.Time
+	IdleExpiresAt time.Time
+	ExpiresAt     time.Time
+	UserAgent     string
+	Ip            string
+}
+
+type Setting struct {
+	ID           bool
+	ReviewPolicy string
+	UpdatedBy    *uuid.UUID
+	UpdatedAt    time.Time
+}
+
 type User struct {
-	ID           uuid.UUID
-	Email        string
-	Name         string
-	Role         UserRole
-	PasswordHash string
-	CreatedAt    time.Time
+	ID          uuid.UUID
+	Email       pgtype.Text
+	Name        string
+	Role        UserRole
+	CreatedAt   time.Time
+	DisabledAt  *time.Time
+	LastLoginAt *time.Time
+}
+
+type UserIdentity struct {
+	ID                 uuid.UUID
+	UserID             uuid.UUID
+	Provider           string
+	Issuer             string
+	Subject            string
+	Email              pgtype.Text
+	PasswordHash       pgtype.Text
+	PasswordMustChange bool
+	CreatedAt          time.Time
+	LastLoginAt        *time.Time
 }
 
 type View struct {

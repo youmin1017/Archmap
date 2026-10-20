@@ -49,6 +49,9 @@ func (m *memRepo) InTx(_ context.Context, fn func(changeset.Repository) error) e
 func (m *memRepo) InsertChangeset(_ context.Context, cs changeset.Changeset) (changeset.Changeset, error) {
 	cs.ID, _ = uuid.NewV7()
 	cs.CreatedAt = time.Now()
+	if cs.Kind == "" {
+		cs.Kind = changeset.KindDraft
+	}
 	m.changesets[cs.ID] = cs
 	return cs, nil
 }
@@ -68,6 +71,9 @@ func (m *memRepo) LockChangeset(ctx context.Context, id uuid.UUID) (changeset.Ch
 func (m *memRepo) ListChangesets(_ context.Context, f changeset.Filter) ([]changeset.Changeset, error) {
 	var out []changeset.Changeset
 	for _, cs := range m.changesets {
+		if cs.Kind == changeset.KindDirect {
+			continue
+		}
 		if f.Status != nil && cs.Status != *f.Status {
 			continue
 		}
@@ -234,8 +240,37 @@ func (m *memRepo) MaterializeChanges(_ context.Context, changes []changeset.Chan
 func (m *memRepo) RecordVersion(_ context.Context, number int, csID, by uuid.UUID, summary string, snap model.Snapshot) error {
 	m.version = number
 	m.snapshots[number] = snap
-	m.versions = append(m.versions, changeset.Version{Number: number, ChangesetID: csID, MergedBy: by, MergedAt: time.Now(), Summary: summary})
+	cs := m.changesets[csID]
+	m.versions = append(m.versions, changeset.Version{
+		Number: number, ChangesetID: csID, MergedBy: by, MergedAt: time.Now(), Summary: summary,
+		Kind: cs.Kind, Reverts: cs.Reverts,
+	})
 	return nil
+}
+
+func (m *memRepo) MarkDirect(_ context.Context, id uuid.UUID) error {
+	cs := m.changesets[id]
+	cs.Kind = changeset.KindDirect
+	m.changesets[id] = cs
+	return nil
+}
+
+func (m *memRepo) VersionOf(_ context.Context, id uuid.UUID) (int, error) {
+	for _, v := range m.versions {
+		if v.ChangesetID == id {
+			return v.Number, nil
+		}
+	}
+	return 0, apperr.NotFound("changeset %s created no version", id)
+}
+
+func (m *memRepo) IsReverted(_ context.Context, id uuid.UUID) (bool, error) {
+	for _, cs := range m.changesets {
+		if cs.Reverts != nil && *cs.Reverts == id && cs.Status == changeset.StatusMerged {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (m *memRepo) MarkMerged(_ context.Context, id uuid.UUID) error {

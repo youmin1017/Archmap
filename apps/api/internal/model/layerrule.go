@@ -7,7 +7,9 @@ import (
 	"archmap/api/internal/platform/apperr"
 )
 
-// LayerRule limits an element kind (its Class) to some layers (names match ignoring case).
+// LayerRule limits an element class to some layers (names match ignoring case).
+// A class is an element kind ("container") or an element type ("database"); the
+// two vocabularies do not overlap, so a rule says which one it means by its name.
 type LayerRule struct {
 	Class  string
 	Layers []string
@@ -23,7 +25,7 @@ func CheckLayer(rules []LayerRule, e Element) error {
 		return nil
 	}
 	for _, r := range rules {
-		if len(r.Layers) == 0 || string(e.Kind) != r.Class {
+		if len(r.Layers) == 0 || !e.InClass(r.Class) {
 			continue
 		}
 		if !slices.ContainsFunc(r.Layers, func(l string) bool { return strings.EqualFold(l, e.Layer) }) {
@@ -40,7 +42,7 @@ func NormalizeLayerRules(in []LayerRule) ([]LayerRule, error) {
 	out := make([]LayerRule, 0, len(in))
 	seen := map[string]bool{}
 	for _, r := range in {
-		if !ElementKind(r.Class).Valid() {
+		if !ValidClass(r.Class) {
 			return nil, apperr.Invalid("unknown element class %q", r.Class)
 		}
 		if seen[r.Class] {
@@ -66,4 +68,14 @@ func NormalizeLayerRules(in []LayerRule) ([]LayerRule, error) {
 		}
 	}
 	return out, nil
+}
+
+// ValidClass reports whether class names an element kind or type.
+func ValidClass(class string) bool {
+	return ElementKind(class).Valid() || (class != "" && ElementType(class).Valid())
+}
+
+// InClass reports whether the element belongs to a class (its kind or its type).
+func (e Element) InClass(class string) bool {
+	return string(e.Kind) == class || (e.Type != TypeNone && string(e.Type) == class)
 }

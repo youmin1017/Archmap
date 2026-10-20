@@ -1,51 +1,17 @@
 import { Link } from "@tanstack/react-router"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { getHealth } from "@archmap/api-client"
-import { GitPullRequest, History, LayoutGrid, Network, Users } from "lucide-react"
+import { GitPullRequest, History, LayoutGrid, Network, Settings, Users } from "lucide-react"
 
 import "@/lib/api"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { devUsers, setDevUser } from "@/lib/dev-user"
 import { cn } from "@/lib/utils"
 import { useMe } from "@/features/draft/queries"
+import { UserMenu } from "@/features/auth/UserMenu"
 
 const navLink =
   "inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-[current=page]:bg-muted aria-[current=page]:text-foreground [&_svg]:size-3.5"
-
-/** Dev-only: switch between the seeded users (viewer / editor / maintainer). */
-function DevUserSwitcher() {
-  const qc = useQueryClient()
-  const me = useMe()
-  // Only server data here: reading localStorage during render would differ between SSR and hydration.
-  const current = me.data?.email ?? ""
-  return (
-    <Select
-      value={current}
-      onValueChange={(email) => {
-        if (!email) return
-        setDevUser(email)
-        void qc.invalidateQueries()
-      }}
-      items={devUsers.map((u) => ({ value: u, label: u.split("@")[0] ?? u }))}
-    >
-      <SelectTrigger size="sm" aria-label="Acting as (dev only)" className="w-32 gap-1">
-        <span className="rounded-sm bg-amber-500/15 px-1 font-mono text-[10px] font-semibold text-amber-700 uppercase dark:text-amber-400">
-          dev
-        </span>
-        <SelectValue placeholder="user" />
-      </SelectTrigger>
-      <SelectContent>
-        {devUsers.map((u) => (
-          <SelectItem key={u} value={u}>
-            {u.split("@")[0]}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  )
-}
 
 /** API health as a status dot; the details are in the tooltip. */
 function ApiStatus() {
@@ -107,9 +73,14 @@ export function AppTopBar({ context }: { context?: React.ReactNode }) {
           <History aria-hidden /> <span className="hidden md:inline">Versions</span>
         </Link>
         {me.data?.role === "maintainer" && (
-          <Link to="/users" className={navLink}>
-            <Users aria-hidden /> <span className="hidden md:inline">Users</span>
-          </Link>
+          <>
+            <Link to="/users" className={navLink}>
+              <Users aria-hidden /> <span className="hidden md:inline">Users</span>
+            </Link>
+            <Link to="/settings" className={navLink}>
+              <Settings aria-hidden /> <span className="hidden md:inline">Settings</span>
+            </Link>
+          </>
         )}
       </nav>
 
@@ -124,8 +95,8 @@ export function AppTopBar({ context }: { context?: React.ReactNode }) {
 
       <div className="ml-auto flex items-center gap-1.5">
         <ApiStatus />
-        {import.meta.env.DEV && <DevUserSwitcher />}
         <ThemeToggle />
+        <UserMenu />
       </div>
     </header>
   )

@@ -60,3 +60,21 @@ sql:
         sql_package: pgx/v5
         emit_json_tags: false
         overrides: *overrides
+  - <<: *cfg
+    queries: db/queries/auth.sql
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/auth/repository/sqlcgen
+        sql_package: pgx/v5
+        emit_json_tags: false
+        overrides: *overrides
+  - <<: *cfg
+    queries: db/queries/settings.sql
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/settings/repository/sqlcgen
+        sql_package: pgx/v5
+        emit_json_tags: false
+        overrides: *overrides

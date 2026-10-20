@@ -22,6 +22,24 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AuthProviderKind.
+const (
+	Password AuthProviderKind = "password"
+	Redirect AuthProviderKind = "redirect"
+)
+
+// Valid indicates whether the value is a known member of the AuthProviderKind enum.
+func (e AuthProviderKind) Valid() bool {
+	switch e {
+	case Password:
+		return true
+	case Redirect:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ChangeOp.
 const (
 	Add    ChangeOp = "add"
@@ -45,14 +63,20 @@ func (e ChangeOp) Valid() bool {
 
 // Defines values for ChangeTarget.
 const (
-	ChangeTargetElement  ChangeTarget = "element"
-	ChangeTargetRelation ChangeTarget = "relation"
+	ChangeTargetElement   ChangeTarget = "element"
+	ChangeTargetOwner     ChangeTarget = "owner"
+	ChangeTargetOwnership ChangeTarget = "ownership"
+	ChangeTargetRelation  ChangeTarget = "relation"
 )
 
 // Valid indicates whether the value is a known member of the ChangeTarget enum.
 func (e ChangeTarget) Valid() bool {
 	switch e {
 	case ChangeTargetElement:
+		return true
+	case ChangeTargetOwner:
+		return true
+	case ChangeTargetOwnership:
 		return true
 	case ChangeTargetRelation:
 		return true
@@ -61,27 +85,45 @@ func (e ChangeTarget) Valid() bool {
 	}
 }
 
+// Defines values for ChangesetKind.
+const (
+	ChangesetKindDirect ChangesetKind = "direct"
+	ChangesetKindDraft  ChangesetKind = "draft"
+)
+
+// Valid indicates whether the value is a known member of the ChangesetKind enum.
+func (e ChangesetKind) Valid() bool {
+	switch e {
+	case ChangesetKindDirect:
+		return true
+	case ChangesetKindDraft:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ChangesetStatus.
 const (
-	Abandoned ChangesetStatus = "abandoned"
-	Draft     ChangesetStatus = "draft"
-	InReview  ChangesetStatus = "in_review"
-	Merged    ChangesetStatus = "merged"
-	Rejected  ChangesetStatus = "rejected"
+	ChangesetStatusAbandoned ChangesetStatus = "abandoned"
+	ChangesetStatusDraft     ChangesetStatus = "draft"
+	ChangesetStatusInReview  ChangesetStatus = "in_review"
+	ChangesetStatusMerged    ChangesetStatus = "merged"
+	ChangesetStatusRejected  ChangesetStatus = "rejected"
 )
 
 // Valid indicates whether the value is a known member of the ChangesetStatus enum.
 func (e ChangesetStatus) Valid() bool {
 	switch e {
-	case Abandoned:
+	case ChangesetStatusAbandoned:
 		return true
-	case Draft:
+	case ChangesetStatusDraft:
 		return true
-	case InReview:
+	case ChangesetStatusInReview:
 		return true
-	case Merged:
+	case ChangesetStatusMerged:
 		return true
-	case Rejected:
+	case ChangesetStatusRejected:
 		return true
 	default:
 		return false
@@ -109,11 +151,58 @@ func (e ConflictKind) Valid() bool {
 	}
 }
 
+// Defines values for Criticality.
+const (
+	CriticalityCritical Criticality = "critical"
+	CriticalityEmpty    Criticality = ""
+	CriticalityHigh     Criticality = "high"
+	CriticalityLow      Criticality = "low"
+	CriticalityMedium   Criticality = "medium"
+)
+
+// Valid indicates whether the value is a known member of the Criticality enum.
+func (e Criticality) Valid() bool {
+	switch e {
+	case CriticalityCritical:
+		return true
+	case CriticalityEmpty:
+		return true
+	case CriticalityHigh:
+		return true
+	case CriticalityLow:
+		return true
+	case CriticalityMedium:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DirectOutcome.
+const (
+	DirectOutcomeDraft    DirectOutcome = "draft"
+	DirectOutcomeInReview DirectOutcome = "in_review"
+	DirectOutcomeMerged   DirectOutcome = "merged"
+)
+
+// Valid indicates whether the value is a known member of the DirectOutcome enum.
+func (e DirectOutcome) Valid() bool {
+	switch e {
+	case DirectOutcomeDraft:
+		return true
+	case DirectOutcomeInReview:
+		return true
+	case DirectOutcomeMerged:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ElementKind.
 const (
 	ElementKindComponent ElementKind = "component"
 	ElementKindContainer ElementKind = "container"
-	ElementKindDatabase  ElementKind = "database"
 	ElementKindNode      ElementKind = "node"
 	ElementKindPerson    ElementKind = "person"
 	ElementKindSystem    ElementKind = "system"
@@ -126,13 +215,68 @@ func (e ElementKind) Valid() bool {
 		return true
 	case ElementKindContainer:
 		return true
-	case ElementKindDatabase:
-		return true
 	case ElementKindNode:
 		return true
 	case ElementKindPerson:
 		return true
 	case ElementKindSystem:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ElementType.
+const (
+	ElementTypeCache          ElementType = "cache"
+	ElementTypeDatabase       ElementType = "database"
+	ElementTypeDatabaseServer ElementType = "database-server"
+	ElementTypeEmpty          ElementType = ""
+	ElementTypeProxy          ElementType = "proxy"
+	ElementTypeQueue          ElementType = "queue"
+	ElementTypeSchema         ElementType = "schema"
+)
+
+// Valid indicates whether the value is a known member of the ElementType enum.
+func (e ElementType) Valid() bool {
+	switch e {
+	case ElementTypeCache:
+		return true
+	case ElementTypeDatabase:
+		return true
+	case ElementTypeDatabaseServer:
+		return true
+	case ElementTypeEmpty:
+		return true
+	case ElementTypeProxy:
+		return true
+	case ElementTypeQueue:
+		return true
+	case ElementTypeSchema:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Environment.
+const (
+	EnvironmentDev     Environment = "dev"
+	EnvironmentEmpty   Environment = ""
+	EnvironmentProd    Environment = "prod"
+	EnvironmentStaging Environment = "staging"
+)
+
+// Valid indicates whether the value is a known member of the Environment enum.
+func (e Environment) Valid() bool {
+	switch e {
+	case EnvironmentDev:
+		return true
+	case EnvironmentEmpty:
+		return true
+	case EnvironmentProd:
+		return true
+	case EnvironmentStaging:
 		return true
 	default:
 		return false
@@ -154,6 +298,27 @@ func (e HealthStatus) Valid() bool {
 	}
 }
 
+// Defines values for Lifecycle.
+const (
+	Active     Lifecycle = "active"
+	Deprecated Lifecycle = "deprecated"
+	Planned    Lifecycle = "planned"
+)
+
+// Valid indicates whether the value is a known member of the Lifecycle enum.
+func (e Lifecycle) Valid() bool {
+	switch e {
+	case Active:
+		return true
+	case Deprecated:
+		return true
+	case Planned:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LintSeverity.
 const (
 	Error   LintSeverity = "error"
@@ -166,6 +331,54 @@ func (e LintSeverity) Valid() bool {
 	case Error:
 		return true
 	case Warning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OwnerKind.
+const (
+	OwnerKindGroup  OwnerKind = "group"
+	OwnerKindPerson OwnerKind = "person"
+	OwnerKindTeam   OwnerKind = "team"
+	OwnerKindUser   OwnerKind = "user"
+)
+
+// Valid indicates whether the value is a known member of the OwnerKind enum.
+func (e OwnerKind) Valid() bool {
+	switch e {
+	case OwnerKindGroup:
+		return true
+	case OwnerKindPerson:
+		return true
+	case OwnerKindTeam:
+		return true
+	case OwnerKindUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OwnerRole.
+const (
+	OwnerRoleEscalation OwnerRole = "escalation"
+	OwnerRoleMaintainer OwnerRole = "maintainer"
+	OwnerRoleOncall     OwnerRole = "oncall"
+	OwnerRoleOwner      OwnerRole = "owner"
+)
+
+// Valid indicates whether the value is a known member of the OwnerRole enum.
+func (e OwnerRole) Valid() bool {
+	switch e {
+	case OwnerRoleEscalation:
+		return true
+	case OwnerRoleMaintainer:
+		return true
+	case OwnerRoleOncall:
+		return true
+	case OwnerRoleOwner:
 		return true
 	default:
 		return false
@@ -208,21 +421,39 @@ func (e ResolutionChoice) Valid() bool {
 	}
 }
 
+// Defines values for ReviewPolicy.
+const (
+	ReviewPolicyDirect   ReviewPolicy = "direct"
+	ReviewPolicyRequired ReviewPolicy = "required"
+)
+
+// Valid indicates whether the value is a known member of the ReviewPolicy enum.
+func (e ReviewPolicy) Valid() bool {
+	switch e {
+	case ReviewPolicyDirect:
+		return true
+	case ReviewPolicyRequired:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Role.
 const (
-	Editor     Role = "editor"
-	Maintainer Role = "maintainer"
-	Viewer     Role = "viewer"
+	RoleEditor     Role = "editor"
+	RoleMaintainer Role = "maintainer"
+	RoleViewer     Role = "viewer"
 )
 
 // Valid indicates whether the value is a known member of the Role enum.
 func (e Role) Valid() bool {
 	switch e {
-	case Editor:
+	case RoleEditor:
 		return true
-	case Maintainer:
+	case RoleMaintainer:
 		return true
-	case Viewer:
+	case RoleViewer:
 		return true
 	default:
 		return false
@@ -238,6 +469,7 @@ const (
 	ViewKindDeployment ViewKind = "deployment"
 	ViewKindLandscape  ViewKind = "landscape"
 	ViewKindLayers     ViewKind = "layers"
+	ViewKindUnowned    ViewKind = "unowned"
 )
 
 // Valid indicates whether the value is a known member of the ViewKind enum.
@@ -257,6 +489,8 @@ func (e ViewKind) Valid() bool {
 		return true
 	case ViewKindLayers:
 		return true
+	case ViewKindUnowned:
+		return true
 	default:
 		return false
 	}
@@ -265,6 +499,27 @@ func (e ViewKind) Valid() bool {
 // AddChangesRequest defines model for AddChangesRequest.
 type AddChangesRequest struct {
 	Changes []ChangeInput `json:"changes"`
+}
+
+// AuthProvider defines model for AuthProvider.
+type AuthProvider struct {
+	Id   string           `json:"id"`
+	Kind AuthProviderKind `json:"kind"`
+	Name string           `json:"name"`
+
+	// Restricted Only maintainers may use it (local password once SSO is the default).
+	Restricted bool `json:"restricted"`
+
+	// UsernameOnly Password-kind provider that takes no password (development sign-in).
+	UsernameOnly bool `json:"username_only"`
+}
+
+// AuthProviderKind defines model for AuthProviderKind.
+type AuthProviderKind string
+
+// AuthProviderList defines model for AuthProviderList.
+type AuthProviderList struct {
+	Providers []AuthProvider `json:"providers"`
 }
 
 // Change defines model for Change.
@@ -284,13 +539,18 @@ type Change struct {
 
 // ChangeInput defines model for ChangeInput.
 type ChangeInput struct {
-	// Cascade Delete an element that has children together with all its descendants.
+	// Cascade Element: delete it together with all its descendants (relations and ownerships always go with it).
+	// Owner: delete it together with its ownership assignments.
 	Cascade *bool    `json:"cascade,omitempty"`
 	Op      ChangeOp `json:"op"`
 
-	// Patch add: the entity fields (element - kind, name, parent_id, description, technology, tags, protected;
-	// relation - source_id, target_id, kind, description, technology).
-	// update: only the fields to change (null clears parent_id).
+	// Patch add: the entity fields:
+	//   element - kind, name, parent_id, description, technology, tags, protected, layer, projects,
+	//     replicas, properties, type, environment, lifecycle, criticality, runbook_url, docs_url, last_reviewed_at;
+	//   relation - source_id, target_id, kind, description, technology;
+	//   owner - kind, name, contact, oncall_url;
+	//   ownership - element_id, owner_id, role (the id is derived from element_id and role).
+	// update: only the fields to change (null clears parent_id / last_reviewed_at; an ownership update may only set owner_id).
 	// delete: omitted.
 	Patch *map[string]interface{} `json:"patch,omitempty"`
 
@@ -307,6 +567,12 @@ type ChangeList struct {
 // ChangeOp defines model for ChangeOp.
 type ChangeOp string
 
+// ChangePasswordRequest defines model for ChangePasswordRequest.
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
 // ChangeTarget defines model for ChangeTarget.
 type ChangeTarget string
 
@@ -319,9 +585,15 @@ type Changeset struct {
 	CreatedAt   time.Time           `json:"created_at"`
 	Description string              `json:"description"`
 	Id          openapi_types.UUID  `json:"id"`
-	MergedAt    *time.Time          `json:"merged_at"`
-	Status      ChangesetStatus     `json:"status"`
-	Title       string              `json:"title"`
+
+	// Kind `direct`: an automatically merged edit of main (not listed with the drafts)
+	Kind     ChangesetKind `json:"kind"`
+	MergedAt *time.Time    `json:"merged_at"`
+
+	// Reverts The direct edit this changeset undoes
+	Reverts *openapi_types.UUID `json:"reverts"`
+	Status  ChangesetStatus     `json:"status"`
+	Title   string              `json:"title"`
 }
 
 // ChangesetDetail defines model for ChangesetDetail.
@@ -329,6 +601,9 @@ type ChangesetDetail struct {
 	Changes   []Change  `json:"changes"`
 	Changeset Changeset `json:"changeset"`
 }
+
+// ChangesetKind `direct`: an automatically merged edit of main (not listed with the drafts)
+type ChangesetKind string
 
 // ChangesetList defines model for ChangesetList.
 type ChangesetList struct {
@@ -372,6 +647,25 @@ type CreateChangesetRequest struct {
 	Title       string  `json:"title"`
 }
 
+// CreateUserRequest defines model for CreateUserRequest.
+type CreateUserRequest struct {
+	// Email Also the local sign-in name
+	Email    string  `json:"email"`
+	Name     string  `json:"name"`
+	Password *string `json:"password,omitempty"`
+	Role     Role    `json:"role"`
+}
+
+// CreatedUser defines model for CreatedUser.
+type CreatedUser struct {
+	// TemporaryPassword Present only when the server generated the password
+	TemporaryPassword *string `json:"temporary_password,omitempty"`
+	User              User    `json:"user"`
+}
+
+// Criticality defines model for Criticality.
+type Criticality string
+
 // Diff defines model for Diff.
 type Diff struct {
 	BaseVersion int `json:"base_version"`
@@ -381,7 +675,17 @@ type Diff struct {
 		Removed  []Element             `json:"removed"`
 	} `json:"elements"`
 	MainVersion int `json:"main_version"`
-	Relations   struct {
+	Owners      struct {
+		Added    []Owner             `json:"added"`
+		Modified []OwnerModification `json:"modified"`
+		Removed  []Owner             `json:"removed"`
+	} `json:"owners"`
+	Ownerships struct {
+		Added    []Ownership             `json:"added"`
+		Modified []OwnershipModification `json:"modified"`
+		Removed  []Ownership             `json:"removed"`
+	} `json:"ownerships"`
+	Relations struct {
 		Added    []Relation             `json:"added"`
 		Modified []RelationModification `json:"modified"`
 		Removed  []Relation             `json:"removed"`
@@ -391,17 +695,78 @@ type Diff struct {
 	Stale bool `json:"stale"`
 }
 
+// DirectChangesRequest defines model for DirectChangesRequest.
+type DirectChangesRequest struct {
+	Changes []ChangeInput `json:"changes"`
+
+	// Summary Version summary (defaults to "Direct edit")
+	Summary *string `json:"summary,omitempty"`
+}
+
+// DirectOutcome defines model for DirectOutcome.
+type DirectOutcome string
+
+// DirectResult defines model for DirectResult.
+type DirectResult struct {
+	Changeset Changeset     `json:"changeset"`
+	Outcome   DirectOutcome `json:"outcome"`
+
+	// Reason Why the edit was not merged directly (empty when merged)
+	Reason string `json:"reason"`
+
+	// Version The new main version (0 unless merged)
+	Version int `json:"version"`
+}
+
+// Directory Users and groups that can be picked as owners (no roles).
+type Directory struct {
+	Groups []Group         `json:"groups"`
+	Users  []DirectoryUser `json:"users"`
+}
+
+// DirectoryUser defines model for DirectoryUser.
+type DirectoryUser struct {
+	Disabled bool               `json:"disabled"`
+	Email    string             `json:"email"`
+	Id       openapi_types.UUID `json:"id"`
+	Name     string             `json:"name"`
+}
+
+// EffectiveOwner defines model for EffectiveOwner.
+type EffectiveOwner struct {
+	OwnerId openapi_types.UUID `json:"owner_id"`
+	Role    OwnerRole          `json:"role"`
+
+	// SourceElementId The element the assignment comes from (the element itself, or an ancestor when inherited).
+	SourceElementId openapi_types.UUID `json:"source_element_id"`
+}
+
 // Element defines model for Element.
 type Element struct {
-	CreatedAt   time.Time          `json:"created_at"`
-	Description string             `json:"description"`
+	CreatedAt   time.Time   `json:"created_at"`
+	Criticality Criticality `json:"criticality"`
+	Description string      `json:"description"`
+
+	// DocsUrl http(s) URL or empty
+	DocsUrl string `json:"docs_url"`
+
+	// Effective Values inherited from the ancestors, computed by the server (read-only).
+	Effective *ElementEffective `json:"effective,omitempty"`
+
+	// Environment Empty = inherited from the ancestors (see effective.environment).
+	Environment Environment        `json:"environment"`
 	Id          openapi_types.UUID `json:"id"`
-	Kind        ElementKind        `json:"kind"`
+
+	// Kind `database` was retired in M10 (ADR-062): it is still accepted in change patches and
+	// normalized to a `container` of type `database`, but never returned.
+	Kind           ElementKind         `json:"kind"`
+	LastReviewedAt *openapi_types.Date `json:"last_reviewed_at"`
 
 	// Layer Layer in layers views, e.g. Services or Physical. Empty = unassigned.
-	Layer    string              `json:"layer"`
-	Name     string              `json:"name"`
-	ParentId *openapi_types.UUID `json:"parent_id"`
+	Layer     string              `json:"layer"`
+	Lifecycle Lifecycle           `json:"lifecycle"`
+	Name      string              `json:"name"`
+	ParentId  *openapi_types.UUID `json:"parent_id"`
 
 	// Projects Projects the element belongs to (may be several). Views can highlight the elements of a project.
 	Projects []string `json:"projects"`
@@ -411,14 +776,32 @@ type Element struct {
 	Protected  bool              `json:"protected"`
 
 	// Replicas How many instances the element stands for (1 = a single one).
-	Replicas   int       `json:"replicas"`
-	Tags       []string  `json:"tags"`
-	Technology string    `json:"technology"`
-	UpdatedAt  time.Time `json:"updated_at"`
-	Version    int       `json:"version"`
+	Replicas int `json:"replicas"`
+
+	// RunbookUrl http(s) URL or empty
+	RunbookUrl string   `json:"runbook_url"`
+	Tags       []string `json:"tags"`
+	Technology string   `json:"technology"`
+
+	// Type Refines the kind; datastore types are drawn as cylinders. Empty = none.
+	Type      ElementType `json:"type"`
+	UpdatedAt time.Time   `json:"updated_at"`
+	Version   int         `json:"version"`
 }
 
-// ElementKind defines model for ElementKind.
+// ElementEffective Values inherited from the ancestors, computed by the server (read-only).
+type ElementEffective struct {
+	// DeployedViaId The element (itself or an ancestor) that has a deployed_on relation; null when none.
+	DeployedViaId *openapi_types.UUID `json:"deployed_via_id"`
+
+	// Environment Empty = inherited from the ancestors (see effective.environment).
+	Environment         Environment         `json:"environment"`
+	EnvironmentSourceId *openapi_types.UUID `json:"environment_source_id"`
+	Owners              []EffectiveOwner    `json:"owners"`
+}
+
+// ElementKind `database` was retired in M10 (ADR-062): it is still accepted in change patches and
+// normalized to a `container` of type `database`, but never returned.
 type ElementKind string
 
 // ElementList defines model for ElementList.
@@ -433,11 +816,44 @@ type ElementModification struct {
 	Fields []FieldChange `json:"fields"`
 }
 
+// ElementType Refines the kind; datastore types are drawn as cylinders. Empty = none.
+type ElementType string
+
+// Environment Empty = inherited from the ancestors (see effective.environment).
+type Environment string
+
 // FieldChange defines model for FieldChange.
 type FieldChange struct {
 	After  interface{} `json:"after"`
 	Before interface{} `json:"before"`
 	Field  string      `json:"field"`
+}
+
+// Group defines model for Group.
+type Group struct {
+	CreatedAt   time.Time          `json:"created_at"`
+	Description string             `json:"description"`
+	Id          openapi_types.UUID `json:"id"`
+
+	// Members User ids
+	Members []openapi_types.UUID `json:"members"`
+	Name    string               `json:"name"`
+}
+
+// GroupInput defines model for GroupInput.
+type GroupInput struct {
+	Description *string `json:"description,omitempty"`
+	Name        string  `json:"name"`
+}
+
+// GroupList defines model for GroupList.
+type GroupList struct {
+	Groups []Group `json:"groups"`
+}
+
+// GroupMembersInput defines model for GroupMembersInput.
+type GroupMembersInput struct {
+	UserIds []openapi_types.UUID `json:"user_ids"`
 }
 
 // Health defines model for Health.
@@ -448,6 +864,24 @@ type Health struct {
 
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
+
+// Identity defines model for Identity.
+type Identity struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// Email As reported at the last sign-in; informational only
+	Email       string             `json:"email"`
+	Id          openapi_types.UUID `json:"id"`
+	Issuer      string             `json:"issuer"`
+	LastLoginAt *time.Time         `json:"last_login_at,omitempty"`
+	Provider    string             `json:"provider"`
+	Subject     string             `json:"subject"`
+}
+
+// IdentityList defines model for IdentityList.
+type IdentityList struct {
+	Identities []Identity `json:"identities"`
+}
 
 // LayerRule defines model for LayerRule.
 type LayerRule struct {
@@ -461,6 +895,16 @@ type LayerRule struct {
 // LayerRules defines model for LayerRules.
 type LayerRules struct {
 	Rules []LayerRule `json:"rules"`
+}
+
+// Lifecycle defines model for Lifecycle.
+type Lifecycle string
+
+// LinkIdentityRequest defines model for LinkIdentityRequest.
+type LinkIdentityRequest struct {
+	// Provider A configured external provider id
+	Provider string `json:"provider"`
+	Subject  string `json:"subject"`
 }
 
 // LintFinding defines model for LintFinding.
@@ -482,12 +926,26 @@ type LintReport struct {
 // LintSeverity defines model for LintSeverity.
 type LintSeverity string
 
+// LoginRequest defines model for LoginRequest.
+type LoginRequest struct {
+	Password *string `json:"password,omitempty"`
+	Provider string  `json:"provider"`
+	Username string  `json:"username"`
+}
+
 // Me defines model for Me.
 type Me struct {
+	// Email Contact email; empty when unknown
 	Email string             `json:"email"`
 	Id    openapi_types.UUID `json:"id"`
 	Name  string             `json:"name"`
-	Role  Role               `json:"role"`
+
+	// PasswordMustChange The local password was set by a maintainer and must be changed now.
+	PasswordMustChange bool `json:"password_must_change"`
+
+	// Provider The provider this session signed in with
+	Provider string `json:"provider"`
+	Role     Role   `json:"role"`
 }
 
 // MergeResult defines model for MergeResult.
@@ -498,8 +956,84 @@ type MergeResult struct {
 
 // Model defines model for Model.
 type Model struct {
-	Elements  []Element  `json:"elements"`
-	Relations []Relation `json:"relations"`
+	Elements   []Element   `json:"elements"`
+	Owners     []Owner     `json:"owners"`
+	Ownerships []Ownership `json:"ownerships"`
+	Relations  []Relation  `json:"relations"`
+}
+
+// Owner A team or person accountable for elements. Model data (changes go through drafts); not a login user.
+type Owner struct {
+	// Contact Email, chat channel or similar
+	Contact string             `json:"contact"`
+	Id      openapi_types.UUID `json:"id"`
+
+	// Kind team / person are named owners without an account; user / group point at a login user or a group (principal_id).
+	Kind OwnerKind `json:"kind"`
+	Name string    `json:"name"`
+
+	// OncallUrl http(s) URL or empty
+	OncallUrl string `json:"oncall_url"`
+
+	// PrincipalId The user or group of a user / group owner (null for named owners). Its id is derived
+	// from principal_id, so send no target_id when adding one; the live name comes from /directory.
+	PrincipalId *openapi_types.UUID `json:"principal_id,omitempty"`
+	Version     int                 `json:"version"`
+}
+
+// OwnerDirectory defines model for OwnerDirectory.
+type OwnerDirectory struct {
+	Owners     []Owner     `json:"owners"`
+	Ownerships []Ownership `json:"ownerships"`
+}
+
+// OwnerKind team / person are named owners without an account; user / group point at a login user or a group (principal_id).
+type OwnerKind string
+
+// OwnerModification defines model for OwnerModification.
+type OwnerModification struct {
+	// After A team or person accountable for elements. Model data (changes go through drafts); not a login user.
+	After Owner `json:"after"`
+
+	// Before A team or person accountable for elements. Model data (changes go through drafts); not a login user.
+	Before Owner         `json:"before"`
+	Fields []FieldChange `json:"fields"`
+}
+
+// OwnerRole defines model for OwnerRole.
+type OwnerRole string
+
+// Ownership Assigns an owner to an element in one role; at most one per (element, role). The id is
+// derived from element_id and role (send no target_id when adding); updates may only change owner_id.
+type Ownership struct {
+	ElementId openapi_types.UUID `json:"element_id"`
+	Id        openapi_types.UUID `json:"id"`
+	OwnerId   openapi_types.UUID `json:"owner_id"`
+	Role      OwnerRole          `json:"role"`
+	Version   int                `json:"version"`
+}
+
+// OwnershipModification defines model for OwnershipModification.
+type OwnershipModification struct {
+	// After Assigns an owner to an element in one role; at most one per (element, role). The id is
+	// derived from element_id and role (send no target_id when adding); updates may only change owner_id.
+	After Ownership `json:"after"`
+
+	// Before Assigns an owner to an element in one role; at most one per (element, role). The id is
+	// derived from element_id and role (send no target_id when adding); updates may only change owner_id.
+	Before Ownership     `json:"before"`
+	Fields []FieldChange `json:"fields"`
+}
+
+// PasswordResetRequest defines model for PasswordResetRequest.
+type PasswordResetRequest struct {
+	Password *string `json:"password,omitempty"`
+}
+
+// PasswordResetResult defines model for PasswordResetResult.
+type PasswordResetResult struct {
+	// TemporaryPassword Present only when the server generated the password
+	TemporaryPassword *string `json:"temporary_password,omitempty"`
 }
 
 // Problem RFC 9457 problem details
@@ -555,8 +1089,21 @@ type ResolveRequest struct {
 	Resolutions []Resolution `json:"resolutions"`
 }
 
+// ReviewPolicy defines model for ReviewPolicy.
+type ReviewPolicy string
+
 // Role defines model for Role.
 type Role string
+
+// Session defines model for Session.
+type Session struct {
+	// CsrfToken Send as X-CSRF-Token on unsafe requests
+	CsrfToken string `json:"csrf_token"`
+
+	// ExpiresAt Absolute expiry (idle expiry may come sooner)
+	ExpiresAt time.Time `json:"expires_at"`
+	Me        Me        `json:"me"`
+}
 
 // SetLayoutRequest defines model for SetLayoutRequest.
 type SetLayoutRequest struct {
@@ -568,13 +1115,30 @@ type SetRoleRequest struct {
 	Role Role `json:"role"`
 }
 
+// Settings defines model for Settings.
+type Settings struct {
+	ReviewPolicy ReviewPolicy        `json:"review_policy"`
+	UpdatedAt    time.Time           `json:"updated_at"`
+	UpdatedBy    *openapi_types.UUID `json:"updated_by"`
+}
+
+// SettingsInput defines model for SettingsInput.
+type SettingsInput struct {
+	ReviewPolicy ReviewPolicy `json:"review_policy"`
+}
+
 // User defines model for User.
 type User struct {
-	CreatedAt time.Time          `json:"created_at"`
-	Email     string             `json:"email"`
-	Id        openapi_types.UUID `json:"id"`
-	Name      string             `json:"name"`
-	Role      Role               `json:"role"`
+	CreatedAt time.Time `json:"created_at"`
+	Disabled  bool      `json:"disabled"`
+
+	// Email Contact email; empty when unknown
+	Email         string             `json:"email"`
+	Id            openapi_types.UUID `json:"id"`
+	IdentityCount int                `json:"identity_count"`
+	LastLoginAt   *time.Time         `json:"last_login_at,omitempty"`
+	Name          string             `json:"name"`
+	Role          Role               `json:"role"`
 }
 
 // UserList defines model for UserList.
@@ -585,10 +1149,16 @@ type UserList struct {
 // Version defines model for Version.
 type Version struct {
 	ChangesetId openapi_types.UUID `json:"changeset_id"`
-	MergedAt    time.Time          `json:"merged_at"`
-	MergedBy    openapi_types.UUID `json:"merged_by"`
-	Number      int                `json:"number"`
-	Summary     string             `json:"summary"`
+
+	// Kind `direct`: an automatically merged edit of main (not listed with the drafts)
+	Kind     ChangesetKind      `json:"kind"`
+	MergedAt time.Time          `json:"merged_at"`
+	MergedBy openapi_types.UUID `json:"merged_by"`
+	Number   int                `json:"number"`
+
+	// Reverts The direct edit this version undoes
+	Reverts *openapi_types.UUID `json:"reverts"`
+	Summary string              `json:"summary"`
 }
 
 // VersionList defines model for VersionList.
@@ -671,6 +1241,23 @@ type ViewModel struct {
 // Id defines model for Id.
 type Id = openapi_types.UUID
 
+// Provider defines model for Provider.
+type Provider = string
+
+// AuthCallbackParams defines parameters for AuthCallback.
+type AuthCallbackParams struct {
+	Code             *string `form:"code,omitempty" json:"code,omitempty"`
+	State            *string `form:"state,omitempty" json:"state,omitempty"`
+	Error            *string `form:"error,omitempty" json:"error,omitempty"`
+	ErrorDescription *string `form:"error_description,omitempty" json:"error_description,omitempty"`
+}
+
+// StartAuthRedirectParams defines parameters for StartAuthRedirect.
+type StartAuthRedirectParams struct {
+	// ReturnTo Same-origin path to return to after signing in (anything else falls back to "/").
+	ReturnTo *string `form:"return_to,omitempty" json:"return_to,omitempty"`
+}
+
 // ListChangesetsParams defines parameters for ListChangesets.
 type ListChangesetsParams struct {
 	Status   *ChangesetStatus    `form:"status,omitempty" json:"status,omitempty"`
@@ -696,6 +1283,9 @@ type GetViewModelParams struct {
 	ChangesetId *openapi_types.UUID `form:"changeset_id,omitempty" json:"changeset_id,omitempty"`
 }
 
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody = LoginRequest
+
 // CreateChangesetJSONRequestBody defines body for CreateChangeset for application/json ContentType.
 type CreateChangesetJSONRequestBody = CreateChangesetRequest
 
@@ -705,8 +1295,35 @@ type AddChangesJSONRequestBody = AddChangesRequest
 // ResolveChangesetJSONRequestBody defines body for ResolveChangeset for application/json ContentType.
 type ResolveChangesetJSONRequestBody = ResolveRequest
 
+// CreateGroupJSONRequestBody defines body for CreateGroup for application/json ContentType.
+type CreateGroupJSONRequestBody = GroupInput
+
+// UpdateGroupJSONRequestBody defines body for UpdateGroup for application/json ContentType.
+type UpdateGroupJSONRequestBody = GroupInput
+
+// SetGroupMembersJSONRequestBody defines body for SetGroupMembers for application/json ContentType.
+type SetGroupMembersJSONRequestBody = GroupMembersInput
+
 // ReplaceLayerRulesJSONRequestBody defines body for ReplaceLayerRules for application/json ContentType.
 type ReplaceLayerRulesJSONRequestBody = LayerRules
+
+// ChangeMyPasswordJSONRequestBody defines body for ChangeMyPassword for application/json ContentType.
+type ChangeMyPasswordJSONRequestBody = ChangePasswordRequest
+
+// ApplyDirectJSONRequestBody defines body for ApplyDirect for application/json ContentType.
+type ApplyDirectJSONRequestBody = DirectChangesRequest
+
+// UpdateSettingsJSONRequestBody defines body for UpdateSettings for application/json ContentType.
+type UpdateSettingsJSONRequestBody = SettingsInput
+
+// CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
+type CreateUserJSONRequestBody = CreateUserRequest
+
+// LinkUserIdentityJSONRequestBody defines body for LinkUserIdentity for application/json ContentType.
+type LinkUserIdentityJSONRequestBody = LinkIdentityRequest
+
+// ResetUserPasswordJSONRequestBody defines body for ResetUserPassword for application/json ContentType.
+type ResetUserPasswordJSONRequestBody = PasswordResetRequest
 
 // SetUserRoleJSONRequestBody defines body for SetUserRole for application/json ContentType.
 type SetUserRoleJSONRequestBody = SetRoleRequest
@@ -722,6 +1339,24 @@ type SetViewLayoutJSONRequestBody = SetLayoutRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Login Sign in with a password-kind provider; sets the session cookie
+	// (POST /api/v1/auth/login)
+	Login(ctx *echo.Context) error
+	// Logout End the current session and clear the cookie
+	// (POST /api/v1/auth/logout)
+	Logout(ctx *echo.Context) error
+	// ListAuthProviders Sign-in methods available on this server (the login page renders from this)
+	// (GET /api/v1/auth/providers)
+	ListAuthProviders(ctx *echo.Context) error
+	// GetSession The current session (user, CSRF token, expiry); 401 when signed out
+	// (GET /api/v1/auth/session)
+	GetSession(ctx *echo.Context) error
+	// AuthCallback Redirect-kind login callback; sets the session cookie and redirects into the app
+	// (GET /api/v1/auth/{provider}/callback)
+	AuthCallback(ctx *echo.Context, provider Provider, params AuthCallbackParams) error
+	// StartAuthRedirect Start a redirect-kind login (browser navigation; redirects to the identity provider)
+	// (GET /api/v1/auth/{provider}/start)
+	StartAuthRedirect(ctx *echo.Context, provider Provider, params StartAuthRedirectParams) error
 	// ListChangesets List changesets
 	// (GET /api/v1/changesets)
 	ListChangesets(ctx *echo.Context, params ListChangesetsParams) error
@@ -770,6 +1405,24 @@ type ServerInterface interface {
 	// SubmitChangeset Submit a draft for review (author or maintainer)
 	// (POST /api/v1/changesets/{id}/submit)
 	SubmitChangeset(ctx *echo.Context, id Id) error
+	// GetDirectory Users (name, email, disabled) and groups, for picking owners (any signed-in user)
+	// (GET /api/v1/directory)
+	GetDirectory(ctx *echo.Context) error
+	// ListGroups Groups and their members (any signed-in user)
+	// (GET /api/v1/groups)
+	ListGroups(ctx *echo.Context) error
+	// CreateGroup Create a group (maintainers only)
+	// (POST /api/v1/groups)
+	CreateGroup(ctx *echo.Context) error
+	// DeleteGroup Delete a group (maintainers only); owners pointing at it keep their name and lint warns
+	// (DELETE /api/v1/groups/{id})
+	DeleteGroup(ctx *echo.Context, id Id) error
+	// UpdateGroup Rename a group or change its description (maintainers only)
+	// (PUT /api/v1/groups/{id})
+	UpdateGroup(ctx *echo.Context, id Id) error
+	// SetGroupMembers Replace a group's members (maintainers only)
+	// (PUT /api/v1/groups/{id}/members)
+	SetGroupMembers(ctx *echo.Context, id Id) error
 	// GetHealth Liveness / readiness probe
 	// (GET /api/v1/health)
 	GetHealth(ctx *echo.Context) error
@@ -782,21 +1435,60 @@ type ServerInterface interface {
 	// GetMe The authenticated user
 	// (GET /api/v1/me)
 	GetMe(ctx *echo.Context) error
+	// ChangeMyPassword Change the caller's local password (other sessions are revoked)
+	// (PUT /api/v1/me/password)
+	ChangeMyPassword(ctx *echo.Context) error
+	// ApplyDirect Edit main directly (review policy `direct`)
+	// (POST /api/v1/model/changes)
+	ApplyDirect(ctx *echo.Context) error
+	// RevertDirect Undo a direct edit (a new version that reverses it)
+	// (POST /api/v1/model/changes/{id}/revert)
+	RevertDirect(ctx *echo.Context, id Id) error
 	// ListElements Elements of main
 	// (GET /api/v1/model/elements)
 	ListElements(ctx *echo.Context, params ListElementsParams) error
 	// GetElement One element of main
 	// (GET /api/v1/model/elements/{id})
 	GetElement(ctx *echo.Context, id Id) error
+	// ListOwners Owners and ownership assignments of main
+	// (GET /api/v1/model/owners)
+	ListOwners(ctx *echo.Context) error
 	// ListRelations Relations of main
 	// (GET /api/v1/model/relations)
 	ListRelations(ctx *echo.Context, params ListRelationsParams) error
 	// GetRelation One relation of main
 	// (GET /api/v1/model/relations/{id})
 	GetRelation(ctx *echo.Context, id Id) error
+	// GetSettings Workspace settings (review policy)
+	// (GET /api/v1/settings)
+	GetSettings(ctx *echo.Context) error
+	// UpdateSettings Change the workspace settings (maintainers only)
+	// (PUT /api/v1/settings)
+	UpdateSettings(ctx *echo.Context) error
 	// ListUsers All users with their roles (maintainers only)
 	// (GET /api/v1/users)
 	ListUsers(ctx *echo.Context) error
+	// CreateUser Create a user with a local password identity (maintainers only)
+	// (POST /api/v1/users)
+	CreateUser(ctx *echo.Context) error
+	// DisableUser Disable a user and end their sessions (maintainers only; not yourself, not the last break-glass maintainer)
+	// (POST /api/v1/users/{id}/disable)
+	DisableUser(ctx *echo.Context, id Id) error
+	// EnableUser Re-enable a disabled user (maintainers only)
+	// (POST /api/v1/users/{id}/enable)
+	EnableUser(ctx *echo.Context, id Id) error
+	// ListUserIdentities A user's sign-in identities (maintainers only)
+	// (GET /api/v1/users/{id}/identities)
+	ListUserIdentities(ctx *echo.Context, id Id) error
+	// LinkUserIdentity Link an external identity (provider + subject) to a user (maintainers only; never automatic)
+	// (POST /api/v1/users/{id}/identities)
+	LinkUserIdentity(ctx *echo.Context, id Id) error
+	// UnlinkUserIdentity Remove a sign-in identity and the sessions created with it (maintainers only)
+	// (DELETE /api/v1/users/{id}/identities/{identityId})
+	UnlinkUserIdentity(ctx *echo.Context, id Id, identityId openapi_types.UUID) error
+	// ResetUserPassword Set a new local password for a user and end their sessions (maintainers only)
+	// (POST /api/v1/users/{id}/password-reset)
+	ResetUserPassword(ctx *echo.Context, id Id) error
 	// SetUserRole Change a user's role (maintainers only; the last maintainer cannot be demoted)
 	// (PUT /api/v1/users/{id}/role)
 	SetUserRole(ctx *echo.Context, id Id) error
@@ -832,6 +1524,113 @@ type ServerInterface interface {
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// Login converts echo context to params.
+func (w *ServerInterfaceWrapper) Login(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.Login(ctx)
+	return err
+}
+
+// Logout converts echo context to params.
+func (w *ServerInterfaceWrapper) Logout(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.Logout(ctx)
+	return err
+}
+
+// ListAuthProviders converts echo context to params.
+func (w *ServerInterfaceWrapper) ListAuthProviders(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListAuthProviders(ctx)
+	return err
+}
+
+// GetSession converts echo context to params.
+func (w *ServerInterfaceWrapper) GetSession(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetSession(ctx)
+	return err
+}
+
+// AuthCallback converts echo context to params.
+func (w *ServerInterfaceWrapper) AuthCallback(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "provider" -------------
+	var provider Provider
+
+	err = runtime.BindStyledParameterWithOptions("simple", "provider", ctx.Param("provider"), &provider, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter provider: %s", err))
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AuthCallbackParams
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", ctx.QueryParams(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter code: %s", err))
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", ctx.QueryParams(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter state: %s", err))
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", ctx.QueryParams(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter error: %s", err))
+	}
+
+	// ------------- Optional query parameter "error_description" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error_description", ctx.QueryParams(), &params.ErrorDescription, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter error_description: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.AuthCallback(ctx, provider, params)
+	return err
+}
+
+// StartAuthRedirect converts echo context to params.
+func (w *ServerInterfaceWrapper) StartAuthRedirect(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "provider" -------------
+	var provider Provider
+
+	err = runtime.BindStyledParameterWithOptions("simple", "provider", ctx.Param("provider"), &provider, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter provider: %s", err))
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StartAuthRedirectParams
+	// ------------- Optional query parameter "return_to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "return_to", ctx.QueryParams(), &params.ReturnTo, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter return_to: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.StartAuthRedirect(ctx, provider, params)
+	return err
 }
 
 // ListChangesets converts echo context to params.
@@ -1092,6 +1891,81 @@ func (w *ServerInterfaceWrapper) SubmitChangeset(ctx *echo.Context) error {
 	return err
 }
 
+// GetDirectory converts echo context to params.
+func (w *ServerInterfaceWrapper) GetDirectory(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetDirectory(ctx)
+	return err
+}
+
+// ListGroups converts echo context to params.
+func (w *ServerInterfaceWrapper) ListGroups(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListGroups(ctx)
+	return err
+}
+
+// CreateGroup converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateGroup(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateGroup(ctx)
+	return err
+}
+
+// DeleteGroup converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteGroup(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteGroup(ctx, id)
+	return err
+}
+
+// UpdateGroup converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateGroup(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateGroup(ctx, id)
+	return err
+}
+
+// SetGroupMembers converts echo context to params.
+func (w *ServerInterfaceWrapper) SetGroupMembers(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.SetGroupMembers(ctx, id)
+	return err
+}
+
 // GetHealth converts echo context to params.
 func (w *ServerInterfaceWrapper) GetHealth(ctx *echo.Context) error {
 	var err error
@@ -1125,6 +1999,40 @@ func (w *ServerInterfaceWrapper) GetMe(ctx *echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.GetMe(ctx)
+	return err
+}
+
+// ChangeMyPassword converts echo context to params.
+func (w *ServerInterfaceWrapper) ChangeMyPassword(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ChangeMyPassword(ctx)
+	return err
+}
+
+// ApplyDirect converts echo context to params.
+func (w *ServerInterfaceWrapper) ApplyDirect(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ApplyDirect(ctx)
+	return err
+}
+
+// RevertDirect converts echo context to params.
+func (w *ServerInterfaceWrapper) RevertDirect(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.RevertDirect(ctx, id)
 	return err
 }
 
@@ -1169,6 +2077,15 @@ func (w *ServerInterfaceWrapper) GetElement(ctx *echo.Context) error {
 	return err
 }
 
+// ListOwners converts echo context to params.
+func (w *ServerInterfaceWrapper) ListOwners(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListOwners(ctx)
+	return err
+}
+
 // ListRelations converts echo context to params.
 func (w *ServerInterfaceWrapper) ListRelations(ctx *echo.Context) error {
 	var err error
@@ -1210,12 +2127,143 @@ func (w *ServerInterfaceWrapper) GetRelation(ctx *echo.Context) error {
 	return err
 }
 
+// GetSettings converts echo context to params.
+func (w *ServerInterfaceWrapper) GetSettings(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetSettings(ctx)
+	return err
+}
+
+// UpdateSettings converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateSettings(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateSettings(ctx)
+	return err
+}
+
 // ListUsers converts echo context to params.
 func (w *ServerInterfaceWrapper) ListUsers(ctx *echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.ListUsers(ctx)
+	return err
+}
+
+// CreateUser converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateUser(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateUser(ctx)
+	return err
+}
+
+// DisableUser converts echo context to params.
+func (w *ServerInterfaceWrapper) DisableUser(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DisableUser(ctx, id)
+	return err
+}
+
+// EnableUser converts echo context to params.
+func (w *ServerInterfaceWrapper) EnableUser(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.EnableUser(ctx, id)
+	return err
+}
+
+// ListUserIdentities converts echo context to params.
+func (w *ServerInterfaceWrapper) ListUserIdentities(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListUserIdentities(ctx, id)
+	return err
+}
+
+// LinkUserIdentity converts echo context to params.
+func (w *ServerInterfaceWrapper) LinkUserIdentity(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.LinkUserIdentity(ctx, id)
+	return err
+}
+
+// UnlinkUserIdentity converts echo context to params.
+func (w *ServerInterfaceWrapper) UnlinkUserIdentity(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// ------------- Path parameter "identityId" -------------
+	var identityId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "identityId", ctx.Param("identityId"), &identityId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter identityId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UnlinkUserIdentity(ctx, id, identityId)
+	return err
+}
+
+// ResetUserPassword converts echo context to params.
+func (w *ServerInterfaceWrapper) ResetUserPassword(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ResetUserPassword(ctx, id)
 	return err
 }
 
@@ -1424,12 +2472,37 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 
 	router.GET(options.BaseURL+"/api/v1/health", wrapper.GetHealth, options.OperationMiddlewares["getHealth"]...)
 	router.GET(options.BaseURL+"/api/v1/me", wrapper.GetMe, options.OperationMiddlewares["getMe"]...)
+	router.PUT(options.BaseURL+"/api/v1/me/password", wrapper.ChangeMyPassword, options.OperationMiddlewares["changeMyPassword"]...)
+	router.GET(options.BaseURL+"/api/v1/auth/providers", wrapper.ListAuthProviders, options.OperationMiddlewares["listAuthProviders"]...)
+	router.POST(options.BaseURL+"/api/v1/auth/login", wrapper.Login, options.OperationMiddlewares["login"]...)
+	router.GET(options.BaseURL+"/api/v1/auth/:provider/start", wrapper.StartAuthRedirect, options.OperationMiddlewares["startAuthRedirect"]...)
+	router.GET(options.BaseURL+"/api/v1/auth/:provider/callback", wrapper.AuthCallback, options.OperationMiddlewares["authCallback"]...)
+	router.POST(options.BaseURL+"/api/v1/auth/logout", wrapper.Logout, options.OperationMiddlewares["logout"]...)
+	router.GET(options.BaseURL+"/api/v1/auth/session", wrapper.GetSession, options.OperationMiddlewares["getSession"]...)
 	router.GET(options.BaseURL+"/api/v1/users", wrapper.ListUsers, options.OperationMiddlewares["listUsers"]...)
+	router.POST(options.BaseURL+"/api/v1/users", wrapper.CreateUser, options.OperationMiddlewares["createUser"]...)
 	router.PUT(options.BaseURL+"/api/v1/users/:id/role", wrapper.SetUserRole, options.OperationMiddlewares["setUserRole"]...)
+	router.POST(options.BaseURL+"/api/v1/users/:id/disable", wrapper.DisableUser, options.OperationMiddlewares["disableUser"]...)
+	router.POST(options.BaseURL+"/api/v1/users/:id/enable", wrapper.EnableUser, options.OperationMiddlewares["enableUser"]...)
+	router.POST(options.BaseURL+"/api/v1/users/:id/password-reset", wrapper.ResetUserPassword, options.OperationMiddlewares["resetUserPassword"]...)
+	router.GET(options.BaseURL+"/api/v1/users/:id/identities", wrapper.ListUserIdentities, options.OperationMiddlewares["listUserIdentities"]...)
+	router.POST(options.BaseURL+"/api/v1/users/:id/identities", wrapper.LinkUserIdentity, options.OperationMiddlewares["linkUserIdentity"]...)
+	router.DELETE(options.BaseURL+"/api/v1/users/:id/identities/:identityId", wrapper.UnlinkUserIdentity, options.OperationMiddlewares["unlinkUserIdentity"]...)
+	router.GET(options.BaseURL+"/api/v1/directory", wrapper.GetDirectory, options.OperationMiddlewares["getDirectory"]...)
+	router.GET(options.BaseURL+"/api/v1/groups", wrapper.ListGroups, options.OperationMiddlewares["listGroups"]...)
+	router.POST(options.BaseURL+"/api/v1/groups", wrapper.CreateGroup, options.OperationMiddlewares["createGroup"]...)
+	router.DELETE(options.BaseURL+"/api/v1/groups/:id", wrapper.DeleteGroup, options.OperationMiddlewares["deleteGroup"]...)
+	router.PUT(options.BaseURL+"/api/v1/groups/:id", wrapper.UpdateGroup, options.OperationMiddlewares["updateGroup"]...)
+	router.PUT(options.BaseURL+"/api/v1/groups/:id/members", wrapper.SetGroupMembers, options.OperationMiddlewares["setGroupMembers"]...)
 	router.GET(options.BaseURL+"/api/v1/model/elements", wrapper.ListElements, options.OperationMiddlewares["listElements"]...)
 	router.GET(options.BaseURL+"/api/v1/model/elements/:id", wrapper.GetElement, options.OperationMiddlewares["getElement"]...)
+	router.GET(options.BaseURL+"/api/v1/model/owners", wrapper.ListOwners, options.OperationMiddlewares["listOwners"]...)
 	router.GET(options.BaseURL+"/api/v1/model/relations", wrapper.ListRelations, options.OperationMiddlewares["listRelations"]...)
 	router.GET(options.BaseURL+"/api/v1/model/relations/:id", wrapper.GetRelation, options.OperationMiddlewares["getRelation"]...)
+	router.GET(options.BaseURL+"/api/v1/settings", wrapper.GetSettings, options.OperationMiddlewares["getSettings"]...)
+	router.PUT(options.BaseURL+"/api/v1/settings", wrapper.UpdateSettings, options.OperationMiddlewares["updateSettings"]...)
+	router.POST(options.BaseURL+"/api/v1/model/changes", wrapper.ApplyDirect, options.OperationMiddlewares["applyDirect"]...)
+	router.POST(options.BaseURL+"/api/v1/model/changes/:id/revert", wrapper.RevertDirect, options.OperationMiddlewares["revertDirect"]...)
 	router.GET(options.BaseURL+"/api/v1/changesets", wrapper.ListChangesets, options.OperationMiddlewares["listChangesets"]...)
 	router.POST(options.BaseURL+"/api/v1/changesets", wrapper.CreateChangeset, options.OperationMiddlewares["createChangeset"]...)
 	router.GET(options.BaseURL+"/api/v1/changesets/:id", wrapper.GetChangeset, options.OperationMiddlewares["getChangeset"]...)
@@ -1461,6 +2534,221 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 }
 
 type ProblemApplicationProblemPlusJSONResponse Problem
+
+type LoginRequestObject struct {
+	Body *LoginJSONRequestBody
+}
+
+type LoginResponseObject interface {
+	VisitLoginResponse(w http.ResponseWriter) error
+}
+
+type Login200JSONResponse Session
+
+func (response Login200JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogindefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LogindefaultApplicationProblemPlusJSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogoutRequestObject struct {
+}
+
+type LogoutResponseObject interface {
+	VisitLogoutResponse(w http.ResponseWriter) error
+}
+
+type Logout204Response struct {
+}
+
+func (response Logout204Response) VisitLogoutResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type LogoutdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LogoutdefaultApplicationProblemPlusJSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuthProvidersRequestObject struct {
+}
+
+type ListAuthProvidersResponseObject interface {
+	VisitListAuthProvidersResponse(w http.ResponseWriter) error
+}
+
+type ListAuthProviders200JSONResponse AuthProviderList
+
+func (response ListAuthProviders200JSONResponse) VisitListAuthProvidersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuthProvidersdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListAuthProvidersdefaultApplicationProblemPlusJSONResponse) VisitListAuthProvidersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSessionRequestObject struct {
+}
+
+type GetSessionResponseObject interface {
+	VisitGetSessionResponse(w http.ResponseWriter) error
+}
+
+type GetSession200JSONResponse Session
+
+func (response GetSession200JSONResponse) VisitGetSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSessiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetSessiondefaultApplicationProblemPlusJSONResponse) VisitGetSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AuthCallbackRequestObject struct {
+	Provider Provider `json:"provider"`
+	Params   AuthCallbackParams
+}
+
+type AuthCallbackResponseObject interface {
+	VisitAuthCallbackResponse(w http.ResponseWriter) error
+}
+
+type AuthCallback302Response struct {
+}
+
+func (response AuthCallback302Response) VisitAuthCallbackResponse(w http.ResponseWriter) error {
+	w.WriteHeader(302)
+	return nil
+}
+
+type AuthCallbackdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response AuthCallbackdefaultApplicationProblemPlusJSONResponse) VisitAuthCallbackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartAuthRedirectRequestObject struct {
+	Provider Provider `json:"provider"`
+	Params   StartAuthRedirectParams
+}
+
+type StartAuthRedirectResponseObject interface {
+	VisitStartAuthRedirectResponse(w http.ResponseWriter) error
+}
+
+type StartAuthRedirect302Response struct {
+}
+
+func (response StartAuthRedirect302Response) VisitStartAuthRedirectResponse(w http.ResponseWriter) error {
+	w.WriteHeader(302)
+	return nil
+}
+
+type StartAuthRedirectdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response StartAuthRedirectdefaultApplicationProblemPlusJSONResponse) VisitStartAuthRedirectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type ListChangesetsRequestObject struct {
 	Params ListChangesetsParams
@@ -2116,6 +3404,234 @@ func (response SubmitChangesetdefaultApplicationProblemPlusJSONResponse) VisitSu
 	return err
 }
 
+type GetDirectoryRequestObject struct {
+}
+
+type GetDirectoryResponseObject interface {
+	VisitGetDirectoryResponse(w http.ResponseWriter) error
+}
+
+type GetDirectory200JSONResponse Directory
+
+func (response GetDirectory200JSONResponse) VisitGetDirectoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDirectorydefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetDirectorydefaultApplicationProblemPlusJSONResponse) VisitGetDirectoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListGroupsRequestObject struct {
+}
+
+type ListGroupsResponseObject interface {
+	VisitListGroupsResponse(w http.ResponseWriter) error
+}
+
+type ListGroups200JSONResponse GroupList
+
+func (response ListGroups200JSONResponse) VisitListGroupsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListGroupsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListGroupsdefaultApplicationProblemPlusJSONResponse) VisitListGroupsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateGroupRequestObject struct {
+	Body *CreateGroupJSONRequestBody
+}
+
+type CreateGroupResponseObject interface {
+	VisitCreateGroupResponse(w http.ResponseWriter) error
+}
+
+type CreateGroup201JSONResponse Group
+
+func (response CreateGroup201JSONResponse) VisitCreateGroupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateGroupdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateGroupdefaultApplicationProblemPlusJSONResponse) VisitCreateGroupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteGroupRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type DeleteGroupResponseObject interface {
+	VisitDeleteGroupResponse(w http.ResponseWriter) error
+}
+
+type DeleteGroup204Response struct {
+}
+
+func (response DeleteGroup204Response) VisitDeleteGroupResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteGroupdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DeleteGroupdefaultApplicationProblemPlusJSONResponse) VisitDeleteGroupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateGroupRequestObject struct {
+	Id   Id `json:"id"`
+	Body *UpdateGroupJSONRequestBody
+}
+
+type UpdateGroupResponseObject interface {
+	VisitUpdateGroupResponse(w http.ResponseWriter) error
+}
+
+type UpdateGroup200JSONResponse Group
+
+func (response UpdateGroup200JSONResponse) VisitUpdateGroupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateGroupdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateGroupdefaultApplicationProblemPlusJSONResponse) VisitUpdateGroupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetGroupMembersRequestObject struct {
+	Id   Id `json:"id"`
+	Body *SetGroupMembersJSONRequestBody
+}
+
+type SetGroupMembersResponseObject interface {
+	VisitSetGroupMembersResponse(w http.ResponseWriter) error
+}
+
+type SetGroupMembers200JSONResponse Group
+
+func (response SetGroupMembers200JSONResponse) VisitSetGroupMembersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetGroupMembersdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response SetGroupMembersdefaultApplicationProblemPlusJSONResponse) VisitSetGroupMembersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetHealthRequestObject struct {
 }
 
@@ -2269,6 +3785,117 @@ func (response GetMedefaultApplicationProblemPlusJSONResponse) VisitGetMeRespons
 	return err
 }
 
+type ChangeMyPasswordRequestObject struct {
+	Body *ChangeMyPasswordJSONRequestBody
+}
+
+type ChangeMyPasswordResponseObject interface {
+	VisitChangeMyPasswordResponse(w http.ResponseWriter) error
+}
+
+type ChangeMyPassword204Response struct {
+}
+
+func (response ChangeMyPassword204Response) VisitChangeMyPasswordResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type ChangeMyPassworddefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ChangeMyPassworddefaultApplicationProblemPlusJSONResponse) VisitChangeMyPasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyDirectRequestObject struct {
+	Body *ApplyDirectJSONRequestBody
+}
+
+type ApplyDirectResponseObject interface {
+	VisitApplyDirectResponse(w http.ResponseWriter) error
+}
+
+type ApplyDirect201JSONResponse DirectResult
+
+func (response ApplyDirect201JSONResponse) VisitApplyDirectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyDirectdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ApplyDirectdefaultApplicationProblemPlusJSONResponse) VisitApplyDirectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevertDirectRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type RevertDirectResponseObject interface {
+	VisitRevertDirectResponse(w http.ResponseWriter) error
+}
+
+type RevertDirect201JSONResponse DirectResult
+
+func (response RevertDirect201JSONResponse) VisitRevertDirectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevertDirectdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response RevertDirectdefaultApplicationProblemPlusJSONResponse) VisitRevertDirectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListElementsRequestObject struct {
 	Params ListElementsParams
 }
@@ -2336,6 +3963,44 @@ type GetElementdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetElementdefaultApplicationProblemPlusJSONResponse) VisitGetElementResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListOwnersRequestObject struct {
+}
+
+type ListOwnersResponseObject interface {
+	VisitListOwnersResponse(w http.ResponseWriter) error
+}
+
+type ListOwners200JSONResponse OwnerDirectory
+
+func (response ListOwners200JSONResponse) VisitListOwnersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListOwnersdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListOwnersdefaultApplicationProblemPlusJSONResponse) VisitListOwnersResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -2425,6 +4090,83 @@ func (response GetRelationdefaultApplicationProblemPlusJSONResponse) VisitGetRel
 	return err
 }
 
+type GetSettingsRequestObject struct {
+}
+
+type GetSettingsResponseObject interface {
+	VisitGetSettingsResponse(w http.ResponseWriter) error
+}
+
+type GetSettings200JSONResponse Settings
+
+func (response GetSettings200JSONResponse) VisitGetSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSettingsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetSettingsdefaultApplicationProblemPlusJSONResponse) VisitGetSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateSettingsRequestObject struct {
+	Body *UpdateSettingsJSONRequestBody
+}
+
+type UpdateSettingsResponseObject interface {
+	VisitUpdateSettingsResponse(w http.ResponseWriter) error
+}
+
+type UpdateSettings200JSONResponse Settings
+
+func (response UpdateSettings200JSONResponse) VisitUpdateSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateSettingsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateSettingsdefaultApplicationProblemPlusJSONResponse) VisitUpdateSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListUsersRequestObject struct {
 }
 
@@ -2452,6 +4194,276 @@ type ListUsersdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response ListUsersdefaultApplicationProblemPlusJSONResponse) VisitListUsersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateUserRequestObject struct {
+	Body *CreateUserJSONRequestBody
+}
+
+type CreateUserResponseObject interface {
+	VisitCreateUserResponse(w http.ResponseWriter) error
+}
+
+type CreateUser201JSONResponse CreatedUser
+
+func (response CreateUser201JSONResponse) VisitCreateUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateUserdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateUserdefaultApplicationProblemPlusJSONResponse) VisitCreateUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisableUserRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type DisableUserResponseObject interface {
+	VisitDisableUserResponse(w http.ResponseWriter) error
+}
+
+type DisableUser200JSONResponse User
+
+func (response DisableUser200JSONResponse) VisitDisableUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisableUserdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DisableUserdefaultApplicationProblemPlusJSONResponse) VisitDisableUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnableUserRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type EnableUserResponseObject interface {
+	VisitEnableUserResponse(w http.ResponseWriter) error
+}
+
+type EnableUser200JSONResponse User
+
+func (response EnableUser200JSONResponse) VisitEnableUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnableUserdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response EnableUserdefaultApplicationProblemPlusJSONResponse) VisitEnableUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListUserIdentitiesRequestObject struct {
+	Id Id `json:"id"`
+}
+
+type ListUserIdentitiesResponseObject interface {
+	VisitListUserIdentitiesResponse(w http.ResponseWriter) error
+}
+
+type ListUserIdentities200JSONResponse IdentityList
+
+func (response ListUserIdentities200JSONResponse) VisitListUserIdentitiesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListUserIdentitiesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListUserIdentitiesdefaultApplicationProblemPlusJSONResponse) VisitListUserIdentitiesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkUserIdentityRequestObject struct {
+	Id   Id `json:"id"`
+	Body *LinkUserIdentityJSONRequestBody
+}
+
+type LinkUserIdentityResponseObject interface {
+	VisitLinkUserIdentityResponse(w http.ResponseWriter) error
+}
+
+type LinkUserIdentity201JSONResponse Identity
+
+func (response LinkUserIdentity201JSONResponse) VisitLinkUserIdentityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkUserIdentitydefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LinkUserIdentitydefaultApplicationProblemPlusJSONResponse) VisitLinkUserIdentityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnlinkUserIdentityRequestObject struct {
+	Id         Id                 `json:"id"`
+	IdentityId openapi_types.UUID `json:"identityId"`
+}
+
+type UnlinkUserIdentityResponseObject interface {
+	VisitUnlinkUserIdentityResponse(w http.ResponseWriter) error
+}
+
+type UnlinkUserIdentity204Response struct {
+}
+
+func (response UnlinkUserIdentity204Response) VisitUnlinkUserIdentityResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type UnlinkUserIdentitydefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UnlinkUserIdentitydefaultApplicationProblemPlusJSONResponse) VisitUnlinkUserIdentityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResetUserPasswordRequestObject struct {
+	Id   Id `json:"id"`
+	Body *ResetUserPasswordJSONRequestBody
+}
+
+type ResetUserPasswordResponseObject interface {
+	VisitResetUserPasswordResponse(w http.ResponseWriter) error
+}
+
+type ResetUserPassword200JSONResponse PasswordResetResult
+
+func (response ResetUserPassword200JSONResponse) VisitResetUserPasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResetUserPassworddefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ResetUserPassworddefaultApplicationProblemPlusJSONResponse) VisitResetUserPasswordResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -2852,6 +4864,24 @@ func (response GetViewModeldefaultApplicationProblemPlusJSONResponse) VisitGetVi
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// Login Sign in with a password-kind provider; sets the session cookie
+	// (POST /api/v1/auth/login)
+	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
+	// Logout End the current session and clear the cookie
+	// (POST /api/v1/auth/logout)
+	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
+	// ListAuthProviders Sign-in methods available on this server (the login page renders from this)
+	// (GET /api/v1/auth/providers)
+	ListAuthProviders(ctx context.Context, request ListAuthProvidersRequestObject) (ListAuthProvidersResponseObject, error)
+	// GetSession The current session (user, CSRF token, expiry); 401 when signed out
+	// (GET /api/v1/auth/session)
+	GetSession(ctx context.Context, request GetSessionRequestObject) (GetSessionResponseObject, error)
+	// AuthCallback Redirect-kind login callback; sets the session cookie and redirects into the app
+	// (GET /api/v1/auth/{provider}/callback)
+	AuthCallback(ctx context.Context, request AuthCallbackRequestObject) (AuthCallbackResponseObject, error)
+	// StartAuthRedirect Start a redirect-kind login (browser navigation; redirects to the identity provider)
+	// (GET /api/v1/auth/{provider}/start)
+	StartAuthRedirect(ctx context.Context, request StartAuthRedirectRequestObject) (StartAuthRedirectResponseObject, error)
 	// ListChangesets List changesets
 	// (GET /api/v1/changesets)
 	ListChangesets(ctx context.Context, request ListChangesetsRequestObject) (ListChangesetsResponseObject, error)
@@ -2900,6 +4930,24 @@ type StrictServerInterface interface {
 	// SubmitChangeset Submit a draft for review (author or maintainer)
 	// (POST /api/v1/changesets/{id}/submit)
 	SubmitChangeset(ctx context.Context, request SubmitChangesetRequestObject) (SubmitChangesetResponseObject, error)
+	// GetDirectory Users (name, email, disabled) and groups, for picking owners (any signed-in user)
+	// (GET /api/v1/directory)
+	GetDirectory(ctx context.Context, request GetDirectoryRequestObject) (GetDirectoryResponseObject, error)
+	// ListGroups Groups and their members (any signed-in user)
+	// (GET /api/v1/groups)
+	ListGroups(ctx context.Context, request ListGroupsRequestObject) (ListGroupsResponseObject, error)
+	// CreateGroup Create a group (maintainers only)
+	// (POST /api/v1/groups)
+	CreateGroup(ctx context.Context, request CreateGroupRequestObject) (CreateGroupResponseObject, error)
+	// DeleteGroup Delete a group (maintainers only); owners pointing at it keep their name and lint warns
+	// (DELETE /api/v1/groups/{id})
+	DeleteGroup(ctx context.Context, request DeleteGroupRequestObject) (DeleteGroupResponseObject, error)
+	// UpdateGroup Rename a group or change its description (maintainers only)
+	// (PUT /api/v1/groups/{id})
+	UpdateGroup(ctx context.Context, request UpdateGroupRequestObject) (UpdateGroupResponseObject, error)
+	// SetGroupMembers Replace a group's members (maintainers only)
+	// (PUT /api/v1/groups/{id}/members)
+	SetGroupMembers(ctx context.Context, request SetGroupMembersRequestObject) (SetGroupMembersResponseObject, error)
 	// GetHealth Liveness / readiness probe
 	// (GET /api/v1/health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
@@ -2912,21 +4960,60 @@ type StrictServerInterface interface {
 	// GetMe The authenticated user
 	// (GET /api/v1/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// ChangeMyPassword Change the caller's local password (other sessions are revoked)
+	// (PUT /api/v1/me/password)
+	ChangeMyPassword(ctx context.Context, request ChangeMyPasswordRequestObject) (ChangeMyPasswordResponseObject, error)
+	// ApplyDirect Edit main directly (review policy `direct`)
+	// (POST /api/v1/model/changes)
+	ApplyDirect(ctx context.Context, request ApplyDirectRequestObject) (ApplyDirectResponseObject, error)
+	// RevertDirect Undo a direct edit (a new version that reverses it)
+	// (POST /api/v1/model/changes/{id}/revert)
+	RevertDirect(ctx context.Context, request RevertDirectRequestObject) (RevertDirectResponseObject, error)
 	// ListElements Elements of main
 	// (GET /api/v1/model/elements)
 	ListElements(ctx context.Context, request ListElementsRequestObject) (ListElementsResponseObject, error)
 	// GetElement One element of main
 	// (GET /api/v1/model/elements/{id})
 	GetElement(ctx context.Context, request GetElementRequestObject) (GetElementResponseObject, error)
+	// ListOwners Owners and ownership assignments of main
+	// (GET /api/v1/model/owners)
+	ListOwners(ctx context.Context, request ListOwnersRequestObject) (ListOwnersResponseObject, error)
 	// ListRelations Relations of main
 	// (GET /api/v1/model/relations)
 	ListRelations(ctx context.Context, request ListRelationsRequestObject) (ListRelationsResponseObject, error)
 	// GetRelation One relation of main
 	// (GET /api/v1/model/relations/{id})
 	GetRelation(ctx context.Context, request GetRelationRequestObject) (GetRelationResponseObject, error)
+	// GetSettings Workspace settings (review policy)
+	// (GET /api/v1/settings)
+	GetSettings(ctx context.Context, request GetSettingsRequestObject) (GetSettingsResponseObject, error)
+	// UpdateSettings Change the workspace settings (maintainers only)
+	// (PUT /api/v1/settings)
+	UpdateSettings(ctx context.Context, request UpdateSettingsRequestObject) (UpdateSettingsResponseObject, error)
 	// ListUsers All users with their roles (maintainers only)
 	// (GET /api/v1/users)
 	ListUsers(ctx context.Context, request ListUsersRequestObject) (ListUsersResponseObject, error)
+	// CreateUser Create a user with a local password identity (maintainers only)
+	// (POST /api/v1/users)
+	CreateUser(ctx context.Context, request CreateUserRequestObject) (CreateUserResponseObject, error)
+	// DisableUser Disable a user and end their sessions (maintainers only; not yourself, not the last break-glass maintainer)
+	// (POST /api/v1/users/{id}/disable)
+	DisableUser(ctx context.Context, request DisableUserRequestObject) (DisableUserResponseObject, error)
+	// EnableUser Re-enable a disabled user (maintainers only)
+	// (POST /api/v1/users/{id}/enable)
+	EnableUser(ctx context.Context, request EnableUserRequestObject) (EnableUserResponseObject, error)
+	// ListUserIdentities A user's sign-in identities (maintainers only)
+	// (GET /api/v1/users/{id}/identities)
+	ListUserIdentities(ctx context.Context, request ListUserIdentitiesRequestObject) (ListUserIdentitiesResponseObject, error)
+	// LinkUserIdentity Link an external identity (provider + subject) to a user (maintainers only; never automatic)
+	// (POST /api/v1/users/{id}/identities)
+	LinkUserIdentity(ctx context.Context, request LinkUserIdentityRequestObject) (LinkUserIdentityResponseObject, error)
+	// UnlinkUserIdentity Remove a sign-in identity and the sessions created with it (maintainers only)
+	// (DELETE /api/v1/users/{id}/identities/{identityId})
+	UnlinkUserIdentity(ctx context.Context, request UnlinkUserIdentityRequestObject) (UnlinkUserIdentityResponseObject, error)
+	// ResetUserPassword Set a new local password for a user and end their sessions (maintainers only)
+	// (POST /api/v1/users/{id}/password-reset)
+	ResetUserPassword(ctx context.Context, request ResetUserPasswordRequestObject) (ResetUserPasswordResponseObject, error)
 	// SetUserRole Change a user's role (maintainers only; the last maintainer cannot be demoted)
 	// (PUT /api/v1/users/{id}/role)
 	SetUserRole(ctx context.Context, request SetUserRoleRequestObject) (SetUserRoleResponseObject, error)
@@ -2969,6 +5056,166 @@ func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareF
 type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
+}
+
+// Login operation middleware
+func (sh *strictHandler) Login(ctx *echo.Context) error {
+	var request LoginRequestObject
+
+	var body LoginJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.Login(ctx.Request().Context(), request.(LoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Login")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(LoginResponseObject); ok {
+		return validResponse.VisitLoginResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// Logout operation middleware
+func (sh *strictHandler) Logout(ctx *echo.Context) error {
+	var request LogoutRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.Logout(ctx.Request().Context(), request.(LogoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Logout")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(LogoutResponseObject); ok {
+		return validResponse.VisitLogoutResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListAuthProviders operation middleware
+func (sh *strictHandler) ListAuthProviders(ctx *echo.Context) error {
+	var request ListAuthProvidersRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAuthProviders(ctx.Request().Context(), request.(ListAuthProvidersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAuthProviders")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListAuthProvidersResponseObject); ok {
+		return validResponse.VisitListAuthProvidersResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetSession operation middleware
+func (sh *strictHandler) GetSession(ctx *echo.Context) error {
+	var request GetSessionRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSession(ctx.Request().Context(), request.(GetSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSession")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetSessionResponseObject); ok {
+		return validResponse.VisitGetSessionResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// AuthCallback operation middleware
+func (sh *strictHandler) AuthCallback(ctx *echo.Context, provider Provider, params AuthCallbackParams) error {
+	var request AuthCallbackRequestObject
+
+	request.Provider = provider
+	request.Params = params
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.AuthCallback(ctx.Request().Context(), request.(AuthCallbackRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AuthCallback")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(AuthCallbackResponseObject); ok {
+		return validResponse.VisitAuthCallbackResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// StartAuthRedirect operation middleware
+func (sh *strictHandler) StartAuthRedirect(ctx *echo.Context, provider Provider, params StartAuthRedirectParams) error {
+	var request StartAuthRedirectRequestObject
+
+	request.Provider = provider
+	request.Params = params
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.StartAuthRedirect(ctx.Request().Context(), request.(StartAuthRedirectRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartAuthRedirect")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(StartAuthRedirectResponseObject); ok {
+		return validResponse.VisitStartAuthRedirectResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
 }
 
 // ListChangesets operation middleware
@@ -3417,6 +5664,198 @@ func (sh *strictHandler) SubmitChangeset(ctx *echo.Context, id Id) error {
 	return nil
 }
 
+// GetDirectory operation middleware
+func (sh *strictHandler) GetDirectory(ctx *echo.Context) error {
+	var request GetDirectoryRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDirectory(ctx.Request().Context(), request.(GetDirectoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDirectory")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetDirectoryResponseObject); ok {
+		return validResponse.VisitGetDirectoryResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListGroups operation middleware
+func (sh *strictHandler) ListGroups(ctx *echo.Context) error {
+	var request ListGroupsRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListGroups(ctx.Request().Context(), request.(ListGroupsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListGroups")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListGroupsResponseObject); ok {
+		return validResponse.VisitListGroupsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateGroup operation middleware
+func (sh *strictHandler) CreateGroup(ctx *echo.Context) error {
+	var request CreateGroupRequestObject
+
+	var body CreateGroupJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateGroup(ctx.Request().Context(), request.(CreateGroupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateGroup")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateGroupResponseObject); ok {
+		return validResponse.VisitCreateGroupResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteGroup operation middleware
+func (sh *strictHandler) DeleteGroup(ctx *echo.Context, id Id) error {
+	var request DeleteGroupRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteGroup(ctx.Request().Context(), request.(DeleteGroupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteGroup")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeleteGroupResponseObject); ok {
+		return validResponse.VisitDeleteGroupResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateGroup operation middleware
+func (sh *strictHandler) UpdateGroup(ctx *echo.Context, id Id) error {
+	var request UpdateGroupRequestObject
+
+	request.Id = id
+
+	var body UpdateGroupJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateGroup(ctx.Request().Context(), request.(UpdateGroupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateGroup")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateGroupResponseObject); ok {
+		return validResponse.VisitUpdateGroupResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// SetGroupMembers operation middleware
+func (sh *strictHandler) SetGroupMembers(ctx *echo.Context, id Id) error {
+	var request SetGroupMembersRequestObject
+
+	request.Id = id
+
+	var body SetGroupMembersJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.SetGroupMembers(ctx.Request().Context(), request.(SetGroupMembersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetGroupMembers")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(SetGroupMembersResponseObject); ok {
+		return validResponse.VisitSetGroupMembersResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // GetHealth operation middleware
 func (sh *strictHandler) GetHealth(ctx *echo.Context) error {
 	var request GetHealthRequestObject
@@ -3525,6 +5964,109 @@ func (sh *strictHandler) GetMe(ctx *echo.Context) error {
 	return nil
 }
 
+// ChangeMyPassword operation middleware
+func (sh *strictHandler) ChangeMyPassword(ctx *echo.Context) error {
+	var request ChangeMyPasswordRequestObject
+
+	var body ChangeMyPasswordJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ChangeMyPassword(ctx.Request().Context(), request.(ChangeMyPasswordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ChangeMyPassword")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ChangeMyPasswordResponseObject); ok {
+		return validResponse.VisitChangeMyPasswordResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ApplyDirect operation middleware
+func (sh *strictHandler) ApplyDirect(ctx *echo.Context) error {
+	var request ApplyDirectRequestObject
+
+	var body ApplyDirectJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ApplyDirect(ctx.Request().Context(), request.(ApplyDirectRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApplyDirect")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ApplyDirectResponseObject); ok {
+		return validResponse.VisitApplyDirectResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// RevertDirect operation middleware
+func (sh *strictHandler) RevertDirect(ctx *echo.Context, id Id) error {
+	var request RevertDirectRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RevertDirect(ctx.Request().Context(), request.(RevertDirectRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevertDirect")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(RevertDirectResponseObject); ok {
+		return validResponse.VisitRevertDirectResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // ListElements operation middleware
 func (sh *strictHandler) ListElements(ctx *echo.Context, params ListElementsParams) error {
 	var request ListElementsRequestObject
@@ -3569,6 +6111,29 @@ func (sh *strictHandler) GetElement(ctx *echo.Context, id Id) error {
 		return err
 	} else if validResponse, ok := response.(GetElementResponseObject); ok {
 		return validResponse.VisitGetElementResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListOwners operation middleware
+func (sh *strictHandler) ListOwners(ctx *echo.Context) error {
+	var request ListOwnersRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListOwners(ctx.Request().Context(), request.(ListOwnersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListOwners")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListOwnersResponseObject); ok {
+		return validResponse.VisitListOwnersResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
@@ -3625,6 +6190,68 @@ func (sh *strictHandler) GetRelation(ctx *echo.Context, id Id) error {
 	return nil
 }
 
+// GetSettings operation middleware
+func (sh *strictHandler) GetSettings(ctx *echo.Context) error {
+	var request GetSettingsRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSettings(ctx.Request().Context(), request.(GetSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSettings")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetSettingsResponseObject); ok {
+		return validResponse.VisitGetSettingsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateSettings operation middleware
+func (sh *strictHandler) UpdateSettings(ctx *echo.Context) error {
+	var request UpdateSettingsRequestObject
+
+	var body UpdateSettingsJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateSettings(ctx.Request().Context(), request.(UpdateSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateSettings")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateSettingsResponseObject); ok {
+		return validResponse.VisitUpdateSettingsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // ListUsers operation middleware
 func (sh *strictHandler) ListUsers(ctx *echo.Context) error {
 	var request ListUsersRequestObject
@@ -3642,6 +6269,228 @@ func (sh *strictHandler) ListUsers(ctx *echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(ListUsersResponseObject); ok {
 		return validResponse.VisitListUsersResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateUser operation middleware
+func (sh *strictHandler) CreateUser(ctx *echo.Context) error {
+	var request CreateUserRequestObject
+
+	var body CreateUserJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateUser(ctx.Request().Context(), request.(CreateUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateUser")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateUserResponseObject); ok {
+		return validResponse.VisitCreateUserResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DisableUser operation middleware
+func (sh *strictHandler) DisableUser(ctx *echo.Context, id Id) error {
+	var request DisableUserRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DisableUser(ctx.Request().Context(), request.(DisableUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DisableUser")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DisableUserResponseObject); ok {
+		return validResponse.VisitDisableUserResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// EnableUser operation middleware
+func (sh *strictHandler) EnableUser(ctx *echo.Context, id Id) error {
+	var request EnableUserRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.EnableUser(ctx.Request().Context(), request.(EnableUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EnableUser")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(EnableUserResponseObject); ok {
+		return validResponse.VisitEnableUserResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListUserIdentities operation middleware
+func (sh *strictHandler) ListUserIdentities(ctx *echo.Context, id Id) error {
+	var request ListUserIdentitiesRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListUserIdentities(ctx.Request().Context(), request.(ListUserIdentitiesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListUserIdentities")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListUserIdentitiesResponseObject); ok {
+		return validResponse.VisitListUserIdentitiesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// LinkUserIdentity operation middleware
+func (sh *strictHandler) LinkUserIdentity(ctx *echo.Context, id Id) error {
+	var request LinkUserIdentityRequestObject
+
+	request.Id = id
+
+	var body LinkUserIdentityJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.LinkUserIdentity(ctx.Request().Context(), request.(LinkUserIdentityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LinkUserIdentity")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(LinkUserIdentityResponseObject); ok {
+		return validResponse.VisitLinkUserIdentityResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UnlinkUserIdentity operation middleware
+func (sh *strictHandler) UnlinkUserIdentity(ctx *echo.Context, id Id, identityId openapi_types.UUID) error {
+	var request UnlinkUserIdentityRequestObject
+
+	request.Id = id
+	request.IdentityId = identityId
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UnlinkUserIdentity(ctx.Request().Context(), request.(UnlinkUserIdentityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UnlinkUserIdentity")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UnlinkUserIdentityResponseObject); ok {
+		return validResponse.VisitUnlinkUserIdentityResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ResetUserPassword operation middleware
+func (sh *strictHandler) ResetUserPassword(ctx *echo.Context, id Id) error {
+	var request ResetUserPasswordRequestObject
+
+	request.Id = id
+
+	var body ResetUserPasswordJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ResetUserPassword(ctx.Request().Context(), request.(ResetUserPasswordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ResetUserPassword")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ResetUserPasswordResponseObject); ok {
+		return validResponse.VisitResetUserPasswordResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
@@ -3963,97 +6812,169 @@ func (sh *strictHandler) GetViewModel(ctx *echo.Context, id Id, params GetViewMo
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

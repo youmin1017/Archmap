@@ -16,7 +16,7 @@ const relations = [
 describe("deployment helpers", () => {
   it("knows which kinds can be deployed", () => {
     expect(canBeDeployed("container")).toBe(true)
-    expect(canBeDeployed("database")).toBe(true)
+    expect(canBeDeployed("component")).toBe(true)
     expect(canBeDeployed("node")).toBe(false)
     expect(canBeDeployed("person")).toBe(false)
   })

@@ -1,6 +1,6 @@
 // Package authctx carries the authenticated actor through context.Context so
 // services can enforce role rules without knowing how the actor was
-// established (session cookie, dev header, OIDC later).
+// established (session cookie from any auth provider; see internal/auth).
 package authctx
 
 import (
@@ -28,6 +28,11 @@ type Actor struct {
 	Email string
 	Name  string
 	Role  Role
+	// Provider is the sign-in method of the current session ("local", "dev", ...);
+	// empty for actors built outside a session (seed, tests, CLI).
+	Provider string
+	// PasswordMustChange: the session's local password was set by a maintainer.
+	PasswordMustChange bool
 }
 
 // CanEdit reports whether the actor may create and edit drafts.

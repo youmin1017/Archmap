@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { Boxes, Component, Globe, Layers, ListChecks, Network, Server, type LucideIcon } from "lucide-react"
+import { Boxes, Component, Globe, Layers, ListChecks, Network, Server, UserX, type LucideIcon } from "lucide-react"
 import type { Element, ElementKind, View, ViewInput, ViewKind } from "@archmap/api-client"
 
 import { Button } from "@/components/ui/button"
@@ -83,6 +83,14 @@ export const viewKinds: {
     scope: "none",
     scopeKinds: [],
   },
+  {
+    value: "unowned",
+    label: "Unowned",
+    icon: UserX,
+    hint: "Everything without an owner (directly or through a parent), with its parents for context.",
+    scope: "none",
+    scopeKinds: [],
+  },
 ]
 
 const WHOLE = "__whole__"
@@ -96,6 +104,8 @@ type Props = {
   view?: View
   /** Current members of an existing custom view. */
   members?: readonly string[]
+  /** Initial values for a new view (from "Save as view" on a focused canvas). */
+  preset?: { kind: ViewKind; scope: string; name: string }
   pending?: boolean
   onSubmit: (input: ViewInput) => void
 }
@@ -104,18 +114,18 @@ export function ViewDialog(props: Props) {
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className="sm:max-w-lg">
-        {props.open && <ViewForm key={props.view?.id ?? "new"} {...props} />}
+        {props.open && <ViewForm key={props.view?.id ?? props.preset?.scope ?? "new"} {...props} />}
       </DialogContent>
     </Dialog>
   )
 }
 
-function ViewForm({ elements, view, members, pending, onOpenChange, onSubmit }: Props) {
+function ViewForm({ elements, view, members, preset, pending, onOpenChange, onSubmit }: Props) {
   const editing = view !== undefined
-  const [kind, setKind] = useState<ViewKind>(view?.kind ?? "container")
-  const [name, setName] = useState(view?.name ?? "")
+  const [kind, setKind] = useState<ViewKind>(view?.kind ?? preset?.kind ?? "container")
+  const [name, setName] = useState(view?.name ?? preset?.name ?? "")
   const [description, setDescription] = useState(view?.description ?? "")
-  const [scope, setScope] = useState<string | null>(view?.scope_element_id ?? null)
+  const [scope, setScope] = useState<string | null>(view?.scope_element_id ?? preset?.scope ?? null)
   const [layers, setLayers] = useState<string[]>(view?.layers.length ? view.layers : defaultLayers)
   const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set(members ?? []))
   const [filter, setFilter] = useState("")

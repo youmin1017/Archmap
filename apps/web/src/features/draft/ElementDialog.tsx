@@ -1,4 +1,4 @@
-import type { ElementKind, LayerRule } from "@archmap/api-client"
+import type { ElementKind, LayerRule, Owner } from "@archmap/api-client"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -32,6 +32,8 @@ type Props = {
   layerRules?: readonly LayerRule[]
   /** Only maintainers may change the protected flag. */
   canProtect: boolean
+  /** The draft's owners, offered per role. */
+  owners?: readonly Owner[]
   pending?: boolean
   onSubmit: (values: ElementFormValues) => void
 }
@@ -56,6 +58,7 @@ function NewElementForm({
   technologyOptions,
   layerRules = [],
   canProtect,
+  owners = [],
   pending,
   onOpenChange,
   onSubmit,
@@ -84,6 +87,7 @@ function NewElementForm({
           projectOptions={projectOptions}
           technologyOptions={technologyOptions}
           canProtect={canProtect}
+          owners={owners}
         />
       </div>
 

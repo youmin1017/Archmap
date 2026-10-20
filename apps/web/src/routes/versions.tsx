@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { useMemo, useState } from "react"
-import { ArrowUpRight, GitCommitHorizontal } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { ArrowUpRight, ChevronDown, ChevronRight, GitCommitHorizontal } from "lucide-react"
+import type { Version } from "@archmap/api-client"
 
 import { AppTopBar } from "@/components/app-top-bar"
 import { StatePanel } from "@/components/state-panel"
@@ -11,19 +12,27 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import { PropertyPanel } from "@/features/canvas/PropertyPanel"
+import { useCanvasStore } from "@/features/canvas/store"
+import { groupVersions } from "@/features/editing/direct"
+import { useDirectory } from "@/features/users/queries"
 import { buildTree } from "@/features/canvas/graph"
 import { diffOverlay } from "@/features/draft/decor"
 import { useMainVersion } from "@/features/draft/queries"
 import { DiffView } from "@/features/draft/ReviewPanel"
 import { useVersionDiff, useVersionModel } from "@/features/versions/queries"
+import { OwnersProvider } from "@/features/canvas/owners"
 import { ModelWorkspace } from "@/features/workspace/ModelWorkspace"
 
-type Search = { v?: number; base?: number }
+type Search = { v?: number; base?: number; focus?: string }
 const asNumber = (x: unknown) => (typeof x === "number" && Number.isInteger(x) && x >= 1 ? x : undefined)
 
 export const Route = createFileRoute("/versions")({
   component: VersionBrowser,
-  validateSearch: (s: Record<string, unknown>): Search => ({ v: asNumber(s.v), base: asNumber(s.base) }),
+  validateSearch: (s: Record<string, unknown>): Search => ({
+    v: asNumber(s.v),
+    base: asNumber(s.base),
+    focus: typeof s.focus === "string" ? s.focus : undefined,
+  }),
 })
 
 const when = (iso: string) => new Date(iso).toLocaleString()
@@ -33,7 +42,14 @@ const short = (iso: string) =>
 /** Merged versions of main: browse any version read-only and see what each one changed. */
 function VersionBrowser() {
   const versions = useMainVersion()
-  const { v, base } = Route.useSearch()
+  const { v, base, focus } = Route.useSearch()
+  // The canvas store is shared with main and drafts: start from a clean canvas here.
+  useEffect(() => {
+    const store = useCanvasStore.getState()
+    store.loadLayout({}, [])
+    store.select(null)
+    store.clearFilter()
+  }, [])
   const navigate = Route.useNavigate()
   const list = versions.data ?? []
 
@@ -63,6 +79,63 @@ function VersionBrowser() {
     () => buildTree([...(model.data?.elements ?? []), ...(diff.data?.elements.removed ?? [])]),
     [model.data, diff.data]
   )
+
+  // Consecutive direct edits by one person are folded into one row (ADR-072).
+  const groups = useMemo(() => groupVersions(list), [list])
+  const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(() => new Set())
+  const toggleGroup = (key: string) =>
+    setOpenGroups((cur) => {
+      const next = new Set(cur)
+      if (!next.delete(key)) next.add(key)
+      return next
+    })
+  const directory = useDirectory()
+  const userName = (id: string) => directory.data?.users.find((u) => u.id === id)?.name ?? "Someone"
+  const renderItem = (x: Version) => {
+    const on = x.number === selected
+    return (
+      <li key={x.number}>
+        <Link
+          to="/versions"
+          search={{ v: x.number }}
+          aria-current={on ? "true" : undefined}
+          className={cn(
+            "relative flex gap-3 rounded-lg py-2 pr-2 pl-2.5 text-sm transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            on && "bg-primary/10 hover:bg-primary/15"
+          )}
+        >
+          <span
+            className={cn(
+              "relative z-10 mt-1 grid size-3.5 shrink-0 place-items-center rounded-full border-2 bg-sidebar",
+              on ? "border-primary" : "border-muted-foreground/40"
+            )}
+            aria-hidden
+          >
+            {on && <span className="size-1.5 rounded-full bg-primary" />}
+          </span>
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="flex items-center gap-2">
+              <span className="font-mono text-xs font-semibold tabular-nums">v{x.number}</span>
+              {x.number === latest && (
+                <span className="rounded-full bg-emerald-500/15 px-1.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                  current
+                </span>
+              )}
+              {x.kind === "direct" && (
+                <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground">
+                  {x.reverts ? "undo" : "direct"}
+                </span>
+              )}
+              <span className="ml-auto text-[11px] text-muted-foreground">{short(x.merged_at)}</span>
+            </span>
+            <span className={cn("line-clamp-2", on ? "text-foreground" : "text-muted-foreground")}>
+              {x.summary || "No summary"}
+            </span>
+          </span>
+        </Link>
+      </li>
+    )
+  }
 
   const current = list.find((x) => x.number === selected)
   const others = list.filter((x) => x.number !== selected)
@@ -105,43 +178,41 @@ function VersionBrowser() {
             </div>
             {/* Timeline: a rail with one dot per merged version, newest first. */}
             <ol className="relative flex flex-col px-2 pb-3 before:absolute before:top-3 before:bottom-6 before:left-[1.4rem] before:w-px before:bg-border">
-              {list.map((x) => {
-                const on = x.number === selected
+              {groups.map((g) => {
+                if (g.versions.length === 1) return renderItem(g.versions[0])
+                const first = g.versions[0]
+                const last = g.versions[g.versions.length - 1]
+                const expanded = openGroups.has(g.key) || g.versions.some((x) => x.number === selected)
                 return (
-                  <li key={x.number}>
-                    <Link
-                      to="/versions"
-                      search={{ v: x.number }}
-                      aria-current={on ? "true" : undefined}
-                      className={cn(
-                        "relative flex gap-3 rounded-lg py-2 pr-2 pl-2.5 text-sm transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                        on && "bg-primary/10 hover:bg-primary/15"
-                      )}
+                  <li key={g.key}>
+                    <button
+                      type="button"
+                      aria-expanded={expanded}
+                      onClick={() => toggleGroup(g.key)}
+                      className="relative flex w-full gap-3 rounded-lg py-2 pr-2 pl-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     >
                       <span
-                        className={cn(
-                          "relative z-10 mt-1 grid size-3.5 shrink-0 place-items-center rounded-full border-2 bg-sidebar",
-                          on ? "border-primary" : "border-muted-foreground/40"
-                        )}
+                        className="relative z-10 mt-0.5 grid size-3.5 shrink-0 place-items-center rounded-full border-2 border-dashed border-muted-foreground/40 bg-sidebar"
                         aria-hidden
-                      >
-                        {on && <span className="size-1.5 rounded-full bg-primary" />}
-                      </span>
-                      <span className="flex min-w-0 flex-col gap-0.5">
+                      />
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-semibold tabular-nums">v{x.number}</span>
-                          {x.number === latest && (
-                            <span className="rounded-full bg-emerald-500/15 px-1.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
-                              current
-                            </span>
-                          )}
-                          <span className="ml-auto text-[11px] text-muted-foreground">{short(x.merged_at)}</span>
+                          <span className="font-mono text-xs font-semibold tabular-nums">
+                            v{last.number}–v{first.number}
+                          </span>
+                          <span className="ml-auto text-[11px]">{short(first.merged_at)}</span>
                         </span>
-                        <span className={cn("line-clamp-2", on ? "text-foreground" : "text-muted-foreground")}>
-                          {x.summary || "No summary"}
+                        <span className="flex items-center gap-1">
+                          {expanded ? (
+                            <ChevronDown className="size-3.5 shrink-0" aria-hidden />
+                          ) : (
+                            <ChevronRight className="size-3.5 shrink-0" aria-hidden />
+                          )}
+                          {g.versions.length} direct edits · {userName(first.merged_by)}
                         </span>
                       </span>
-                    </Link>
+                    </button>
+                    {expanded && <ol className="flex flex-col">{g.versions.map(renderItem)}</ol>}
                   </li>
                 )
               })}
@@ -222,8 +293,11 @@ function VersionBrowser() {
                     viewKey={`v${selected}`}
                     elements={elements}
                     relations={relations}
+                    owners={model.data.owners}
                     decor={{ diff: overlay.elements, relationDiff: overlay.relations }}
                     renderPanel={(tree) => <PropertyPanel tree={tree} relations={relations} />}
+                    focusId={focus}
+                    onFocusChange={(id) => void navigate({ search: (prev) => ({ ...prev, focus: id ?? undefined }) })}
                   />
                 )}
               </TabsContent>
@@ -249,12 +323,14 @@ function VersionBrowser() {
                         v{selected}
                       </Badge>
                     </p>
-                    <DiffView
-                      diff={diff.data}
-                      tree={diffTree}
-                      showStale={false}
-                      emptyText="The two versions are identical."
-                    />
+                    <OwnersProvider owners={model.data?.owners ?? []}>
+                      <DiffView
+                        diff={diff.data}
+                        tree={diffTree}
+                        showStale={false}
+                        emptyText="The two versions are identical."
+                      />
+                    </OwnersProvider>
                   </div>
                 )}
               </TabsContent>

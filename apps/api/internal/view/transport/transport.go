@@ -76,7 +76,7 @@ func (h *Handler) GetViewModel(ctx context.Context, req api.GetViewModelRequestO
 	}
 	return api.GetViewModel200JSONResponse{
 		View:         toView(d.View),
-		Elements:     modeltransport.ToElements(d.Result.Elements),
+		Elements:     modeltransport.ToElementsWith(d.Result.Elements, d.Result.Effective),
 		Relations:    modeltransport.ToRelations(d.Result.Relations),
 		Roots:        nonNil(d.Result.Roots),
 		Expanded:     nonNil(d.Result.Expanded),

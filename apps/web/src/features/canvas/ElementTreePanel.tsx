@@ -1,13 +1,25 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from "react"
-import { ChevronDown, ChevronRight, Search, X } from "lucide-react"
+import { ChevronDown, ChevronRight, Focus, Search, X } from "lucide-react"
 import type { Element, ElementKind } from "@archmap/api-client"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
-import { allProjects, allTags, ancestorIds, childrenOf, filterMatches, isFilterActive, type ElementTree } from "./graph"
+import { environments, lifecycles } from "./element"
+import {
+  allProjects,
+  allTags,
+  ancestorIds,
+  childrenOf,
+  filterMatches,
+  isFilterActive,
+  UNOWNED,
+  usedOwners,
+  type ElementTree,
+} from "./graph"
 import { kindMeta, kinds } from "./kind"
+import { useOwnerIndex } from "./owners"
 import { useCanvasStore } from "./store"
 
 type Row = { element: Element; level: number; hasChildren: boolean; open: boolean; match: boolean }
@@ -44,7 +56,19 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 const chip =
   "inline-flex h-6 items-center rounded-md border px-2 text-xs transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-pressed:border-primary/40 aria-pressed:bg-primary/10 aria-pressed:text-foreground"
 
-export function ElementTreePanel({ tree, elements }: { tree: ElementTree; elements: readonly Element[] }) {
+export function ElementTreePanel({
+  tree,
+  elements,
+  inFocus,
+  onFocus,
+}: {
+  tree: ElementTree
+  elements: readonly Element[]
+  /** Ids the focused canvas shows (focused subtree + context); others are muted. Undefined = not focused. */
+  inFocus?: ReadonlySet<string>
+  /** Focus the canvas on an element (drill-down, ADR-071). */
+  onFocus?: (id: string) => void
+}) {
   const filter = useCanvasStore((s) => s.filter)
   const selectedId = useCanvasStore((s) => s.selectedId)
   const reveal = useCanvasStore((s) => s.reveal)
@@ -53,6 +77,10 @@ export function ElementTreePanel({ tree, elements }: { tree: ElementTree; elemen
   const setTags = useCanvasStore((s) => s.setTags)
   const setProject = useCanvasStore((s) => s.setProject)
   const clearFilter = useCanvasStore((s) => s.clearFilter)
+  const setOwner = useCanvasStore((s) => s.setOwner)
+  const setEnvironment = useCanvasStore((s) => s.setEnvironment)
+  const setLifecycle = useCanvasStore((s) => s.setLifecycle)
+  const owners = useOwnerIndex()
 
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set())
   const [focusId, setFocusId] = useState<string | null>(null)
@@ -63,6 +91,15 @@ export function ElementTreePanel({ tree, elements }: { tree: ElementTree; elemen
   const rows = useMemo(() => treeRows(tree, open, { active, matches, keep }), [tree, open, active, matches, keep])
   const tags = useMemo(() => allTags(elements), [elements])
   const projects = useMemo(() => allProjects(elements), [elements])
+  const ownerChoices = useMemo(() => {
+    const used = usedOwners(elements)
+    return [...owners.values()].filter((o) => used.has(o.id)).sort((a, b) => a.name.localeCompare(b.name))
+  }, [elements, owners])
+  const hasUnowned = elements.some((e) => e.kind !== "person" && !e.effective?.owners.some((o) => o.role === "owner"))
+  const envChoices = environments.filter((env) => elements.some((e) => e.effective?.environment === env.value))
+  const lifecycleChoices = lifecycles.filter(
+    (l) => l.value !== "active" && elements.some((e) => e.lifecycle === l.value)
+  )
 
   const tabbableId = rows.some((r) => r.element.id === focusId) ? focusId : (rows[0]?.element.id ?? null)
 
@@ -108,6 +145,10 @@ export function ElementTreePanel({ tree, elements }: { tree: ElementTree; elemen
       case "Enter":
       case " ":
         reveal(row.element.id, ancestorIds(tree, row.element.id))
+        break
+      case "f":
+        if (!onFocus || !row.hasChildren) return
+        onFocus(row.element.id)
         break
       default:
         return
@@ -171,6 +212,37 @@ export function ElementTreePanel({ tree, elements }: { tree: ElementTree; elemen
             </div>
           </div>
         )}
+        {(ownerChoices.length > 0 || hasUnowned) && (
+          <ChipFilter
+            label="Owner"
+            options={[
+              ...ownerChoices.map((o) => ({ value: o.id, label: o.name })),
+              ...(hasUnowned ? [{ value: UNOWNED, label: "Unowned" }] : []),
+            ]}
+            value={filter.owner}
+            onChange={setOwner}
+          />
+        )}
+        {(envChoices.length > 0 || lifecycleChoices.length > 0) && (
+          <div className="flex flex-wrap gap-x-4 gap-y-3">
+            {envChoices.length > 0 && (
+              <ChipFilter
+                label="Environment"
+                options={envChoices}
+                value={filter.environment}
+                onChange={(v) => setEnvironment(v as typeof filter.environment)}
+              />
+            )}
+            {lifecycleChoices.length > 0 && (
+              <ChipFilter
+                label="Lifecycle"
+                options={lifecycleChoices}
+                value={filter.lifecycle}
+                onChange={(v) => setLifecycle(v as typeof filter.lifecycle)}
+              />
+            )}
+          </div>
+        )}
         {tags.length > 0 && (
           <div className="flex flex-col gap-1.5" role="group" aria-label="Filter by tag">
             <SectionLabel>Tags</SectionLabel>
@@ -226,9 +298,9 @@ export function ElementTreePanel({ tree, elements }: { tree: ElementTree; elemen
               onClick={() => reveal(e.id, ancestorIds(tree, e.id))}
               style={{ paddingLeft: `${(row.level - 1) * 14 + 6}px` }}
               className={cn(
-                "flex h-7 cursor-pointer items-center gap-1.5 rounded-md pr-2 text-sm outline-none select-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
+                "group/row flex h-7 cursor-pointer items-center gap-1.5 rounded-md pr-1 text-sm outline-none select-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
                 selected && "bg-primary/10 font-medium text-foreground hover:bg-primary/15",
-                !row.match && "text-muted-foreground"
+                (!row.match || (inFocus && !inFocus.has(e.id))) && "text-muted-foreground"
               )}
             >
               {row.hasChildren ? (
@@ -253,10 +325,60 @@ export function ElementTreePanel({ tree, elements }: { tree: ElementTree; elemen
               )}
               <Icon className="size-4 shrink-0" style={{ color: `var(--kind-${e.kind})` }} aria-hidden />
               <span className="truncate">{e.name}</span>
+              {onFocus && row.hasChildren && (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-label={`Focus ${e.name}`}
+                  title="Focus (F)"
+                  className="ml-auto grid size-5 shrink-0 place-items-center rounded text-muted-foreground opacity-0 group-hover/row:opacity-100 group-focus-visible/row:opacity-100 hover:bg-background hover:text-foreground"
+                  onClick={(ev) => {
+                    ev.stopPropagation()
+                    onFocus(e.id)
+                  }}
+                >
+                  <Focus className="size-3.5" aria-hidden />
+                </button>
+              )}
             </li>
           )
         })}
       </ul>
+    </div>
+  )
+}
+
+/** One-of-many filter chips (pressing the active chip clears it). */
+function ChipFilter({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string
+  options: readonly { value: string; label: string }[]
+  value: string | null
+  onChange: (value: string | null) => void
+}) {
+  return (
+    <div className="flex flex-col gap-1.5" role="group" aria-label={`Filter by ${label.toLowerCase()}`}>
+      <SectionLabel>{label}</SectionLabel>
+      <div className="flex flex-wrap gap-1">
+        {options.map((o) => {
+          const on = value === o.value
+          return (
+            <button
+              key={o.value}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onChange(on ? null : o.value)}
+              className={cn(chip, !on && "text-muted-foreground hover:bg-muted hover:text-foreground")}
+            >
+              {o.label}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }

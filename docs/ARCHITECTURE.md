@@ -1,4 +1,4 @@
-# Architecture (as of M5 + layers view)
+# Architecture (as of M10)
 
 See `PROJECT_BRIEF.md` for product scope and domain model. This file describes how the code is organised.
 
@@ -31,9 +31,11 @@ At runtime the API validates requests against the embedded spec (echo-v5-middlew
 ```
 cmd/api            composition root (config -> db -> httpx -> feature handlers)
 cmd/seed           dev seed: 3 users + sample model (via changeset.Bootstrap)
+cmd/admin          break-glass CLI: ensure-maintainer (create or restore; password from stdin)
 internal/
-  platform/        config, logger, db, httpx (Echo shell, error mapping, dev auth),
-                   apperr (typed domain errors), authctx (Actor in context)
+  platform/        config, logger, db, httpx (Echo shell, error mapping, session + CSRF middleware),
+                   apperr (typed domain errors), authctx (Actor in context),
+                   reqinfo (client IP / user agent / session token in context), password (argon2id)
   gen/api          generated, do not edit
   apiserver/       composes the per-feature transport handlers into api.StrictServerInterface
   health/          service + transport
@@ -43,28 +45,44 @@ internal/
   changeset/       domain, State (effective model), builder (validation + change generation),
                    Between / Diff, Merge3 (3-way rebase), workflow (review, merge, versions),
                    Service, repository/ (sqlc, InTx), transport/
-  user/            password hashing (argon2id), repository/ (actor lookup), transport/ (/me)
+  auth/            providers (local, dev, authtest fake), login pipeline, sessions, rate limiting,
+                   RoleResolver; repository/ (sqlc), transport/ (/auth/*, cookies)
+  user/            user management (create, disable, reset password, roles, identities, break-glass
+                   invariant), repository/ (sqlc), transport/ (/me, /users)
   view/            saved views: Compute (membership by kind + scope), Service, repository/ (sqlc), transport/
+  layerrule/       layer rules (which element classes may sit on which layers): Service, repository/, transport/
   seed/            sample model data (used by cmd/seed and integration tests)
   testdb/          testcontainers helper: shared postgres:18, fresh migrated DB per test
-db/migrations      goose; db/queries/{user,model,changeset}.sql -> one sqlc package per feature
+db/migrations      goose; db/queries/<feature>.sql -> one sqlc package per feature
 ```
 
 Rules (also in `AGENTS.md`): by-feature packages with `transport -> service -> repository`; Echo confined to `platform/httpx` (and transport); services and repositories never import Echo.
 
-Middleware order: request id -> slog access log -> recover -> dev auth (only when `AUTH_DEV_HEADER=true`) -> CORS -> Prometheus -> OpenAPI request validation (only `/api/*`). `GET /metrics` is outside the spec.
+Middleware order: request id -> slog access log -> recover -> request info (IP, user agent, cookies into the context) -> cross-origin protection (unsafe methods) -> CORS -> session (cookie -> `authctx.Actor`) -> CSRF token (unsafe `/api/*` with a session) and forced password change -> Prometheus -> OpenAPI request validation (only `/api/*`). `GET /metrics` is outside the spec.
 
 ### Errors
 
-Services return `apperr` errors (invalid / not found / forbidden / conflict / unauthenticated). `httpx.errorHandler` wraps Echo's `ProblemDetailsHTTPErrorHandler` and maps them to 400 / 404 / 403 / 409 / 401 problem+json. Anything else is a 500 without leaking the message.
+Services return `apperr` errors (invalid / not found / forbidden / conflict / unauthenticated / too many requests). `httpx.errorHandler` wraps Echo's `ProblemDetailsHTTPErrorHandler` and maps them to 400 / 404 / 403 / 409 / 401 / 429 problem+json. Anything else is a 500 without leaking the message.
 
-### Auth (interim)
+### Auth (M7)
 
-Services read an `authctx.Actor{ID, Role}` from `context.Context` and enforce roles themselves (viewer reads; editor/maintainer create drafts; only the author or a maintainer edits a draft). Until real session auth exists, the dev-only `X-Dev-User: <email>` header (config `AUTH_DEV_HEADER`, off by default) fills the same context value.
+Services read an `authctx.Actor{ID, Role}` from `context.Context` and enforce roles themselves (viewer reads; editor/maintainer create drafts; only the author or a maintainer edits a draft). How the actor got there is not their concern:
+
+```
+browser --cookie--> httpx session middleware --SessionResolver--> auth.Service.Resolve
+                                                     (sessions JOIN users, disabled excluded)
+POST /auth/login {provider, username, password}
+  -> rate limit -> Provider.Complete -> Identity{issuer, subject, ...}
+  -> user_identities by (issuer, subject)   [never by email]
+       unknown: provider.AutoProvision ? new viewer user : 403
+  -> disabled? local-password policy? -> RoleResolver -> new session + cookie + csrf token
+```
+
+`users` is the internal account, `user_identities` the ways to sign in (ADR-053). Providers: `local` (email + argon2id), `dev` (development only; startup fails otherwise), later OIDC as a `redirect` provider (ADR-054). Sessions are server-side and opaque (ADR-055); unsafe requests need a same-origin request and the session's CSRF token (ADR-056). Login failures are rate limited (ADR-057). Roles come from `RoleResolver` (stored roles in M7, ADR-058). Linking identities and the break-glass maintainer invariant: ADR-059; user management: ADR-060.
 
 ## Model and changesets (M1)
 
-`elements` / `relations` hold the CURRENT main state (soft delete via `deleted_at`). Main is read-only through the API; the only writers are `changeset.Repository.MaterializeChanges` (called by `Bootstrap`, later by merge).
+`elements` / `relations` hold the CURRENT main state (soft delete via `deleted_at`). Main changes only through `changeset.Repository.MaterializeChanges` (called by `Bootstrap`, by merge and by direct edits); there is no other writer.
 
 A **changeset** (draft) owns an ordered log of **changes**: `add` (patch = full entity), `update` (patch = changed fields, `before` = their old values), `delete` (`before` = full snapshot). Changes are recorded in **batches** (`batch_id`, one GUI edit). Validation is structural only (kinds, names, targets / parents exist, no parent cycles, relation endpoints exist); hierarchy and duplicate rules are lint (M2). Deleting an element with children needs `cascade`; descendants and touching relations become explicit delete changes.
 
@@ -84,7 +102,8 @@ draft --submit--> in_review --approve (maintainer)--> --merge (maintainer)--> me
 - **Diff** (`GET /changesets/{id}/diff`): `changeset.Between(base snapshot, effective model)`: added / removed / modified elements and relations, modified ones with field-level before / after. `stale` tells when main moved past the draft's base.
 - **Lint** (`internal/lint`, `GET /changesets/{id}/lint`): rule engine over the effective model; errors block merge, warnings are informational (ADR-024).
 - **Merge** (`POST /changesets/{id}/merge`): lock main, then fast-forward if `main == base_version`, else `Merge3` (field-level 3-way, ADR-021). Conflicts -> `409` + conflict list, nothing changes; `POST /resolve` stores `mine` / `theirs` choices; `GET /conflicts` dry-runs. The merged result is linted, protected-element rules are checked (ADR-023), then applied to main as add / update / soft-delete changes derived from `diff(theirs, result)`, snapshotted, and recorded in `model_versions`.
-- **Versions**: `GET /versions`, `GET /versions/{n}/model` (read-only history).
+- **Versions**: `GET /versions`, `GET /versions/{n}/model` (read-only history). Each version carries its changeset's `kind` and `reverts`.
+- **Review policy** (ADR-072, `internal/settings`, `GET / PUT /settings`): `required` (default) keeps main read-only. Under `direct`, `POST /model/changes` (`changeset.Service.ApplyDirect`) takes the main lock, builds the batch on the current main with the same `builder` as drafts, stores it as a changeset, and finishes in `finishDirect`. If the batch adds lint errors (compared to main), it stays a draft. If it touches a protected element, it is submitted (`in_review`). Otherwise it is committed with the merge's `commit` step as version n+1, and the changeset is marked `kind = 'direct'` (direct changesets are not listed with the drafts). `POST /model/changes/{id}/revert` undoes a direct edit by merging its version back (`Merge3(base = v, mine = v-1, theirs = main)`): a conflict means someone changed the same fields since. The policy is read through the consumer-side `changeset.PolicySource` (implemented by the settings repository).
 - Pure and independently tested: `Merge3`, `Between` / `Diff.Changes`, `lint.Run`; the `Service` workflow is tested on an in-memory repository and against Postgres (including concurrent merges).
 
 ## Testing
@@ -103,7 +122,7 @@ Views are saved perspectives over the model, deliberately outside the changeset 
 
 ## Web
 
-TanStack Start + Router, TanStack Query (SSR integration), shadcn/ui (base-maia, Tailwind 4), Magic UI via shadcn registry (BorderBeam on the selected protected node, gated by `prefers-reduced-motion`), Iconify with build-time-bundled icon data, dark / light via `.dark` class. API calls go through `@archmap/api-client` same-origin; Vite proxies `/api` to `:8080` and adds the dev user header. No business logic in web.
+TanStack Start + Router, TanStack Query (SSR integration), shadcn/ui (base-nova, Tailwind 4), Iconify with build-time-bundled icon data, dark / light via `.dark` class. API calls go through `@archmap/api-client` same-origin; Vite proxies `/api` to `:8080` (same origin, so the session cookie just works). No business logic in web.
 
 ### Canvas (M3), `src/features/canvas`
 
@@ -119,6 +138,8 @@ ElementTreePanel / PropertyPanel            sidebar tree (search, kind / tag fil
 
 Route `/` is the landscape of main: top bar (Main @ vN, API status, theme), element tree, canvas, property panel. See ADR-025..029.
 
+Focus / drill-down (ADR-071): `?focus=<id>` on main, drafts and versions. `graph.focusScope` takes the focused subtree plus its outside neighbours (lifted like a container view on the server), and `graph.focusTree` turns that into the tree the canvas lays out, so `visibleElements` / `aggregateEdges` / ELK work unchanged. `ModelWorkspace` mirrors the URL into `store.focusId`. While focused, the store keeps the view's layout aside (`viewLayout`) and keeps per-focus expand state and drags in memory (`focusLayouts`). It does not bump `revision`, so a focus never autosaves into a view. Double-click drills in, `F` focuses the selection, `Esc` goes up; the breadcrumb sits in the canvas toolbar island. ELK runs in a web worker (`elk-worker.min.js?url`) and falls back to the bundled build inline. React Flow renders only visible elements.
+
 ### Draft editing (M4), `src/features/draft`
 
 ```
@@ -133,7 +154,7 @@ ReviewPanel       Lint | Diff | Conflicts | History tabs
 DraftPage         /changesets/$id: draft bar (add, undo / redo, lint counters, diff overlay, workflow buttons) + workspace
 ```
 
-Routes: `/` main (read-only), `/changesets` list, `/changesets/$id` draft workspace; both workspaces take `?view=<id>`. Edit mode exists only for a draft the user may edit; see ADR-030..034.
+Routes: `/` main (read-only, or editable under the `direct` review policy), `/settings` (maintainers), `/changesets` list, `/changesets/$id` draft workspace; both workspaces take `?view=<id>`. Edit mode exists for a draft the user may edit and, under the `direct` review policy, for main. Both pages use `features/editing/useModelEditing` (dialogs, in-place editor, menus, Add menu) and differ only in where a batch goes: `useAddChanges` or `useApplyDirect`. See ADR-030..034 and ADR-072.
 
 ### Views (M5), `src/features/views`
 
@@ -161,7 +182,19 @@ Deployment is edited as a "Deployed on" field that is saved as `deployed_on` rel
 
 ## Not yet built
 
-Polish (M6: custom icons, roles UI, version browser). Real auth / session is deferred (dev header only).
+Custom icon upload (M9). OIDC (M15) is a new `auth.Provider`; the endpoints, tables and login page already handle `redirect` providers.
 
 Users and roles are managed by maintainers (`internal/user`: service, repository with a locking role change, transport; ADR-050). The version browser reads `GET /versions/{n}/model` and `GET /versions/{from}/diff/{to}` (ADR-051). Pages share `StatePanel` for loading / empty / error states (ADR-052).
 
+## Model enrichment (M10)
+
+```
+element ── type (database-server | database | schema | cache | queue | proxy)   ADR-062
+        ── environment, lifecycle, criticality, runbook_url, docs_url, last_reviewed_at   ADR-065
+owner (team | person | user | group) ◄── ownership (element, role) ──► element   ADR-063, ADR-069
+effective = own value, else nearest ancestor's: owners per role, environment, deployment   ADR-064
+```
+
+Owners and ownerships are model data: change targets `owner` / `ownership` next to `element` / `relation`, so they go through drafts, diff (`Diff.Owners/Ownerships`), 3-way merge (`mergeSet` + dangling references) and snapshots. Ownership ids are `uuidv5(element, role)`, so concurrent assignments of the same role meet on one target; `Merge3` now merges an entity added on both sides field by field (ADR-068). `model.ComputeEffective` derives the inherited values; every model read returns them as `Element.effective`, and lint and the `unowned` view use the same function. Time-dependent lint rules get `lint.Options` (clock, `LINT_REVIEW_MAX_AGE`). Human-owned fields for a later connector sync: `model.HumanOwnedFields` + ownership (ADR-067).
+
+Owners from users and groups (ADR-069, ADR-070): a `user` / `group` owner carries `principal_id`, and its id is `model.PrincipalOwnerID(principal)` (uuidv5; the web computes the same id in `lib/uuidv5.ts`), so picking a user twice or in two drafts meets on one entity. The web's owner picker lists the directory (`GET /directory`) and adds the owner entity in the same batch as the ownership when it is new. The changeset builder checks principals through the consumer-side `changeset.PrincipalSource` (implemented by `user/repository.GroupRepository`), and lint gets them in `lint.Options.Principals` for `owner-inactive`. The owner's stored name is the name at creation; the web shows the live name from the directory. Groups live in the `user` feature (`GroupService`, maintainer-only writes) and are not versioned.

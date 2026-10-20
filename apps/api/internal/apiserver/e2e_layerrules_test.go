@@ -34,7 +34,7 @@ func TestHTTPLayerRules(t *testing.T) {
 	var pg, apiEl api.Element
 	for _, e := range els.Elements {
 		switch e.Name {
-		case "PostgreSQL":
+		case "Orders DB": // a logical database (type database) under the PostgreSQL server
 			pg = e
 		case "API":
 			apiEl = e
@@ -56,7 +56,7 @@ func TestHTTPLayerRules(t *testing.T) {
 	c.expect(c.do("POST", changes, editor, obj{"changes": []obj{{"op": "update", "target_type": "element", "target_id": apiEl.Id, "patch": obj{"kind": "database"}}}}, nil), http.StatusBadRequest, p)
 	// Adding a database to a disallowed layer is rejected, to an allowed one it is fine.
 	add := func(layer string) obj {
-		return obj{"changes": []obj{{"op": "add", "target_type": "element", "patch": obj{"kind": "database", "name": "Orders DB", "parent_id": pg.ParentId, "layer": layer}}}}
+		return obj{"changes": []obj{{"op": "add", "target_type": "element", "patch": obj{"kind": "database", "name": "Audit DB", "parent_id": pg.ParentId, "layer": layer}}}}
 	}
 	c.expect(c.do("POST", changes, editor, add("Kubernetes"), nil), http.StatusBadRequest, p)
 	c.expect(c.do("POST", changes, editor, add("Data"), nil), http.StatusCreated, j)

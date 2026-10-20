@@ -3,7 +3,14 @@ import type { Change, Changeset, Me } from "@archmap/api-client"
 
 import { capabilities, undoRedoState, workflowActions } from "./workflow"
 
-const user = (role: Me["role"], id: string = role): Me => ({ id, email: `${role}@x`, name: role, role })
+const user = (role: Me["role"], id: string = role): Me => ({
+  id,
+  email: `${role}@x`,
+  name: role,
+  role,
+  provider: "local",
+  password_must_change: false,
+})
 const cs = (over: Partial<Changeset> = {}): Changeset => ({
   id: "c1",
   title: "t",
@@ -15,6 +22,8 @@ const cs = (over: Partial<Changeset> = {}): Changeset => ({
   merged_at: null,
   approved_by: null,
   approved_at: null,
+  kind: "draft",
+  reverts: null,
   ...over,
 })
 const enabled = (me: Me, c: Changeset) => Object.fromEntries(workflowActions(me, c).map((a) => [a.action, a.enabled]))

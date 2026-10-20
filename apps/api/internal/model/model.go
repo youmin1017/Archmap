@@ -24,12 +24,14 @@ const (
 	KindContainer ElementKind = "container"
 	KindComponent ElementKind = "component"
 	KindNode      ElementKind = "node"
-	KindDatabase  ElementKind = "database"
+	// KindDatabase is retired (ADR-062): input and old snapshots are normalized to a
+	// container of type "database". It is never valid in a model.
+	KindDatabase ElementKind = "database"
 )
 
 func (k ElementKind) Valid() bool {
 	switch k {
-	case KindPerson, KindSystem, KindContainer, KindComponent, KindNode, KindDatabase:
+	case KindPerson, KindSystem, KindContainer, KindComponent, KindNode:
 		return true
 	}
 	return false
@@ -63,10 +65,20 @@ type Element struct {
 	Replicas int `json:"replicas"`
 	// Properties are free-form facts (ip, port, namespace, ...).
 	Properties map[string]string `json:"properties"`
-	Version    int               `json:"version"`
-	DeletedAt  *time.Time        `json:"-"`
-	CreatedAt  time.Time         `json:"-"`
-	UpdatedAt  time.Time         `json:"-"`
+	// Type refines kind (database-server, database, ...); "" = none (ADR-062).
+	Type ElementType `json:"type"`
+	// Environment is prod / staging / dev; "" = inherit from the ancestors (ADR-064).
+	Environment Environment `json:"environment"`
+	Lifecycle   Lifecycle   `json:"lifecycle"`
+	Criticality Criticality `json:"criticality"`
+	RunbookURL  string      `json:"runbook_url"`
+	DocsURL     string      `json:"docs_url"`
+	// LastReviewedAt is a calendar date (YYYY-MM-DD) or nil when never reviewed.
+	LastReviewedAt *string    `json:"last_reviewed_at"`
+	Version        int        `json:"version"`
+	DeletedAt      *time.Time `json:"-"`
+	CreatedAt      time.Time  `json:"-"`
+	UpdatedAt      time.Time  `json:"-"`
 }
 
 type Relation struct {
@@ -84,13 +96,18 @@ type Relation struct {
 
 // Snapshot is a full, non-deleted model state (main, or a draft's effective model).
 type Snapshot struct {
-	Elements  []Element
-	Relations []Relation
+	Elements   []Element
+	Relations  []Relation
+	Owners     []Owner
+	Ownerships []Ownership
 }
 
 // Fields a change patch may set. id, version and timestamps are server-managed.
 var (
-	ElementPatchFields  = []string{"parent_id", "kind", "name", "description", "technology", "tags", "protected", "layer", "projects", "replicas", "properties"}
+	ElementPatchFields = []string{
+		"parent_id", "kind", "name", "description", "technology", "tags", "protected", "layer", "projects", "replicas", "properties",
+		"type", "environment", "lifecycle", "criticality", "runbook_url", "docs_url", "last_reviewed_at",
+	}
 	RelationPatchFields = []string{"source_id", "target_id", "kind", "description", "technology"}
 )
 
@@ -114,7 +131,7 @@ func (e Element) Validate() error {
 	if err := ValidateProperties(e.Properties); err != nil {
 		return err
 	}
-	return nil
+	return e.validateOperations()
 }
 
 func (r Relation) Validate() error {
@@ -138,6 +155,10 @@ func ApplyElementPatch(e Element, patch json.RawMessage) (Element, error) {
 	if e.ParentID != nil {
 		p := *e.ParentID
 		e.ParentID = &p
+	}
+	if e.LastReviewedAt != nil {
+		d := *e.LastReviewedAt
+		e.LastReviewedAt = &d
 	}
 	e.Tags = slices.Clone(e.Tags)
 	e.Projects = slices.Clone(e.Projects)
@@ -163,7 +184,7 @@ func ApplyElementPatch(e Element, patch json.RawMessage) (Element, error) {
 	if _, set := raw["replicas"]; !set && e.Replicas == 0 {
 		e.Replicas = 1 // elements stored before replicas existed
 	}
-	return e, nil
+	return e.normalized(), nil
 }
 
 func ApplyRelationPatch(r Relation, patch json.RawMessage) (Relation, error) {
@@ -226,11 +247,9 @@ func FieldsOf(v any, keys []string) (json.RawMessage, error) {
 // FieldMap returns the patchable fields of e as raw JSON values keyed by field
 // name; two elements are equal in model terms iff their FieldMaps are equal.
 func (e Element) FieldMap() map[string]json.RawMessage {
+	e = e.normalized()
 	if e.Tags == nil {
 		e.Tags = []string{}
-	}
-	if e.Projects == nil {
-		e.Projects = []string{}
 	}
 	e.Properties = NormalizeProperties(e.Properties)
 	if e.Replicas == 0 {

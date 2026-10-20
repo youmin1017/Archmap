@@ -60,7 +60,8 @@ export function useViewWorkspace({ viewId, changesetId, fullModel, canSaveLayout
     const { viewId: id, vm: model, canSaveLayout: can, save: mutate } = latest.current
     const rev = useCanvasStore.getState().revision
     if (!id || !model || !can || rev === savedRevision.current || appliedFor.current !== id) return
-    const { positions, expanded } = useCanvasStore.getState()
+    // While focused, the store holds the focus's layout; the view's own layout waits aside.
+    const { positions, expanded } = useCanvasStore.getState().viewLayoutState()
     const known = new Set(model.elements.map((e) => e.id))
     savedRevision.current = rev
     mutate({ id, elements: stateToLayout(positions, expanded, known, model.layout) })

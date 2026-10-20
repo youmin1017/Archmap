@@ -1,8 +1,10 @@
-import { Minus, Pencil, Plus, Server, type LucideIcon } from "lucide-react"
+import { Minus, Pencil, Plus, Server, type LucideIcon, UsersRound, UserRound, Users } from "lucide-react"
 import type { Element } from "@archmap/api-client"
 
 import { cn } from "@/lib/utils"
 import { kindColor } from "./kind"
+import { isDatastore } from "./element"
+import type { OwnerView } from "./owners"
 
 /** How a card is outlined: normal, selected, or marked by the diff overlay. */
 export type ShapeTone = "default" | "selected" | "added" | "modified" | "removed"
@@ -99,7 +101,7 @@ export function DatabaseShape({
 }
 
 /** Up to two offset copies behind a card that stands for several replicas. */
-export function ReplicaBackdrop({ element }: { element: Pick<Element, "kind" | "replicas"> }) {
+export function ReplicaBackdrop({ element }: { element: Pick<Element, "kind" | "type" | "replicas"> }) {
   if (element.replicas <= 1) return null
   const copies = element.replicas >= 3 ? [10, 5] : [5]
   return (
@@ -109,7 +111,7 @@ export function ReplicaBackdrop({ element }: { element: Pick<Element, "kind" | "
       style={{ ["--kind" as string]: kindColor(element.kind) }}
     >
       {copies.map((offset) =>
-        element.kind === "database" ? (
+        isDatastore(element) ? (
           <div key={offset} className="absolute inset-0" style={{ transform: `translate(${offset}px, ${offset}px)` }}>
             <DatabaseShape muted />
           </div>
@@ -149,6 +151,43 @@ export function HostBadge({ hosts }: { hosts: readonly string[] }) {
     >
       <Server className="size-3 shrink-0" aria-hidden />
       <span className="truncate">{hosts.length > 1 ? `${first} +${hosts.length - 1}` : first}</span>
+    </span>
+  )
+}
+
+const ownerIcon = { user: UserRound, group: Users, team: UsersRound, person: UserRound } as const
+
+/**
+ * The effective owner of a card: an icon per kind (user, group, named team / person);
+ * inherited owners are muted and say where they come from; a disabled user or deleted
+ * group is struck through.
+ */
+export function OwnerBadge({ owner, from }: { owner: Pick<OwnerView, "name" | "kind" | "inactive">; from?: string }) {
+  const Icon = ownerIcon[owner.kind]
+  const state = owner.inactive ? (owner.kind === "group" ? " (deleted group)" : " (disabled)") : ""
+  return (
+    <span
+      className={cn(
+        "inline-flex max-w-[45%] min-w-0 shrink items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[11px] leading-none",
+        from ? "text-muted-foreground/80" : "text-muted-foreground",
+        owner.inactive && "line-through"
+      )}
+      title={`Owner ${owner.name}${state}${from ? `, inherited from ${from}` : ""}`}
+    >
+      <Icon className="size-3 shrink-0" aria-hidden />
+      <span className="truncate">{owner.name}</span>
+    </span>
+  )
+}
+
+/** A short neutral fact on a card (environment, lifecycle). */
+export function MetaBadge({ children, title }: { children: React.ReactNode; title?: string }) {
+  return (
+    <span
+      className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground"
+      title={title}
+    >
+      {children}
     </span>
   )
 }

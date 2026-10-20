@@ -3,6 +3,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"github.com/google/uuid"
@@ -38,7 +39,7 @@ func (r *Repository) InTx(ctx context.Context, fn func(changeset.Repository) err
 func (r *Repository) InsertChangeset(ctx context.Context, cs changeset.Changeset) (changeset.Changeset, error) {
 	row, err := r.q.InsertChangeset(ctx, sqlcgen.InsertChangesetParams{
 		Title: cs.Title, Description: cs.Description, AuthorID: cs.AuthorID,
-		BaseVersion: int32(cs.BaseVersion), Status: sqlcgen.ChangesetStatus(cs.Status),
+		BaseVersion: int32(cs.BaseVersion), Status: sqlcgen.ChangesetStatus(cs.Status), Reverts: cs.Reverts,
 	})
 	if err != nil {
 		return changeset.Changeset{}, err
@@ -141,6 +142,14 @@ func (r *Repository) MaterializeChanges(ctx context.Context, changes []changeset
 			err = r.materializeElement(ctx, c)
 		case changeset.TargetRelation:
 			err = r.materializeRelation(ctx, c)
+		case changeset.TargetOwner:
+			err = materialize(ctx, c, func(id uuid.UUID) model.Owner { return model.Owner{ID: id} },
+				model.ApplyOwnerPatch, r.models.GetOwner,
+				r.models.InsertOwner, r.models.UpdateOwner, r.models.SoftDeleteOwner)
+		case changeset.TargetOwnership:
+			err = materialize(ctx, c, func(id uuid.UUID) model.Ownership { return model.Ownership{ID: id} },
+				model.ApplyOwnershipPatch, r.models.GetOwnership,
+				r.models.InsertOwnership, r.models.UpdateOwnership, r.models.SoftDeleteOwnership)
 		default:
 			err = apperr.Invalid("unknown target type %q", c.TargetType)
 		}
@@ -149,6 +158,34 @@ func (r *Repository) MaterializeChanges(ctx context.Context, changes []changeset
 		}
 	}
 	return nil
+}
+
+// materialize writes one owner / ownership change into main.
+func materialize[T any](ctx context.Context, c changeset.Change, fresh func(uuid.UUID) T,
+	apply func(T, json.RawMessage) (T, error), get func(context.Context, uuid.UUID) (T, error),
+	insert, update func(context.Context, T) error, softDelete func(context.Context, uuid.UUID) error,
+) error {
+	switch c.Op {
+	case changeset.OpAdd:
+		v, err := apply(fresh(c.TargetID), c.Patch)
+		if err != nil {
+			return err
+		}
+		return insert(ctx, v)
+	case changeset.OpUpdate:
+		cur, err := get(ctx, c.TargetID)
+		if err != nil {
+			return err
+		}
+		v, err := apply(cur, c.Patch)
+		if err != nil {
+			return err
+		}
+		return update(ctx, v)
+	case changeset.OpDelete:
+		return softDelete(ctx, c.TargetID)
+	}
+	return apperr.Invalid("unknown op %q", c.Op)
 }
 
 func (r *Repository) materializeElement(ctx context.Context, c changeset.Change) error {
@@ -236,6 +273,7 @@ func (r *Repository) ListVersions(ctx context.Context) ([]changeset.Version, err
 	for i, v := range rows {
 		out[i] = changeset.Version{
 			Number: int(v.Number), ChangesetID: v.ChangesetID, MergedBy: v.MergedBy, MergedAt: v.MergedAt, Summary: v.Summary,
+			Kind: changeset.Kind(v.Kind), Reverts: v.Reverts,
 		}
 	}
 	return out, nil
@@ -287,11 +325,28 @@ func (r *Repository) MarkMerged(ctx context.Context, id uuid.UUID) error {
 	return r.q.MarkChangesetMerged(ctx, id)
 }
 
+func (r *Repository) MarkDirect(ctx context.Context, id uuid.UUID) error {
+	return r.q.MarkChangesetDirect(ctx, id)
+}
+
+func (r *Repository) VersionOf(ctx context.Context, id uuid.UUID) (int, error) {
+	v, err := r.q.VersionOfChangeset(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, apperr.NotFound("changeset %s created no version", id)
+	}
+	return int(v), err
+}
+
+func (r *Repository) IsReverted(ctx context.Context, id uuid.UUID) (bool, error) {
+	return r.q.IsReverted(ctx, &id)
+}
+
 func toChangeset(c sqlcgen.Changeset) changeset.Changeset {
 	return changeset.Changeset{
 		ID: c.ID, Title: c.Title, Description: c.Description, AuthorID: c.AuthorID,
 		BaseVersion: int(c.BaseVersion), Status: changeset.Status(c.Status),
 		CreatedAt: c.CreatedAt, MergedAt: c.MergedAt, ApprovedBy: c.ApprovedBy, ApprovedAt: c.ApprovedAt,
+		Kind: changeset.Kind(c.Kind), Reverts: c.Reverts,
 	}
 }
 

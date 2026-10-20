@@ -6,6 +6,7 @@ package apperr
 import (
 	"errors"
 	"fmt"
+	"time"
 )
 
 type Kind int
@@ -16,6 +17,7 @@ const (
 	KindForbidden
 	KindConflict
 	KindUnauthenticated
+	KindTooManyRequests
 )
 
 func (k Kind) String() string {
@@ -30,6 +32,8 @@ func (k Kind) String() string {
 		return "conflict"
 	case KindUnauthenticated:
 		return "unauthenticated"
+	case KindTooManyRequests:
+		return "too_many_requests"
 	default:
 		return "unknown"
 	}
@@ -38,6 +42,8 @@ func (k Kind) String() string {
 type Error struct {
 	Kind    Kind
 	Message string
+	// RetryAfter is set on KindTooManyRequests errors.
+	RetryAfter time.Duration
 }
 
 func (e *Error) Error() string { return e.Message }
@@ -60,6 +66,11 @@ func Conflict(format string, args ...any) error {
 
 func Unauthenticated(format string, args ...any) error {
 	return &Error{Kind: KindUnauthenticated, Message: fmt.Sprintf(format, args...)}
+}
+
+// TooManyRequests reports a rate limit; the caller may retry after retryAfter.
+func TooManyRequests(retryAfter time.Duration, format string, args ...any) error {
+	return &Error{Kind: KindTooManyRequests, Message: fmt.Sprintf(format, args...), RetryAfter: retryAfter}
 }
 
 // KindOf returns the Kind of err, or 0 when err is not (or does not wrap) an *Error.

@@ -1,5 +1,5 @@
 import { Check, X } from "lucide-react"
-import type { Element, LayerRule } from "@archmap/api-client"
+import type { Element, LayerRule, Owner, Ownership } from "@archmap/api-client"
 
 import { Button } from "@/components/ui/button"
 import type { ElementTree } from "../canvas/graph"
@@ -13,6 +13,8 @@ export function ElementEditor({
   element,
   tree,
   deployedOn,
+  ownerships = [],
+  owners = [],
   layerOptions,
   projectOptions,
   technologyOptions,
@@ -25,6 +27,9 @@ export function ElementEditor({
   element: Element
   tree: ElementTree
   deployedOn: readonly string[]
+  /** The element's own ownership assignments and the draft's owners. */
+  ownerships?: readonly Ownership[]
+  owners?: readonly Owner[]
   layerOptions?: readonly string[]
   projectOptions?: readonly string[]
   technologyOptions?: readonly string[]
@@ -34,7 +39,7 @@ export function ElementEditor({
   onSave: (values: ElementFormValues) => void
   onCancel: () => void
 }) {
-  const form = useElementForm({ element, deployedOn }, tree, layerRules)
+  const form = useElementForm({ element, deployedOn, ownerships }, tree, layerRules)
   const canSave = form.canSubmit && !pending
 
   return (
@@ -55,6 +60,7 @@ export function ElementEditor({
     >
       <ElementFields
         form={form}
+        owners={owners}
         layerOptions={layerOptions}
         projectOptions={projectOptions}
         technologyOptions={technologyOptions}

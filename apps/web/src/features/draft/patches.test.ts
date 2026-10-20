@@ -9,6 +9,7 @@ import {
   deleteElementInput,
   deploymentInputs,
   elementPatch,
+  ownershipInputs,
   relationPatch,
 } from "./patches"
 
@@ -26,6 +27,14 @@ const values = (over: Partial<ElementFormValues> = {}): ElementFormValues => ({
   replicas: api.replicas,
   properties: api.properties,
   deployedOn: [],
+  type: api.type,
+  environment: api.environment,
+  lifecycle: api.lifecycle,
+  criticality: api.criticality,
+  runbookUrl: api.runbook_url,
+  docsUrl: api.docs_url,
+  lastReviewedAt: api.last_reviewed_at,
+  ownership: { owner: "", maintainer: "", oncall: "", escalation: "" },
   ...over,
 })
 
@@ -141,5 +150,39 @@ describe("deploymentInputs", () => {
 
   it("clears every deployment with an empty list", () => {
     expect(deploymentInputs("a", [dep("r1", "a", "n1")], [], newId)).toHaveLength(1)
+  })
+})
+
+describe("operational fields and ownership", () => {
+  it("records only the operational fields that changed", () => {
+    expect(
+      elementPatch(
+        api,
+        values({ environment: "prod", lastReviewedAt: "2026-10-01", runbookUrl: "https://r.example" }),
+        false
+      )?.patch
+    ).toEqual({ environment: "prod", last_reviewed_at: "2026-10-01", runbook_url: "https://r.example" })
+    expect(elementPatch(api, values({ lastReviewedAt: api.last_reviewed_at }), false)).toBeNull()
+  })
+
+  it("adds new elements with every operational field", () => {
+    const add = addElementInput("x", values({ type: "database", lifecycle: "planned" }), false)
+    expect(add.patch).toMatchObject({ type: "database", lifecycle: "planned", environment: "", last_reviewed_at: null })
+  })
+
+  it("turns the wanted owners per role into add, update and delete changes", () => {
+    const own = [
+      { id: "o1", element_id: ids.api, owner_id: "team-a", role: "owner" as const, version: 1 },
+      { id: "o2", element_id: ids.api, owner_id: "team-b", role: "oncall" as const, version: 1 },
+    ]
+    const out = ownershipInputs(ids.api, own, { owner: "team-c", maintainer: "team-a", oncall: "", escalation: "" })
+    expect(out).toEqual([
+      { op: "update", target_type: "ownership", target_id: "o1", patch: { owner_id: "team-c" } },
+      { op: "add", target_type: "ownership", patch: { element_id: ids.api, owner_id: "team-a", role: "maintainer" } },
+      { op: "delete", target_type: "ownership", target_id: "o2" },
+    ])
+    expect(
+      ownershipInputs(ids.api, own, { owner: "team-a", maintainer: "", oncall: "team-b", escalation: "" })
+    ).toEqual([])
   })
 })

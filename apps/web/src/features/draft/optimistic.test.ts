@@ -4,7 +4,7 @@ import type { ChangeInput, Model } from "@archmap/api-client"
 import { ids, sampleElements, sampleRelations } from "../canvas/fixtures"
 import { applyInputs } from "./optimistic"
 
-const model: Model = { elements: sampleElements, relations: sampleRelations }
+const model: Model = { elements: sampleElements, relations: sampleRelations, owners: [], ownerships: [] }
 const NOW = "2030-01-01T00:00:00Z"
 const apply = (...inputs: ChangeInput[]) => applyInputs(model, inputs, NOW)
 

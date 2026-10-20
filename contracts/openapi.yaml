@@ -1,22 +1,29 @@
 openapi: 3.0.3
 info:
   title: Archmap API
-  version: 0.9.0
+  version: 0.13.0
   description: |
     Single source of truth for the Archmap HTTP API.
     `/metrics` (Prometheus) is intentionally not part of this spec.
 
-    Main is read-only through the API: every modification is a change inside a
-    changeset (draft). Until session auth exists, a dev-only `X-Dev-User: <email>`
-    header identifies the caller (enabled with AUTH_DEV_HEADER=true).
+    Every modification of the model is a change inside a changeset. Under the
+    `required` review policy main is read-only and edits go through reviewed drafts;
+    under `direct` an editor's save is an automatically merged changeset
+    (`POST /api/v1/model/changes`, ADR-072). Callers are identified by a server-side session cookie
+    obtained from `POST /api/v1/auth/login` (or a redirect provider's callback).
+    Unsafe requests made with a session must send the session's CSRF token in the
+    `X-CSRF-Token` header and come from the same origin.
 servers:
   - url: http://localhost:8080
+security:
+  - sessionCookie: []
 paths:
   /api/v1/health:
     get:
       operationId: getHealth
       summary: Liveness / readiness probe
       tags: [system]
+      security: []
       responses:
         "200":
           description: Service is healthy
@@ -42,6 +49,130 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /api/v1/me/password:
+    put:
+      operationId: changeMyPassword
+      summary: Change the caller's local password (other sessions are revoked)
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "204":
+          description: Password changed
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/auth/providers:
+    get:
+      operationId: listAuthProviders
+      summary: Sign-in methods available on this server (the login page renders from this)
+      tags: [auth]
+      security: []
+      responses:
+        "200":
+          description: Providers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthProviderList"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      summary: Sign in with a password-kind provider; sets the session cookie
+      description: |
+        Failed credentials always answer 401 with the same message. 403 means the
+        credentials were correct but the account is disabled, has no account for
+        this identity, or must use single sign-on. 429 carries Retry-After.
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Signed in (sets the session cookie)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/auth/{provider}/start:
+    get:
+      operationId: startAuthRedirect
+      summary: Start a redirect-kind login (browser navigation; redirects to the identity provider)
+      tags: [auth]
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Provider"
+        - name: return_to
+          in: query
+          required: false
+          description: Same-origin path to return to after signing in (anything else falls back to "/").
+          schema: { type: string }
+      responses:
+        "302":
+          description: Redirect to the identity provider
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/auth/{provider}/callback:
+    get:
+      operationId: authCallback
+      summary: Redirect-kind login callback; sets the session cookie and redirects into the app
+      description: Failures redirect to `/login?error=<code>` instead of answering problem+json.
+      tags: [auth]
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Provider"
+        - { name: code, in: query, required: false, schema: { type: string } }
+        - { name: state, in: query, required: false, schema: { type: string } }
+        - { name: error, in: query, required: false, schema: { type: string } }
+        - { name: error_description, in: query, required: false, schema: { type: string } }
+      responses:
+        "302":
+          description: Redirect into the app (or to the login page with an error code)
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      summary: End the current session and clear the cookie
+      tags: [auth]
+      security: []
+      responses:
+        "204":
+          description: Signed out (also when there was no session)
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/auth/session:
+    get:
+      operationId: getSession
+      summary: The current session (user, CSRF token, expiry); 401 when signed out
+      tags: [auth]
+      responses:
+        "200":
+          description: Current session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        default:
+          $ref: "#/components/responses/Problem"
+
   /api/v1/users:
     get:
       operationId: listUsers
@@ -54,6 +185,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createUser
+      summary: Create a user with a local password identity (maintainers only)
+      description: Without `password` a temporary password is generated, returned once, and must be changed at first sign-in.
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: The new user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedUser"
         default:
           $ref: "#/components/responses/Problem"
 
@@ -77,6 +228,225 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/users/{id}/disable:
+    post:
+      operationId: disableUser
+      summary: Disable a user and end their sessions (maintainers only; not yourself, not the last break-glass maintainer)
+      tags: [users]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: The updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/users/{id}/enable:
+    post:
+      operationId: enableUser
+      summary: Re-enable a disabled user (maintainers only)
+      tags: [users]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: The updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/users/{id}/password-reset:
+    post:
+      operationId: resetUserPassword
+      summary: Set a new local password for a user and end their sessions (maintainers only)
+      description: Without `password` a temporary one is generated and returned once. Either way the user must change it at next sign-in.
+      tags: [users]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordResetRequest"
+      responses:
+        "200":
+          description: Password reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordResetResult"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/users/{id}/identities:
+    get:
+      operationId: listUserIdentities
+      summary: A user's sign-in identities (maintainers only)
+      tags: [users]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Identities
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentityList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: linkUserIdentity
+      summary: Link an external identity (provider + subject) to a user (maintainers only; never automatic)
+      tags: [users]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinkIdentityRequest"
+      responses:
+        "201":
+          description: The linked identity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Identity"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/users/{id}/identities/{identityId}:
+    delete:
+      operationId: unlinkUserIdentity
+      summary: Remove a sign-in identity and the sessions created with it (maintainers only)
+      tags: [users]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+        - name: identityId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Unlinked
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/directory:
+    get:
+      operationId: getDirectory
+      summary: Users (name, email, disabled) and groups, for picking owners (any signed-in user)
+      tags: [users]
+      responses:
+        "200":
+          description: Directory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Directory"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/groups:
+    get:
+      operationId: listGroups
+      summary: Groups and their members (any signed-in user)
+      tags: [users]
+      responses:
+        "200":
+          description: Groups
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroupList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createGroup
+      summary: Create a group (maintainers only)
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroupInput"
+      responses:
+        "201":
+          description: The new group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Group"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/groups/{id}:
+    put:
+      operationId: updateGroup
+      summary: Rename a group or change its description (maintainers only)
+      tags: [users]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroupInput"
+      responses:
+        "200":
+          description: The updated group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Group"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteGroup
+      summary: Delete a group (maintainers only); owners pointing at it keep their name and lint warns
+      tags: [users]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204":
+          description: Deleted
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/groups/{id}/members:
+    put:
+      operationId: setGroupMembers
+      summary: Replace a group's members (maintainers only)
+      tags: [users]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroupMembersInput"
+      responses:
+        "200":
+          description: The updated group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Group"
         default:
           $ref: "#/components/responses/Problem"
 
@@ -120,6 +490,21 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /api/v1/model/owners:
+    get:
+      operationId: listOwners
+      summary: Owners and ownership assignments of main
+      tags: [model]
+      responses:
+        "200":
+          description: Owner directory of main
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnerDirectory"
+        default:
+          $ref: "#/components/responses/Problem"
+
   /api/v1/model/relations:
     get:
       operationId: listRelations
@@ -156,6 +541,85 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Relation"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/settings:
+    get:
+      operationId: getSettings
+      summary: Workspace settings (review policy)
+      tags: [settings]
+      responses:
+        "200":
+          description: The settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+        default:
+          $ref: "#/components/responses/Problem"
+    put:
+      operationId: updateSettings
+      summary: Change the workspace settings (maintainers only)
+      tags: [settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsInput"
+      responses:
+        "200":
+          description: The updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/model/changes:
+    post:
+      operationId: applyDirect
+      summary: Edit main directly (review policy `direct`)
+      description: |
+        Records the batch as a changeset based on the current main and merges it at once
+        as a new version. When the batch adds lint errors it is kept as a draft instead;
+        when it touches a protected element it is submitted for review (ADR-072).
+      tags: [changesets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DirectChangesRequest"
+      responses:
+        "201":
+          description: What happened to the edit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DirectResult"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/model/changes/{id}/revert:
+    post:
+      operationId: revertDirect
+      summary: Undo a direct edit (a new version that reverses it)
+      description: |
+        Fails with 409 when what the edit changed was changed again since, or when it was
+        already undone. Only its author or a maintainer may undo it.
+      tags: [changesets]
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "201":
+          description: What happened to the undo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DirectResult"
         default:
           $ref: "#/components/responses/Problem"
 
@@ -675,12 +1139,26 @@ paths:
           $ref: "#/components/responses/Problem"
 
 components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-archmap_session
+      description: |
+        Opaque server-side session token (`archmap_session` when the server runs with
+        COOKIE_SECURE=false in development). Unsafe methods also need `X-CSRF-Token`.
+
   parameters:
     Id:
       name: id
       in: path
       required: true
       schema: { type: string, format: uuid }
+    Provider:
+      name: provider
+      in: path
+      required: true
+      schema: { type: string }
 
   schemas:
     Health:
@@ -715,24 +1193,139 @@ components:
 
     Me:
       type: object
-      required: [id, email, name, role]
+      required: [id, email, name, role, provider, password_must_change]
       properties:
         id: { type: string, format: uuid }
-        email: { type: string }
+        email: { type: string, description: Contact email; empty when unknown }
         name: { type: string }
         role:
           $ref: "#/components/schemas/Role"
+        provider: { type: string, description: The provider this session signed in with }
+        password_must_change:
+          type: boolean
+          description: The local password was set by a maintainer and must be changed now.
+
+    Session:
+      type: object
+      required: [me, csrf_token, expires_at]
+      properties:
+        me:
+          $ref: "#/components/schemas/Me"
+        csrf_token: { type: string, description: Send as X-CSRF-Token on unsafe requests }
+        expires_at: { type: string, format: date-time, description: Absolute expiry (idle expiry may come sooner) }
+
+    AuthProviderKind:
+      type: string
+      enum: [password, redirect]
+
+    AuthProvider:
+      type: object
+      required: [id, name, kind, restricted, username_only]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        kind:
+          $ref: "#/components/schemas/AuthProviderKind"
+        restricted:
+          type: boolean
+          description: Only maintainers may use it (local password once SSO is the default).
+        username_only:
+          type: boolean
+          description: Password-kind provider that takes no password (development sign-in).
+
+    AuthProviderList:
+      type: object
+      required: [providers]
+      properties:
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuthProvider"
+
+    LoginRequest:
+      type: object
+      required: [provider, username]
+      properties:
+        provider: { type: string }
+        username: { type: string, minLength: 1, maxLength: 320 }
+        password: { type: string, maxLength: 256 }
+
+    ChangePasswordRequest:
+      type: object
+      required: [current_password, new_password]
+      properties:
+        current_password: { type: string, maxLength: 256 }
+        new_password: { type: string, maxLength: 256 }
 
     User:
       type: object
-      required: [id, email, name, role, created_at]
+      required: [id, email, name, role, created_at, disabled, identity_count]
       properties:
         id: { type: string, format: uuid }
-        email: { type: string }
+        email: { type: string, description: Contact email; empty when unknown }
         name: { type: string }
         role:
           $ref: "#/components/schemas/Role"
         created_at: { type: string, format: date-time }
+        disabled: { type: boolean }
+        last_login_at: { type: string, format: date-time, nullable: true }
+        identity_count: { type: integer }
+
+    CreateUserRequest:
+      type: object
+      required: [name, email, role]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        email: { type: string, minLength: 3, maxLength: 320, description: Also the local sign-in name }
+        role:
+          $ref: "#/components/schemas/Role"
+        password: { type: string, maxLength: 256 }
+
+    CreatedUser:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        temporary_password: { type: string, description: Present only when the server generated the password }
+
+    PasswordResetRequest:
+      type: object
+      properties:
+        password: { type: string, maxLength: 256 }
+
+    PasswordResetResult:
+      type: object
+      properties:
+        temporary_password: { type: string, description: Present only when the server generated the password }
+
+    Identity:
+      type: object
+      required: [id, provider, issuer, subject, email, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        provider: { type: string }
+        issuer: { type: string }
+        subject: { type: string }
+        email: { type: string, description: As reported at the last sign-in; informational only }
+        created_at: { type: string, format: date-time }
+        last_login_at: { type: string, format: date-time, nullable: true }
+
+    IdentityList:
+      type: object
+      required: [identities]
+      properties:
+        identities:
+          type: array
+          items:
+            $ref: "#/components/schemas/Identity"
+
+    LinkIdentityRequest:
+      type: object
+      required: [provider, subject]
+      properties:
+        provider: { type: string, description: A configured external provider id }
+        subject: { type: string, minLength: 1, maxLength: 255 }
 
     UserList:
       type: object
@@ -752,7 +1345,174 @@ components:
 
     ElementKind:
       type: string
-      enum: [person, system, container, component, node, database]
+      description: |
+        `database` was retired in M10 (ADR-062): it is still accepted in change patches and
+        normalized to a `container` of type `database`, but never returned.
+      enum: [person, system, container, component, node]
+
+    ElementType:
+      type: string
+      description: Refines the kind; datastore types are drawn as cylinders. Empty = none.
+      enum: ["", database-server, database, schema, cache, queue, proxy]
+
+    Environment:
+      type: string
+      description: Empty = inherited from the ancestors (see effective.environment).
+      enum: ["", prod, staging, dev]
+
+    Lifecycle:
+      type: string
+      enum: [active, deprecated, planned]
+
+    Criticality:
+      type: string
+      enum: ["", low, medium, high, critical]
+
+    OwnerKind:
+      type: string
+      description: team / person are named owners without an account; user / group point at a login user or a group (principal_id).
+      enum: [team, person, user, group]
+
+    OwnerRole:
+      type: string
+      enum: [owner, maintainer, oncall, escalation]
+
+    Owner:
+      type: object
+      description: A team or person accountable for elements. Model data (changes go through drafts); not a login user.
+      required: [id, kind, name, contact, oncall_url, version]
+      properties:
+        id: { type: string, format: uuid }
+        kind:
+          $ref: "#/components/schemas/OwnerKind"
+        name: { type: string, maxLength: 120 }
+        contact: { type: string, maxLength: 200, description: "Email, chat channel or similar" }
+        oncall_url: { type: string, description: "http(s) URL or empty" }
+        principal_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            The user or group of a user / group owner (null for named owners). Its id is derived
+            from principal_id, so send no target_id when adding one; the live name comes from /directory.
+        version: { type: integer }
+
+    Ownership:
+      type: object
+      description: |
+        Assigns an owner to an element in one role; at most one per (element, role). The id is
+        derived from element_id and role (send no target_id when adding); updates may only change owner_id.
+      required: [id, element_id, owner_id, role, version]
+      properties:
+        id: { type: string, format: uuid }
+        element_id: { type: string, format: uuid }
+        owner_id: { type: string, format: uuid }
+        role:
+          $ref: "#/components/schemas/OwnerRole"
+        version: { type: integer }
+
+    EffectiveOwner:
+      type: object
+      required: [role, owner_id, source_element_id]
+      properties:
+        role:
+          $ref: "#/components/schemas/OwnerRole"
+        owner_id: { type: string, format: uuid }
+        source_element_id:
+          type: string
+          format: uuid
+          description: The element the assignment comes from (the element itself, or an ancestor when inherited).
+
+    ElementEffective:
+      type: object
+      description: Values inherited from the ancestors, computed by the server (read-only).
+      required: [environment, environment_source_id, owners, deployed_via_id]
+      properties:
+        environment:
+          $ref: "#/components/schemas/Environment"
+        environment_source_id: { type: string, format: uuid, nullable: true }
+        owners:
+          type: array
+          items:
+            $ref: "#/components/schemas/EffectiveOwner"
+        deployed_via_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: The element (itself or an ancestor) that has a deployed_on relation; null when none.
+
+    DirectoryUser:
+      type: object
+      required: [id, name, email, disabled]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string }
+        disabled: { type: boolean }
+
+    Group:
+      type: object
+      required: [id, name, description, members, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        members:
+          type: array
+          items: { type: string, format: uuid }
+          description: User ids
+        created_at: { type: string, format: date-time }
+
+    GroupList:
+      type: object
+      required: [groups]
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/Group"
+
+    GroupInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 500 }
+
+    GroupMembersInput:
+      type: object
+      required: [user_ids]
+      properties:
+        user_ids:
+          type: array
+          items: { type: string, format: uuid }
+
+    Directory:
+      type: object
+      description: Users and groups that can be picked as owners (no roles).
+      required: [users, groups]
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/DirectoryUser"
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/Group"
+
+    OwnerDirectory:
+      type: object
+      required: [owners, ownerships]
+      properties:
+        owners:
+          type: array
+          items:
+            $ref: "#/components/schemas/Owner"
+        ownerships:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ownership"
 
     RelationKind:
       type: string
@@ -760,7 +1520,7 @@ components:
 
     Element:
       type: object
-      required: [id, parent_id, kind, name, description, technology, tags, protected, layer, projects, replicas, properties, version, created_at, updated_at]
+      required: [id, parent_id, kind, name, description, technology, tags, protected, layer, projects, replicas, properties, type, environment, lifecycle, criticality, runbook_url, docs_url, last_reviewed_at, version, created_at, updated_at]
       properties:
         id: { type: string, format: uuid }
         parent_id: { type: string, format: uuid, nullable: true }
@@ -792,6 +1552,19 @@ components:
           maxProperties: 20
           additionalProperties: { type: string, maxLength: 200 }
           description: Free-form facts such as ip, port or namespace (key to value).
+        type:
+          $ref: "#/components/schemas/ElementType"
+        environment:
+          $ref: "#/components/schemas/Environment"
+        lifecycle:
+          $ref: "#/components/schemas/Lifecycle"
+        criticality:
+          $ref: "#/components/schemas/Criticality"
+        runbook_url: { type: string, description: "http(s) URL or empty" }
+        docs_url: { type: string, description: "http(s) URL or empty" }
+        last_reviewed_at: { type: string, format: date, nullable: true }
+        effective:
+          $ref: "#/components/schemas/ElementEffective"
         version: { type: integer }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -831,7 +1604,7 @@ components:
 
     Model:
       type: object
-      required: [elements, relations]
+      required: [elements, relations, owners, ownerships]
       properties:
         elements:
           type: array
@@ -841,6 +1614,14 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Relation"
+        owners:
+          type: array
+          items:
+            $ref: "#/components/schemas/Owner"
+        ownerships:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ownership"
 
     ChangesetStatus:
       type: string
@@ -848,7 +1629,7 @@ components:
 
     Changeset:
       type: object
-      required: [id, title, description, author_id, base_version, status, created_at, merged_at]
+      required: [id, title, description, author_id, base_version, status, created_at, merged_at, kind, reverts]
       properties:
         id: { type: string, format: uuid }
         title: { type: string }
@@ -861,6 +1642,72 @@ components:
         merged_at: { type: string, format: date-time, nullable: true }
         approved_by: { type: string, format: uuid, nullable: true }
         approved_at: { type: string, format: date-time, nullable: true }
+        kind:
+          $ref: "#/components/schemas/ChangesetKind"
+        reverts:
+          type: string
+          format: uuid
+          nullable: true
+          description: The direct edit this changeset undoes
+
+    ChangesetKind:
+      type: string
+      enum: [draft, direct]
+      description: "`direct`: an automatically merged edit of main (not listed with the drafts)"
+
+    ReviewPolicy:
+      type: string
+      enum: [required, direct]
+
+    Settings:
+      type: object
+      required: [review_policy, updated_by, updated_at]
+      properties:
+        review_policy:
+          $ref: "#/components/schemas/ReviewPolicy"
+        updated_by: { type: string, format: uuid, nullable: true }
+        updated_at: { type: string, format: date-time }
+
+    SettingsInput:
+      type: object
+      required: [review_policy]
+      properties:
+        review_policy:
+          $ref: "#/components/schemas/ReviewPolicy"
+
+    DirectChangesRequest:
+      type: object
+      required: [changes]
+      properties:
+        summary:
+          type: string
+          maxLength: 200
+          description: Version summary (defaults to "Direct edit")
+        changes:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/ChangeInput"
+
+    DirectOutcome:
+      type: string
+      enum: [merged, draft, in_review]
+
+    DirectResult:
+      type: object
+      required: [outcome, changeset, version, reason]
+      properties:
+        outcome:
+          $ref: "#/components/schemas/DirectOutcome"
+        changeset:
+          $ref: "#/components/schemas/Changeset"
+        version:
+          type: integer
+          description: The new main version (0 unless merged)
+        reason:
+          type: string
+          description: Why the edit was not merged directly (empty when merged)
 
     ChangesetList:
       type: object
@@ -884,7 +1731,7 @@ components:
 
     ChangeTarget:
       type: string
-      enum: [element, relation]
+      enum: [element, relation, owner, ownership]
 
     Change:
       type: object
@@ -945,13 +1792,19 @@ components:
           type: object
           additionalProperties: true
           description: |
-            add: the entity fields (element - kind, name, parent_id, description, technology, tags, protected;
-            relation - source_id, target_id, kind, description, technology).
-            update: only the fields to change (null clears parent_id).
+            add: the entity fields:
+              element - kind, name, parent_id, description, technology, tags, protected, layer, projects,
+                replicas, properties, type, environment, lifecycle, criticality, runbook_url, docs_url, last_reviewed_at;
+              relation - source_id, target_id, kind, description, technology;
+              owner - kind, name, contact, oncall_url;
+              ownership - element_id, owner_id, role (the id is derived from element_id and role).
+            update: only the fields to change (null clears parent_id / last_reviewed_at; an ownership update may only set owner_id).
             delete: omitted.
         cascade:
           type: boolean
-          description: Delete an element that has children together with all its descendants.
+          description: |
+            Element: delete it together with all its descendants (relations and ownerships always go with it).
+            Owner: delete it together with its ownership assignments.
 
     AddChangesRequest:
       type: object
@@ -998,9 +1851,35 @@ components:
           items:
             $ref: "#/components/schemas/FieldChange"
 
+    OwnerModification:
+      type: object
+      required: [before, after, fields]
+      properties:
+        before:
+          $ref: "#/components/schemas/Owner"
+        after:
+          $ref: "#/components/schemas/Owner"
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldChange"
+
+    OwnershipModification:
+      type: object
+      required: [before, after, fields]
+      properties:
+        before:
+          $ref: "#/components/schemas/Ownership"
+        after:
+          $ref: "#/components/schemas/Ownership"
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldChange"
+
     Diff:
       type: object
-      required: [base_version, main_version, stale, elements, relations]
+      required: [base_version, main_version, stale, elements, relations, owners, ownerships]
       properties:
         base_version: { type: integer }
         main_version: { type: integer }
@@ -1039,6 +1918,38 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/RelationModification"
+        owners:
+          type: object
+          required: [added, removed, modified]
+          properties:
+            added:
+              type: array
+              items:
+                $ref: "#/components/schemas/Owner"
+            removed:
+              type: array
+              items:
+                $ref: "#/components/schemas/Owner"
+            modified:
+              type: array
+              items:
+                $ref: "#/components/schemas/OwnerModification"
+        ownerships:
+          type: object
+          required: [added, removed, modified]
+          properties:
+            added:
+              type: array
+              items:
+                $ref: "#/components/schemas/Ownership"
+            removed:
+              type: array
+              items:
+                $ref: "#/components/schemas/Ownership"
+            modified:
+              type: array
+              items:
+                $ref: "#/components/schemas/OwnershipModification"
 
     LintSeverity:
       type: string
@@ -1136,13 +2047,20 @@ components:
 
     Version:
       type: object
-      required: [number, changeset_id, merged_by, merged_at, summary]
+      required: [number, changeset_id, merged_by, merged_at, summary, kind, reverts]
       properties:
         number: { type: integer }
         changeset_id: { type: string, format: uuid }
         merged_by: { type: string, format: uuid }
         merged_at: { type: string, format: date-time }
         summary: { type: string }
+        kind:
+          $ref: "#/components/schemas/ChangesetKind"
+        reverts:
+          type: string
+          format: uuid
+          nullable: true
+          description: The direct edit this version undoes
 
     VersionList:
       type: object
@@ -1155,7 +2073,7 @@ components:
 
     ViewKind:
       type: string
-      enum: [landscape, context, container, component, deployment, custom, layers]
+      enum: [landscape, context, container, component, deployment, custom, layers, unowned]
 
     View:
       type: object

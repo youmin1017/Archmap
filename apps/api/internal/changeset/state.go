@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"encoding/json"
 	"slices"
 	"strings"
 
@@ -13,20 +14,30 @@ import (
 // State is a mutable in-memory model: main plus applied changes. It is the
 // "effective model" of a draft. Deleted entities are removed from the maps.
 type State struct {
-	elements  map[uuid.UUID]model.Element
-	relations map[uuid.UUID]model.Relation
+	elements   map[uuid.UUID]model.Element
+	relations  map[uuid.UUID]model.Relation
+	owners     map[uuid.UUID]model.Owner
+	ownerships map[uuid.UUID]model.Ownership
 }
 
 func NewState(base model.Snapshot) *State {
 	s := &State{
-		elements:  make(map[uuid.UUID]model.Element, len(base.Elements)),
-		relations: make(map[uuid.UUID]model.Relation, len(base.Relations)),
+		elements:   make(map[uuid.UUID]model.Element, len(base.Elements)),
+		relations:  make(map[uuid.UUID]model.Relation, len(base.Relations)),
+		owners:     make(map[uuid.UUID]model.Owner, len(base.Owners)),
+		ownerships: make(map[uuid.UUID]model.Ownership, len(base.Ownerships)),
 	}
 	for _, e := range base.Elements {
-		s.elements[e.ID] = e
+		s.elements[e.ID] = e.Normalized()
 	}
 	for _, r := range base.Relations {
 		s.relations[r.ID] = r
+	}
+	for _, o := range base.Owners {
+		s.owners[o.ID] = o
+	}
+	for _, o := range base.Ownerships {
+		s.ownerships[o.ID] = o
 	}
 	return s
 }
@@ -42,6 +53,22 @@ func Overlay(base model.Snapshot, changes []Change) (*State, error) {
 	return s, nil
 }
 
+// exists reports whether the state has an entity of the given type and id.
+func (s *State) exists(tt TargetType, id uuid.UUID) bool {
+	var ok bool
+	switch tt {
+	case TargetElement:
+		_, ok = s.Element(id)
+	case TargetRelation:
+		_, ok = s.Relation(id)
+	case TargetOwner:
+		_, ok = s.Owner(id)
+	case TargetOwnership:
+		_, ok = s.Ownership(id)
+	}
+	return ok
+}
+
 func (s *State) Element(id uuid.UUID) (model.Element, bool) {
 	e, ok := s.elements[id]
 	return e, ok
@@ -52,6 +79,16 @@ func (s *State) Relation(id uuid.UUID) (model.Relation, bool) {
 	return r, ok
 }
 
+func (s *State) Owner(id uuid.UUID) (model.Owner, bool) {
+	o, ok := s.owners[id]
+	return o, ok
+}
+
+func (s *State) Ownership(id uuid.UUID) (model.Ownership, bool) {
+	o, ok := s.ownerships[id]
+	return o, ok
+}
+
 // Apply applies one change; inconsistencies (unknown target, duplicate add) are errors.
 func (s *State) Apply(c Change) error {
 	switch c.TargetType {
@@ -59,6 +96,14 @@ func (s *State) Apply(c Change) error {
 		return s.applyElement(c)
 	case TargetRelation:
 		return s.applyRelation(c)
+	case TargetOwner:
+		return applyEntity(s.owners, c, "owner",
+			func() model.Owner { return model.Owner{ID: c.TargetID, Version: 1, CreatedAt: c.CreatedAt} },
+			model.ApplyOwnerPatch, func(o *model.Owner) { o.UpdatedAt = c.CreatedAt })
+	case TargetOwnership:
+		return applyEntity(s.ownerships, c, "ownership",
+			func() model.Ownership { return model.Ownership{ID: c.TargetID, Version: 1, CreatedAt: c.CreatedAt} },
+			model.ApplyOwnershipPatch, func(o *model.Ownership) { o.UpdatedAt = c.CreatedAt })
 	}
 	return apperr.Invalid("unknown target type %q", c.TargetType)
 }
@@ -129,6 +174,43 @@ func (s *State) applyRelation(c Change) error {
 	return nil
 }
 
+// applyEntity applies one change to a map of entities (owners, ownerships).
+func applyEntity[T any](m map[uuid.UUID]T, c Change, what string, fresh func() T,
+	apply func(T, json.RawMessage) (T, error), touch func(*T),
+) error {
+	cur, exists := m[c.TargetID]
+	switch c.Op {
+	case OpAdd:
+		if exists {
+			return apperr.Conflict("%s %s already exists", what, c.TargetID)
+		}
+		v, err := apply(fresh(), c.Patch)
+		if err != nil {
+			return err
+		}
+		touch(&v)
+		m[c.TargetID] = v
+	case OpUpdate:
+		if !exists {
+			return apperr.NotFound("%s %s not found", what, c.TargetID)
+		}
+		v, err := apply(cur, c.Patch)
+		if err != nil {
+			return err
+		}
+		touch(&v)
+		m[c.TargetID] = v
+	case OpDelete:
+		if !exists {
+			return apperr.NotFound("%s %s not found", what, c.TargetID)
+		}
+		delete(m, c.TargetID)
+	default:
+		return apperr.Invalid("unknown op %q", c.Op)
+	}
+	return nil
+}
+
 // Snapshot returns the state in the same order the main repository uses.
 func (s *State) Snapshot() model.Snapshot {
 	els := make([]model.Element, 0, len(s.elements))
@@ -151,7 +233,39 @@ func (s *State) Snapshot() model.Snapshot {
 		}
 		return strings.Compare(a.ID.String(), b.ID.String())
 	})
-	return model.Snapshot{Elements: els, Relations: rels}
+	owners := make([]model.Owner, 0, len(s.owners))
+	for _, o := range s.owners {
+		owners = append(owners, o)
+	}
+	slices.SortFunc(owners, func(a, b model.Owner) int {
+		if c := strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)); c != 0 {
+			return c
+		}
+		return strings.Compare(a.ID.String(), b.ID.String())
+	})
+	ownerships := make([]model.Ownership, 0, len(s.ownerships))
+	for _, o := range s.ownerships {
+		ownerships = append(ownerships, o)
+	}
+	slices.SortFunc(ownerships, func(a, b model.Ownership) int {
+		if c := strings.Compare(a.ElementID.String(), b.ElementID.String()); c != 0 {
+			return c
+		}
+		return strings.Compare(string(a.Role), string(b.Role))
+	})
+	return model.Snapshot{Elements: els, Relations: rels, Owners: owners, Ownerships: ownerships}
+}
+
+// ownershipsOf returns the ids of ownerships of the given elements or owners.
+func (s *State) ownershipsOf(elements, owners map[uuid.UUID]bool) []uuid.UUID {
+	var out []uuid.UUID
+	for _, o := range s.ownerships {
+		if elements[o.ElementID] || owners[o.OwnerID] {
+			out = append(out, o.ID)
+		}
+	}
+	slices.SortFunc(out, func(a, b uuid.UUID) int { return strings.Compare(a.String(), b.String()) })
+	return out
 }
 
 // descendants returns all descendants of id, deepest first (safe delete order).

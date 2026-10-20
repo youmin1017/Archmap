@@ -21,12 +21,11 @@ import (
 	"archmap/api/internal/seed"
 	"archmap/api/internal/user"
 	userrepo "archmap/api/internal/user/repository"
-	"archmap/api/internal/user/repository/sqlcgen"
 	"archmap/api/internal/view"
 	viewrepo "archmap/api/internal/view/repository"
 )
 
-const devPassword = "archmap-dev" // dev seed only; never used outside local environments
+const devPassword = "archmap-dev-password" // dev seed only; never used outside local environments
 
 func main() {
 	if err := run(); err != nil {
@@ -47,23 +46,19 @@ func run() error {
 	}
 	defer pool.Close()
 
-	hash, err := user.HashPassword(devPassword)
-	if err != nil {
-		return err
-	}
-	q := sqlcgen.New(pool)
+	users := user.NewService(userrepo.New(pool))
 	for _, u := range []struct {
 		email, name string
-		role        sqlcgen.UserRole
+		role        authctx.Role
 	}{
-		{"viewer@archmap.local", "Vera Viewer", sqlcgen.UserRoleViewer},
-		{"editor@archmap.local", "Eddie Editor", sqlcgen.UserRoleEditor},
-		{"maintainer@archmap.local", "Mia Maintainer", sqlcgen.UserRoleMaintainer},
+		{"viewer@archmap.local", "Vera Viewer", authctx.RoleViewer},
+		{"editor@archmap.local", "Eddie Editor", authctx.RoleEditor},
+		{"maintainer@archmap.local", "Mia Maintainer", authctx.RoleMaintainer},
 	} {
-		if _, err := q.UpsertUser(ctx, sqlcgen.UpsertUserParams{
-			Email: u.email, Name: u.name, Role: u.role, PasswordHash: hash,
+		if _, err := users.EnsureLocal(ctx, user.LocalAccount{
+			Email: u.email, Name: u.name, Role: u.role, Password: devPassword,
 		}); err != nil {
-			return fmt.Errorf("upsert %s: %w", u.email, err)
+			return fmt.Errorf("seed %s: %w", u.email, err)
 		}
 		fmt.Printf("seeded %s (%s)\n", u.email, u.role)
 	}
@@ -78,7 +73,7 @@ func run() error {
 
 // seedModel creates main's version 1 from the sample model; a no-op once any version exists.
 func seedModel(ctx context.Context, pool *pgxpool.Pool) error {
-	maintainer, err := userrepo.New(pool).ActorByEmail(ctx, "maintainer@archmap.local")
+	maintainer, err := seedMaintainer(ctx, pool)
 	if err != nil {
 		return err
 	}
@@ -97,7 +92,7 @@ func seedModel(ctx context.Context, pool *pgxpool.Pool) error {
 
 // seedLayersView creates a sample layers view once; later runs leave views alone.
 func seedLayersView(ctx context.Context, pool *pgxpool.Pool) error {
-	maintainer, err := userrepo.New(pool).ActorByEmail(ctx, "maintainer@archmap.local")
+	maintainer, err := seedMaintainer(ctx, pool)
 	if err != nil {
 		return err
 	}
@@ -122,7 +117,7 @@ func seedLayersView(ctx context.Context, pool *pgxpool.Pool) error {
 
 // seedLayerRules sets a sample rule (databases belong on Services or Data) when no rules exist yet.
 func seedLayerRules(ctx context.Context, pool *pgxpool.Pool) error {
-	maintainer, err := userrepo.New(pool).ActorByEmail(ctx, "maintainer@archmap.local")
+	maintainer, err := seedMaintainer(ctx, pool)
 	if err != nil {
 		return err
 	}
@@ -136,9 +131,20 @@ func seedLayerRules(ctx context.Context, pool *pgxpool.Pool) error {
 		fmt.Println("layer rules already present; skipped")
 		return nil
 	}
-	if _, err := svc.Replace(ctx, []model.LayerRule{{Class: string(model.KindDatabase), Layers: seed.SampleDatabaseLayers}}); err != nil {
+	if _, err := svc.Replace(ctx, []model.LayerRule{{Class: string(model.TypeDatabase), Layers: seed.SampleDatabaseLayers}}); err != nil {
 		return fmt.Errorf("seed layer rules: %w", err)
 	}
 	fmt.Println("seeded layer rules")
 	return nil
+}
+
+// seedMaintainer returns the seeded maintainer as an actor.
+func seedMaintainer(ctx context.Context, pool *pgxpool.Pool) (authctx.Actor, error) {
+	id, err := user.NewService(userrepo.New(pool)).EnsureLocal(ctx, user.LocalAccount{
+		Email: "maintainer@archmap.local", Name: "Mia Maintainer", Role: authctx.RoleMaintainer, Password: devPassword,
+	})
+	if err != nil {
+		return authctx.Actor{}, err
+	}
+	return authctx.Actor{ID: id, Email: "maintainer@archmap.local", Name: "Mia Maintainer", Role: authctx.RoleMaintainer}, nil
 }

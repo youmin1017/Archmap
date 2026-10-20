@@ -4,8 +4,8 @@ import * as z from 'zod';
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AbandonChangesetData, AbandonChangesetErrors, AbandonChangesetResponses, AddChangesData, AddChangesErrors, AddChangesResponses, ApproveChangesetData, ApproveChangesetErrors, ApproveChangesetResponses, CreateChangesetData, CreateChangesetErrors, CreateChangesetResponses, CreateViewData, CreateViewErrors, CreateViewResponses, DeleteViewData, DeleteViewErrors, DeleteViewResponses, GetChangesetConflictsData, GetChangesetConflictsErrors, GetChangesetConflictsResponses, GetChangesetData, GetChangesetDiffData, GetChangesetDiffErrors, GetChangesetDiffResponses, GetChangesetErrors, GetChangesetLintData, GetChangesetLintErrors, GetChangesetLintResponses, GetChangesetModelData, GetChangesetModelErrors, GetChangesetModelResponses, GetChangesetResponses, GetElementData, GetElementErrors, GetElementResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetRelationData, GetRelationErrors, GetRelationResponses, GetVersionDiffData, GetVersionDiffErrors, GetVersionDiffResponses, GetVersionModelData, GetVersionModelErrors, GetVersionModelResponses, GetViewModelData, GetViewModelErrors, GetViewModelResponses, ListChangesetsData, ListChangesetsErrors, ListChangesetsResponses, ListElementsData, ListElementsErrors, ListElementsResponses, ListLayerRulesData, ListLayerRulesErrors, ListLayerRulesResponses, ListRelationsData, ListRelationsErrors, ListRelationsResponses, ListUsersData, ListUsersErrors, ListUsersResponses, ListVersionsData, ListVersionsErrors, ListVersionsResponses, ListViewsData, ListViewsErrors, ListViewsResponses, MergeChangesetData, MergeChangesetErrors, MergeChangesetResponses, RedoChangeData, RedoChangeErrors, RedoChangeResponses, RejectChangesetData, RejectChangesetErrors, RejectChangesetResponses, ReplaceLayerRulesData, ReplaceLayerRulesErrors, ReplaceLayerRulesResponses, ResolveChangesetData, ResolveChangesetErrors, ResolveChangesetResponses, SetUserRoleData, SetUserRoleErrors, SetUserRoleResponses, SetViewLayoutData, SetViewLayoutErrors, SetViewLayoutResponses, SubmitChangesetData, SubmitChangesetErrors, SubmitChangesetResponses, UndoChangeData, UndoChangeErrors, UndoChangeResponses, UpdateViewData, UpdateViewErrors, UpdateViewResponses } from './types.gen';
-import { zAbandonChangesetPath, zAbandonChangesetResponse, zAddChangesBody, zAddChangesPath, zAddChangesResponse, zApproveChangesetPath, zApproveChangesetResponse, zCreateChangesetBody, zCreateChangesetResponse, zCreateViewBody, zCreateViewResponse, zDeleteViewPath, zDeleteViewResponse, zGetChangesetConflictsPath, zGetChangesetConflictsResponse, zGetChangesetDiffPath, zGetChangesetDiffResponse, zGetChangesetLintPath, zGetChangesetLintResponse, zGetChangesetModelPath, zGetChangesetModelResponse, zGetChangesetPath, zGetChangesetResponse, zGetElementPath, zGetElementResponse, zGetHealthResponse, zGetMeResponse, zGetRelationPath, zGetRelationResponse, zGetVersionDiffPath, zGetVersionDiffResponse, zGetVersionModelPath, zGetVersionModelResponse, zGetViewModelPath, zGetViewModelQuery, zGetViewModelResponse, zListChangesetsQuery, zListChangesetsResponse, zListElementsQuery, zListElementsResponse, zListLayerRulesResponse, zListRelationsQuery, zListRelationsResponse, zListUsersResponse, zListVersionsResponse, zListViewsResponse, zMergeChangesetPath, zMergeChangesetResponse, zRedoChangePath, zRedoChangeResponse, zRejectChangesetPath, zRejectChangesetResponse, zReplaceLayerRulesBody, zReplaceLayerRulesResponse, zResolveChangesetBody, zResolveChangesetPath, zResolveChangesetResponse, zSetUserRoleBody, zSetUserRolePath, zSetUserRoleResponse, zSetViewLayoutBody, zSetViewLayoutPath, zSetViewLayoutResponse, zSubmitChangesetPath, zSubmitChangesetResponse, zUndoChangePath, zUndoChangeResponse, zUpdateViewBody, zUpdateViewPath, zUpdateViewResponse } from './zod.gen';
+import type { AbandonChangesetData, AbandonChangesetErrors, AbandonChangesetResponses, AddChangesData, AddChangesErrors, AddChangesResponses, ApplyDirectData, ApplyDirectErrors, ApplyDirectResponses, ApproveChangesetData, ApproveChangesetErrors, ApproveChangesetResponses, AuthCallbackData, AuthCallbackErrors, AuthCallbackResponses, ChangeMyPasswordData, ChangeMyPasswordErrors, ChangeMyPasswordResponses, CreateChangesetData, CreateChangesetErrors, CreateChangesetResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, CreateUserData, CreateUserErrors, CreateUserResponses, CreateViewData, CreateViewErrors, CreateViewResponses, DeleteGroupData, DeleteGroupErrors, DeleteGroupResponses, DeleteViewData, DeleteViewErrors, DeleteViewResponses, DisableUserData, DisableUserErrors, DisableUserResponses, EnableUserData, EnableUserErrors, EnableUserResponses, GetChangesetConflictsData, GetChangesetConflictsErrors, GetChangesetConflictsResponses, GetChangesetData, GetChangesetDiffData, GetChangesetDiffErrors, GetChangesetDiffResponses, GetChangesetErrors, GetChangesetLintData, GetChangesetLintErrors, GetChangesetLintResponses, GetChangesetModelData, GetChangesetModelErrors, GetChangesetModelResponses, GetChangesetResponses, GetDirectoryData, GetDirectoryErrors, GetDirectoryResponses, GetElementData, GetElementErrors, GetElementResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetMeData, GetMeErrors, GetMeResponses, GetRelationData, GetRelationErrors, GetRelationResponses, GetSessionData, GetSessionErrors, GetSessionResponses, GetSettingsData, GetSettingsErrors, GetSettingsResponses, GetVersionDiffData, GetVersionDiffErrors, GetVersionDiffResponses, GetVersionModelData, GetVersionModelErrors, GetVersionModelResponses, GetViewModelData, GetViewModelErrors, GetViewModelResponses, LinkUserIdentityData, LinkUserIdentityErrors, LinkUserIdentityResponses, ListAuthProvidersData, ListAuthProvidersErrors, ListAuthProvidersResponses, ListChangesetsData, ListChangesetsErrors, ListChangesetsResponses, ListElementsData, ListElementsErrors, ListElementsResponses, ListGroupsData, ListGroupsErrors, ListGroupsResponses, ListLayerRulesData, ListLayerRulesErrors, ListLayerRulesResponses, ListOwnersData, ListOwnersErrors, ListOwnersResponses, ListRelationsData, ListRelationsErrors, ListRelationsResponses, ListUserIdentitiesData, ListUserIdentitiesErrors, ListUserIdentitiesResponses, ListUsersData, ListUsersErrors, ListUsersResponses, ListVersionsData, ListVersionsErrors, ListVersionsResponses, ListViewsData, ListViewsErrors, ListViewsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, MergeChangesetData, MergeChangesetErrors, MergeChangesetResponses, RedoChangeData, RedoChangeErrors, RedoChangeResponses, RejectChangesetData, RejectChangesetErrors, RejectChangesetResponses, ReplaceLayerRulesData, ReplaceLayerRulesErrors, ReplaceLayerRulesResponses, ResetUserPasswordData, ResetUserPasswordErrors, ResetUserPasswordResponses, ResolveChangesetData, ResolveChangesetErrors, ResolveChangesetResponses, RevertDirectData, RevertDirectErrors, RevertDirectResponses, SetGroupMembersData, SetGroupMembersErrors, SetGroupMembersResponses, SetUserRoleData, SetUserRoleErrors, SetUserRoleResponses, SetViewLayoutData, SetViewLayoutErrors, SetViewLayoutResponses, StartAuthRedirectData, StartAuthRedirectErrors, StartAuthRedirectResponses, SubmitChangesetData, SubmitChangesetErrors, SubmitChangesetResponses, UndoChangeData, UndoChangeErrors, UndoChangeResponses, UnlinkUserIdentityData, UnlinkUserIdentityErrors, UnlinkUserIdentityResponses, UpdateGroupData, UpdateGroupErrors, UpdateGroupResponses, UpdateSettingsData, UpdateSettingsErrors, UpdateSettingsResponses, UpdateViewData, UpdateViewErrors, UpdateViewResponses } from './types.gen';
+import { zAbandonChangesetPath, zAbandonChangesetResponse, zAddChangesBody, zAddChangesPath, zAddChangesResponse, zApplyDirectBody, zApplyDirectResponse, zApproveChangesetPath, zApproveChangesetResponse, zAuthCallbackPath, zAuthCallbackQuery, zAuthCallbackResponse, zChangeMyPasswordBody, zChangeMyPasswordResponse, zCreateChangesetBody, zCreateChangesetResponse, zCreateGroupBody, zCreateGroupResponse, zCreateUserBody, zCreateUserResponse, zCreateViewBody, zCreateViewResponse, zDeleteGroupPath, zDeleteGroupResponse, zDeleteViewPath, zDeleteViewResponse, zDisableUserPath, zDisableUserResponse, zEnableUserPath, zEnableUserResponse, zGetChangesetConflictsPath, zGetChangesetConflictsResponse, zGetChangesetDiffPath, zGetChangesetDiffResponse, zGetChangesetLintPath, zGetChangesetLintResponse, zGetChangesetModelPath, zGetChangesetModelResponse, zGetChangesetPath, zGetChangesetResponse, zGetDirectoryResponse, zGetElementPath, zGetElementResponse, zGetHealthResponse, zGetMeResponse, zGetRelationPath, zGetRelationResponse, zGetSessionResponse, zGetSettingsResponse, zGetVersionDiffPath, zGetVersionDiffResponse, zGetVersionModelPath, zGetVersionModelResponse, zGetViewModelPath, zGetViewModelQuery, zGetViewModelResponse, zLinkUserIdentityBody, zLinkUserIdentityPath, zLinkUserIdentityResponse, zListAuthProvidersResponse, zListChangesetsQuery, zListChangesetsResponse, zListElementsQuery, zListElementsResponse, zListGroupsResponse, zListLayerRulesResponse, zListOwnersResponse, zListRelationsQuery, zListRelationsResponse, zListUserIdentitiesPath, zListUserIdentitiesResponse, zListUsersResponse, zListVersionsResponse, zListViewsResponse, zLoginBody, zLoginResponse, zLogoutResponse, zMergeChangesetPath, zMergeChangesetResponse, zRedoChangePath, zRedoChangeResponse, zRejectChangesetPath, zRejectChangesetResponse, zReplaceLayerRulesBody, zReplaceLayerRulesResponse, zResetUserPasswordBody, zResetUserPasswordPath, zResetUserPasswordResponse, zResolveChangesetBody, zResolveChangesetPath, zResolveChangesetResponse, zRevertDirectPath, zRevertDirectResponse, zSetGroupMembersBody, zSetGroupMembersPath, zSetGroupMembersResponse, zSetUserRoleBody, zSetUserRolePath, zSetUserRoleResponse, zSetViewLayoutBody, zSetViewLayoutPath, zSetViewLayoutResponse, zStartAuthRedirectPath, zStartAuthRedirectQuery, zStartAuthRedirectResponse, zSubmitChangesetPath, zSubmitChangesetResponse, zUndoChangePath, zUndoChangeResponse, zUnlinkUserIdentityPath, zUnlinkUserIdentityResponse, zUpdateGroupBody, zUpdateGroupPath, zUpdateGroupResponse, zUpdateSettingsBody, zUpdateSettingsResponse, zUpdateViewBody, zUpdateViewPath, zUpdateViewResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -45,7 +45,135 @@ export const getMe = <ThrowOnError extends boolean = false>(options?: Options<Ge
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zGetMeResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/me',
+    ...options
+});
+
+/**
+ * Change the caller's local password (other sessions are revoked)
+ */
+export const changeMyPassword = <ThrowOnError extends boolean = false>(options: Options<ChangeMyPasswordData, ThrowOnError>): RequestResult<ChangeMyPasswordResponses, ChangeMyPasswordErrors, ThrowOnError> => (options.client ?? client).put<ChangeMyPasswordResponses, ChangeMyPasswordErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zChangeMyPasswordBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zChangeMyPasswordResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/me/password',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Sign-in methods available on this server (the login page renders from this)
+ */
+export const listAuthProviders = <ThrowOnError extends boolean = false>(options?: Options<ListAuthProvidersData, ThrowOnError>): RequestResult<ListAuthProvidersResponses, ListAuthProvidersErrors, ThrowOnError> => (options?.client ?? client).get<ListAuthProvidersResponses, ListAuthProvidersErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListAuthProvidersResponse.parseAsync(data),
+    url: '/api/v1/auth/providers',
+    ...options
+});
+
+/**
+ * Sign in with a password-kind provider; sets the session cookie
+ *
+ * Failed credentials always answer 401 with the same message. 403 means the
+ * credentials were correct but the account is disabled, has no account for
+ * this identity, or must use single sign-on. 429 carries Retry-After.
+ *
+ */
+export const login = <ThrowOnError extends boolean = false>(options: Options<LoginData, ThrowOnError>): RequestResult<LoginResponses, LoginErrors, ThrowOnError> => (options.client ?? client).post<LoginResponses, LoginErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zLoginBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zLoginResponse.parseAsync(data),
+    url: '/api/v1/auth/login',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Start a redirect-kind login (browser navigation; redirects to the identity provider)
+ */
+export const startAuthRedirect = <ThrowOnError extends boolean = false>(options: Options<StartAuthRedirectData, ThrowOnError>): RequestResult<StartAuthRedirectResponses, StartAuthRedirectErrors, ThrowOnError> => (options.client ?? client).get<StartAuthRedirectResponses, StartAuthRedirectErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zStartAuthRedirectPath,
+        query: zStartAuthRedirectQuery.optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zStartAuthRedirectResponse.parseAsync(data),
+    url: '/api/v1/auth/{provider}/start',
+    ...options
+});
+
+/**
+ * Redirect-kind login callback; sets the session cookie and redirects into the app
+ *
+ * Failures redirect to `/login?error=<code>` instead of answering problem+json.
+ */
+export const authCallback = <ThrowOnError extends boolean = false>(options: Options<AuthCallbackData, ThrowOnError>): RequestResult<AuthCallbackResponses, AuthCallbackErrors, ThrowOnError> => (options.client ?? client).get<AuthCallbackResponses, AuthCallbackErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zAuthCallbackPath,
+        query: zAuthCallbackQuery.optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zAuthCallbackResponse.parseAsync(data),
+    url: '/api/v1/auth/{provider}/callback',
+    ...options
+});
+
+/**
+ * End the current session and clear the cookie
+ */
+export const logout = <ThrowOnError extends boolean = false>(options?: Options<LogoutData, ThrowOnError>): RequestResult<LogoutResponses, LogoutErrors, ThrowOnError> => (options?.client ?? client).post<LogoutResponses, LogoutErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zLogoutResponse.parseAsync(data),
+    url: '/api/v1/auth/logout',
+    ...options
+});
+
+/**
+ * The current session (user, CSRF token, expiry); 401 when signed out
+ */
+export const getSession = <ThrowOnError extends boolean = false>(options?: Options<GetSessionData, ThrowOnError>): RequestResult<GetSessionResponses, GetSessionErrors, ThrowOnError> => (options?.client ?? client).get<GetSessionResponses, GetSessionErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetSessionResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/auth/session',
     ...options
 });
 
@@ -59,8 +187,38 @@ export const listUsers = <ThrowOnError extends boolean = false>(options?: Option
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zListUsersResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/users',
     ...options
+});
+
+/**
+ * Create a user with a local password identity (maintainers only)
+ *
+ * Without `password` a temporary password is generated, returned once, and must be changed at first sign-in.
+ */
+export const createUser = <ThrowOnError extends boolean = false>(options: Options<CreateUserData, ThrowOnError>): RequestResult<CreateUserResponses, CreateUserErrors, ThrowOnError> => (options.client ?? client).post<CreateUserResponses, CreateUserErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zCreateUserBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zCreateUserResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/users',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
@@ -73,7 +231,262 @@ export const setUserRole = <ThrowOnError extends boolean = false>(options: Optio
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zSetUserRoleResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/users/{id}/role',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Disable a user and end their sessions (maintainers only; not yourself, not the last break-glass maintainer)
+ */
+export const disableUser = <ThrowOnError extends boolean = false>(options: Options<DisableUserData, ThrowOnError>): RequestResult<DisableUserResponses, DisableUserErrors, ThrowOnError> => (options.client ?? client).post<DisableUserResponses, DisableUserErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zDisableUserPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zDisableUserResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/users/{id}/disable',
+    ...options
+});
+
+/**
+ * Re-enable a disabled user (maintainers only)
+ */
+export const enableUser = <ThrowOnError extends boolean = false>(options: Options<EnableUserData, ThrowOnError>): RequestResult<EnableUserResponses, EnableUserErrors, ThrowOnError> => (options.client ?? client).post<EnableUserResponses, EnableUserErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zEnableUserPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zEnableUserResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/users/{id}/enable',
+    ...options
+});
+
+/**
+ * Set a new local password for a user and end their sessions (maintainers only)
+ *
+ * Without `password` a temporary one is generated and returned once. Either way the user must change it at next sign-in.
+ */
+export const resetUserPassword = <ThrowOnError extends boolean = false>(options: Options<ResetUserPasswordData, ThrowOnError>): RequestResult<ResetUserPasswordResponses, ResetUserPasswordErrors, ThrowOnError> => (options.client ?? client).post<ResetUserPasswordResponses, ResetUserPasswordErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zResetUserPasswordBody,
+        path: zResetUserPasswordPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zResetUserPasswordResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/users/{id}/password-reset',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * A user's sign-in identities (maintainers only)
+ */
+export const listUserIdentities = <ThrowOnError extends boolean = false>(options: Options<ListUserIdentitiesData, ThrowOnError>): RequestResult<ListUserIdentitiesResponses, ListUserIdentitiesErrors, ThrowOnError> => (options.client ?? client).get<ListUserIdentitiesResponses, ListUserIdentitiesErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zListUserIdentitiesPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListUserIdentitiesResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/users/{id}/identities',
+    ...options
+});
+
+/**
+ * Link an external identity (provider + subject) to a user (maintainers only; never automatic)
+ */
+export const linkUserIdentity = <ThrowOnError extends boolean = false>(options: Options<LinkUserIdentityData, ThrowOnError>): RequestResult<LinkUserIdentityResponses, LinkUserIdentityErrors, ThrowOnError> => (options.client ?? client).post<LinkUserIdentityResponses, LinkUserIdentityErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zLinkUserIdentityBody,
+        path: zLinkUserIdentityPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zLinkUserIdentityResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/users/{id}/identities',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Remove a sign-in identity and the sessions created with it (maintainers only)
+ */
+export const unlinkUserIdentity = <ThrowOnError extends boolean = false>(options: Options<UnlinkUserIdentityData, ThrowOnError>): RequestResult<UnlinkUserIdentityResponses, UnlinkUserIdentityErrors, ThrowOnError> => (options.client ?? client).delete<UnlinkUserIdentityResponses, UnlinkUserIdentityErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zUnlinkUserIdentityPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zUnlinkUserIdentityResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/users/{id}/identities/{identityId}',
+    ...options
+});
+
+/**
+ * Users (name, email, disabled) and groups, for picking owners (any signed-in user)
+ */
+export const getDirectory = <ThrowOnError extends boolean = false>(options?: Options<GetDirectoryData, ThrowOnError>): RequestResult<GetDirectoryResponses, GetDirectoryErrors, ThrowOnError> => (options?.client ?? client).get<GetDirectoryResponses, GetDirectoryErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetDirectoryResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/directory',
+    ...options
+});
+
+/**
+ * Groups and their members (any signed-in user)
+ */
+export const listGroups = <ThrowOnError extends boolean = false>(options?: Options<ListGroupsData, ThrowOnError>): RequestResult<ListGroupsResponses, ListGroupsErrors, ThrowOnError> => (options?.client ?? client).get<ListGroupsResponses, ListGroupsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListGroupsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/groups',
+    ...options
+});
+
+/**
+ * Create a group (maintainers only)
+ */
+export const createGroup = <ThrowOnError extends boolean = false>(options: Options<CreateGroupData, ThrowOnError>): RequestResult<CreateGroupResponses, CreateGroupErrors, ThrowOnError> => (options.client ?? client).post<CreateGroupResponses, CreateGroupErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zCreateGroupBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zCreateGroupResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/groups',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a group (maintainers only); owners pointing at it keep their name and lint warns
+ */
+export const deleteGroup = <ThrowOnError extends boolean = false>(options: Options<DeleteGroupData, ThrowOnError>): RequestResult<DeleteGroupResponses, DeleteGroupErrors, ThrowOnError> => (options.client ?? client).delete<DeleteGroupResponses, DeleteGroupErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zDeleteGroupPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zDeleteGroupResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/groups/{id}',
+    ...options
+});
+
+/**
+ * Rename a group or change its description (maintainers only)
+ */
+export const updateGroup = <ThrowOnError extends boolean = false>(options: Options<UpdateGroupData, ThrowOnError>): RequestResult<UpdateGroupResponses, UpdateGroupErrors, ThrowOnError> => (options.client ?? client).put<UpdateGroupResponses, UpdateGroupErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zUpdateGroupBody,
+        path: zUpdateGroupPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zUpdateGroupResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/groups/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Replace a group's members (maintainers only)
+ */
+export const setGroupMembers = <ThrowOnError extends boolean = false>(options: Options<SetGroupMembersData, ThrowOnError>): RequestResult<SetGroupMembersResponses, SetGroupMembersErrors, ThrowOnError> => (options.client ?? client).put<SetGroupMembersResponses, SetGroupMembersErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zSetGroupMembersBody,
+        path: zSetGroupMembersPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zSetGroupMembersResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/groups/{id}/members',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -91,6 +504,11 @@ export const listElements = <ThrowOnError extends boolean = false>(options?: Opt
         query: zListElementsQuery.optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zListElementsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/model/elements',
     ...options
 });
@@ -105,7 +523,31 @@ export const getElement = <ThrowOnError extends boolean = false>(options: Option
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zGetElementResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/model/elements/{id}',
+    ...options
+});
+
+/**
+ * Owners and ownership assignments of main
+ */
+export const listOwners = <ThrowOnError extends boolean = false>(options?: Options<ListOwnersData, ThrowOnError>): RequestResult<ListOwnersResponses, ListOwnersErrors, ThrowOnError> => (options?.client ?? client).get<ListOwnersResponses, ListOwnersErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zListOwnersResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/model/owners',
     ...options
 });
 
@@ -119,6 +561,11 @@ export const listRelations = <ThrowOnError extends boolean = false>(options?: Op
         query: zListRelationsQuery.optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zListRelationsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/model/relations',
     ...options
 });
@@ -133,7 +580,105 @@ export const getRelation = <ThrowOnError extends boolean = false>(options: Optio
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zGetRelationResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/model/relations/{id}',
+    ...options
+});
+
+/**
+ * Workspace settings (review policy)
+ */
+export const getSettings = <ThrowOnError extends boolean = false>(options?: Options<GetSettingsData, ThrowOnError>): RequestResult<GetSettingsResponses, GetSettingsErrors, ThrowOnError> => (options?.client ?? client).get<GetSettingsResponses, GetSettingsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zGetSettingsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/settings',
+    ...options
+});
+
+/**
+ * Change the workspace settings (maintainers only)
+ */
+export const updateSettings = <ThrowOnError extends boolean = false>(options: Options<UpdateSettingsData, ThrowOnError>): RequestResult<UpdateSettingsResponses, UpdateSettingsErrors, ThrowOnError> => (options.client ?? client).put<UpdateSettingsResponses, UpdateSettingsErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zUpdateSettingsBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zUpdateSettingsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/settings',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Edit main directly (review policy `direct`)
+ *
+ * Records the batch as a changeset based on the current main and merges it at once
+ * as a new version. When the batch adds lint errors it is kept as a draft instead;
+ * when it touches a protected element it is submitted for review (ADR-072).
+ *
+ */
+export const applyDirect = <ThrowOnError extends boolean = false>(options: Options<ApplyDirectData, ThrowOnError>): RequestResult<ApplyDirectResponses, ApplyDirectErrors, ThrowOnError> => (options.client ?? client).post<ApplyDirectResponses, ApplyDirectErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: zApplyDirectBody,
+        path: z.never().optional(),
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zApplyDirectResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/model/changes',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Undo a direct edit (a new version that reverses it)
+ *
+ * Fails with 409 when what the edit changed was changed again since, or when it was
+ * already undone. Only its author or a maintainer may undo it.
+ *
+ */
+export const revertDirect = <ThrowOnError extends boolean = false>(options: Options<RevertDirectData, ThrowOnError>): RequestResult<RevertDirectResponses, RevertDirectErrors, ThrowOnError> => (options.client ?? client).post<RevertDirectResponses, RevertDirectErrors, ThrowOnError>({
+    requestValidator: async (data) => await z.object({
+        body: z.never().optional(),
+        path: zRevertDirectPath,
+        query: z.never().optional()
+    }).parseAsync(data),
+    responseValidator: async (data) => await zRevertDirectResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/model/changes/{id}/revert',
     ...options
 });
 
@@ -147,6 +692,11 @@ export const listChangesets = <ThrowOnError extends boolean = false>(options?: O
         query: zListChangesetsQuery.optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zListChangesetsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/changesets',
     ...options
 });
@@ -161,6 +711,11 @@ export const createChangeset = <ThrowOnError extends boolean = false>(options: O
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zCreateChangesetResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/changesets',
     ...options,
     headers: {
@@ -179,6 +734,11 @@ export const getChangeset = <ThrowOnError extends boolean = false>(options: Opti
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zGetChangesetResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/changesets/{id}',
     ...options
 });
@@ -193,6 +753,11 @@ export const getChangesetModel = <ThrowOnError extends boolean = false>(options:
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zGetChangesetModelResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/changesets/{id}/model',
     ...options
 });
@@ -207,6 +772,11 @@ export const addChanges = <ThrowOnError extends boolean = false>(options: Option
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zAddChangesResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/changesets/{id}/changes',
     ...options,
     headers: {
@@ -225,6 +795,11 @@ export const undoChange = <ThrowOnError extends boolean = false>(options: Option
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zUndoChangeResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/changesets/{id}/changes/last',
     ...options
 });
@@ -239,6 +814,11 @@ export const redoChange = <ThrowOnError extends boolean = false>(options: Option
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zRedoChangeResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/changesets/{id}/changes/redo',
     ...options
 });
@@ -253,6 +833,11 @@ export const getChangesetDiff = <ThrowOnError extends boolean = false>(options: 
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zGetChangesetDiffResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/changesets/{id}/diff',
     ...options
 });
@@ -267,6 +852,11 @@ export const getChangesetLint = <ThrowOnError extends boolean = false>(options: 
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zGetChangesetLintResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/changesets/{id}/lint',
     ...options
 });
@@ -281,6 +871,11 @@ export const getChangesetConflicts = <ThrowOnError extends boolean = false>(opti
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zGetChangesetConflictsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/changesets/{id}/conflicts',
     ...options
 });
@@ -295,6 +890,11 @@ export const resolveChangeset = <ThrowOnError extends boolean = false>(options: 
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zResolveChangesetResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/changesets/{id}/resolve',
     ...options,
     headers: {
@@ -313,6 +913,11 @@ export const submitChangeset = <ThrowOnError extends boolean = false>(options: O
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zSubmitChangesetResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/changesets/{id}/submit',
     ...options
 });
@@ -327,6 +932,11 @@ export const approveChangeset = <ThrowOnError extends boolean = false>(options: 
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zApproveChangesetResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/changesets/{id}/approve',
     ...options
 });
@@ -341,6 +951,11 @@ export const rejectChangeset = <ThrowOnError extends boolean = false>(options: O
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zRejectChangesetResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/changesets/{id}/reject',
     ...options
 });
@@ -355,6 +970,11 @@ export const abandonChangeset = <ThrowOnError extends boolean = false>(options: 
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zAbandonChangesetResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/changesets/{id}/abandon',
     ...options
 });
@@ -375,6 +995,11 @@ export const mergeChangeset = <ThrowOnError extends boolean = false>(options: Op
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zMergeChangesetResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/changesets/{id}/merge',
     ...options
 });
@@ -389,6 +1014,11 @@ export const listLayerRules = <ThrowOnError extends boolean = false>(options?: O
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zListLayerRulesResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/layer-rules',
     ...options
 });
@@ -403,6 +1033,11 @@ export const replaceLayerRules = <ThrowOnError extends boolean = false>(options:
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zReplaceLayerRulesResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/layer-rules',
     ...options,
     headers: {
@@ -421,6 +1056,11 @@ export const listViews = <ThrowOnError extends boolean = false>(options?: Option
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zListViewsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/views',
     ...options
 });
@@ -435,6 +1075,11 @@ export const createView = <ThrowOnError extends boolean = false>(options: Option
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zCreateViewResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/views',
     ...options,
     headers: {
@@ -453,6 +1098,11 @@ export const deleteView = <ThrowOnError extends boolean = false>(options: Option
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zDeleteViewResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/views/{id}',
     ...options
 });
@@ -469,6 +1119,11 @@ export const updateView = <ThrowOnError extends boolean = false>(options: Option
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zUpdateViewResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/views/{id}',
     ...options,
     headers: {
@@ -492,6 +1147,11 @@ export const getViewModel = <ThrowOnError extends boolean = false>(options: Opti
         query: zGetViewModelQuery.optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zGetViewModelResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/views/{id}/model',
     ...options
 });
@@ -506,6 +1166,11 @@ export const setViewLayout = <ThrowOnError extends boolean = false>(options: Opt
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zSetViewLayoutResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/views/{id}/layout',
     ...options,
     headers: {
@@ -524,6 +1189,11 @@ export const listVersions = <ThrowOnError extends boolean = false>(options?: Opt
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zListVersionsResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/versions',
     ...options
 });
@@ -538,6 +1208,11 @@ export const getVersionDiff = <ThrowOnError extends boolean = false>(options: Op
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zGetVersionDiffResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/versions/{from}/diff/{to}',
     ...options
 });
@@ -552,6 +1227,11 @@ export const getVersionModel = <ThrowOnError extends boolean = false>(options: O
         query: z.never().optional()
     }).parseAsync(data),
     responseValidator: async (data) => await zGetVersionModelResponse.parseAsync(data),
+    security: [{
+            in: 'cookie',
+            name: '__Host-archmap_session',
+            type: 'apiKey'
+        }],
     url: '/api/v1/versions/{n}/model',
     ...options
 });

@@ -39,7 +39,7 @@ const find = (entries: MenuEntry[], label: string) => entries.find((e) => e.type
 
 describe("child / root kinds", () => {
   it("follow the hierarchy hints", () => {
-    expect(childKindsOf("system")).toEqual(["container", "database"])
+    expect(childKindsOf("system")).toEqual(["container"])
     expect(childKindsOf("container")).toEqual(["component"])
     expect(childKindsOf("node")).toEqual(["node"])
     expect(childKindsOf("person")).toEqual([])
@@ -52,7 +52,7 @@ describe("nodeEntries", () => {
     const entries = nodeEntries(makeDeps(), ids.shop)
     expect(labels(entries)).toEqual(["Edit…", "Add child", "Connect to…", "---", "Delete…"])
     const addChild = find(entries, "Add child")
-    expect(addChild?.type === "submenu" && labels(addChild.entries)).toEqual(["Container", "Database"])
+    expect(addChild?.type === "submenu" && labels(addChild.entries)).toEqual(["Container"])
     expect(find(entries, "Delete…")).toMatchObject({ destructive: true })
   })
 
@@ -152,7 +152,7 @@ describe("layers", () => {
     const add = layerEntries(deps, "Services", false)[0]
     if (add.type !== "submenu") throw new Error("expected a submenu")
     expect(add.label).toBe("Add element to Services")
-    expect(labels(add.entries)).toEqual(["Person", "System", "Container", "Component", "Node", "Database"])
+    expect(labels(add.entries)).toEqual(["Person", "System", "Container", "Component", "Node"])
     run(add.entries[2])
     expect(deps.addElement).toHaveBeenCalledWith("container", null, "Services")
 

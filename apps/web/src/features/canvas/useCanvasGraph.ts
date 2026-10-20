@@ -7,12 +7,29 @@ import { useAnimatedBoxes } from "./animate"
 import type { AggregatedFlowEdge } from "./AggregatedEdge"
 import type { ElementFlowNode } from "./ElementNode"
 import { hostNameIndex } from "./deployment"
-import { aggregateEdges, buildTree, childrenOf, filterMatches, isFilterActive, visibleElements } from "./graph"
+import {
+  aggregateEdges,
+  buildTree,
+  childrenOf,
+  filterMatches,
+  focusScope,
+  focusTree,
+  isFilterActive,
+  visibleElements,
+  type ElementTree,
+} from "./graph"
+import { effectiveOwner } from "./element"
 import { computeLayout, type Box } from "./layout"
 import { edgeDiffStatus, type Decor } from "./decor"
 import { useCanvasStore } from "./store"
 
 type Layout = { boxes: ReadonlyMap<string, Box>; entering: ReadonlySet<string> }
+
+/** Name of the ancestor an inherited owner comes from (undefined when owned directly or unowned). */
+function ownerSourceName(tree: ElementTree, e: Element): string | undefined {
+  const o = effectiveOwner(e.effective, e.id)
+  return o?.inherited ? (tree.byId.get(o.sourceId)?.name ?? "a parent") : undefined
+}
 const noHosts: readonly string[] = []
 const noLayout: Layout = { boxes: new Map(), entering: new Set() }
 
@@ -27,9 +44,20 @@ export function useCanvasGraph(elements: readonly Element[], relations: readonly
   const positions = useCanvasStore((s) => s.positions)
   const filter = useCanvasStore((s) => s.filter)
   const selectedId = useCanvasStore((s) => s.selectedId)
+  const focusRaw = useCanvasStore((s) => s.focusId)
   const reducedMotion = useReducedMotion()
 
-  const tree = useMemo(() => buildTree(elements), [elements])
+  const fullTree = useMemo(() => buildTree(elements), [elements])
+  // Focused (ADR-071): lay out only the focused subtree plus its related outside elements.
+  const focusId = focusRaw && fullTree.byId.has(focusRaw) ? focusRaw : null
+  const scope = useMemo(
+    () => (focusId ? focusScope(fullTree, relations, focusId) : null),
+    [fullTree, relations, focusId]
+  )
+  const tree = useMemo(
+    () => (focusId && scope ? focusTree(fullTree, scope, focusId) : fullTree),
+    [fullTree, scope, focusId]
+  )
   // Only elements that actually have children can be expanded.
   const expanded = useMemo(() => new Set([...expandedRaw].filter((id) => tree.children.has(id))), [expandedRaw, tree])
   const visible = useMemo(() => visibleElements(tree, expanded), [tree, expanded])
@@ -85,6 +113,8 @@ export function useCanvasGraph(elements: readonly Element[], relations: readonly
               diff: decor.diff?.get(e.id),
               lint: decor.lint?.get(e.id),
               hosts: hostNames.get(e.id) ?? noHosts,
+              ownerFrom: ownerSourceName(tree, e),
+              context: scope?.context.has(e.id) ?? false,
               editable: decor.editable ?? false,
             },
           }
@@ -127,5 +157,5 @@ export function useCanvasGraph(elements: readonly Element[], relations: readonly
     [aggregated, boxes, keep, decor.relationDiff]
   )
 
-  return { tree: tree, nodes, edges, ready: layout.boxes.size > 0, boxes: layout.boxes }
+  return { tree, fullTree, focusId, nodes, edges, ready: layout.boxes.size > 0, boxes: layout.boxes }
 }

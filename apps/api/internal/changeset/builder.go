@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,6 +21,8 @@ type builder struct {
 	now   time.Time
 	out   []Change
 	rules []model.LayerRule // layer rules to enforce (nil = none)
+	// principals are the users and groups owners may point at (nil = none).
+	principals model.Principals
 }
 
 func (b *builder) apply(in ChangeInput) error {
@@ -36,6 +39,21 @@ func (b *builder) apply(in ChangeInput) error {
 		return b.updateRelation(in)
 	case in.TargetType == TargetRelation && in.Op == OpDelete:
 		return b.deleteRelation(in)
+	case in.TargetType == TargetOwner && in.Op == OpAdd:
+		return b.addOwner(in)
+	case in.TargetType == TargetOwner && in.Op == OpUpdate:
+		return b.updateOwner(in)
+	case in.TargetType == TargetOwner && in.Op == OpDelete:
+		return b.deleteOwner(in)
+	case in.TargetType == TargetOwnership && in.Op == OpAdd:
+		return b.addOwnership(in)
+	case in.TargetType == TargetOwnership && in.Op == OpUpdate:
+		return b.updateOwnership(in)
+	case in.TargetType == TargetOwnership && in.Op == OpDelete:
+		if err := requireTarget(in); err != nil {
+			return err
+		}
+		return b.deleteOwnershipByID(in.TargetID)
 	}
 	return apperr.Invalid("unsupported change %q on %q", in.Op, in.TargetType)
 }
@@ -176,10 +194,15 @@ func (b *builder) deleteElement(in ChangeInput) error {
 	for _, d := range descendants {
 		doomed[d] = true
 	}
-	// Relations first, then elements children-before-parent, all as explicit
-	// changes so the diff shows exactly what a delete removes.
+	// Relations and ownerships first, then elements children-before-parent, all as
+	// explicit changes so the diff shows exactly what a delete removes.
 	for _, rid := range b.st.relationsTouching(doomed) {
 		if err := b.deleteRelationByID(rid); err != nil {
+			return err
+		}
+	}
+	for _, oid := range b.st.ownershipsOf(doomed, nil) {
+		if err := b.deleteOwnershipByID(oid); err != nil {
 			return err
 		}
 	}
@@ -292,9 +315,210 @@ func (b *builder) checkLayerOnUpdate(in ChangeInput, next model.Element) error {
 	}
 	for _, k := range keys {
 		switch k {
-		case "layer", "kind", "tags", "technology", "name":
+		case "layer", "kind", "type", "tags", "technology", "name":
 			return model.CheckLayer(b.rules, next)
 		}
 	}
 	return nil
+}
+
+func (b *builder) addOwner(in ChangeInput) error {
+	if err := requirePatch(in); err != nil {
+		return err
+	}
+	o, err := model.ApplyOwnerPatch(model.Owner{Version: 1}, in.Patch)
+	if err != nil {
+		return err
+	}
+	if o.PrincipalID != nil {
+		// One owner per user / group, with an id derived from it (ADR-069).
+		o.ID = model.PrincipalOwnerID(*o.PrincipalID)
+		if in.TargetID != uuid.Nil && in.TargetID != o.ID {
+			return apperr.Invalid("a %s owner's id must be derived from principal_id (expected %s)", o.Kind, o.ID)
+		}
+		if p, ok := b.principals[*o.PrincipalID]; ok && strings.TrimSpace(o.Name) == "" {
+			o.Name = p.Name // the name at the time; reads show the live one
+		}
+	} else if o.ID, err = b.newID(in); err != nil {
+		return err
+	}
+	if _, exists := b.st.Owner(o.ID); exists {
+		return apperr.Conflict("owner %s already exists", o.ID)
+	}
+	if err := b.validateOwner(o); err != nil {
+		return err
+	}
+	full, err := model.FieldsOf(o, model.OwnerPatchFields)
+	if err != nil {
+		return err
+	}
+	return b.record(OpAdd, TargetOwner, o.ID, full, nil)
+}
+
+func (b *builder) updateOwner(in ChangeInput) error {
+	if err := requireTarget(in); err != nil {
+		return err
+	}
+	if err := requirePatch(in); err != nil {
+		return err
+	}
+	cur, ok := b.st.Owner(in.TargetID)
+	if !ok {
+		return apperr.NotFound("owner %s not found", in.TargetID)
+	}
+	next, err := model.ApplyOwnerPatch(cur, in.Patch)
+	if err != nil {
+		return err
+	}
+	if err := b.validateOwner(next); err != nil {
+		return err
+	}
+	return b.recordUpdate(TargetOwner, cur.ID, cur, in.Patch)
+}
+
+// deleteOwner removes an owner. Its assignments go with it only when the caller
+// says so (cascade), so a team is never unassigned from elements by accident.
+func (b *builder) deleteOwner(in ChangeInput) error {
+	if err := requireTarget(in); err != nil {
+		return err
+	}
+	cur, ok := b.st.Owner(in.TargetID)
+	if !ok {
+		return apperr.NotFound("owner %s not found", in.TargetID)
+	}
+	assigned := b.st.ownershipsOf(nil, map[uuid.UUID]bool{cur.ID: true})
+	if len(assigned) > 0 && !in.Cascade {
+		return apperr.Invalid("owner %q is assigned to %d element role(s); set cascade to remove the assignments too", cur.Name, len(assigned))
+	}
+	for _, oid := range assigned {
+		if err := b.deleteOwnershipByID(oid); err != nil {
+			return err
+		}
+	}
+	before, err := json.Marshal(cur)
+	if err != nil {
+		return err
+	}
+	return b.record(OpDelete, TargetOwner, cur.ID, nil, before)
+}
+
+// validateOwner checks the owner. Named owners need a unique name (ignoring case);
+// user and group owners need a usable principal of the matching kind.
+func (b *builder) validateOwner(o model.Owner) error {
+	if err := o.Validate(); err != nil {
+		return err
+	}
+	if o.Kind.IsPrincipal() {
+		p, ok := b.principals[*o.PrincipalID]
+		switch {
+		case !ok:
+			return apperr.Invalid("%s %s does not exist", o.Kind, *o.PrincipalID)
+		case p.Kind != o.Kind:
+			return apperr.Invalid("%s is a %s, not a %s", *o.PrincipalID, p.Kind, o.Kind)
+		case p.Inactive:
+			return apperr.Invalid("%s %q is disabled or deleted and cannot become an owner", o.Kind, p.Name)
+		}
+		return nil
+	}
+	for _, other := range b.st.owners {
+		if other.ID != o.ID && !other.Kind.IsPrincipal() && strings.EqualFold(strings.TrimSpace(other.Name), o.Name) {
+			return apperr.Invalid("an owner named %q already exists", other.Name)
+		}
+	}
+	return nil
+}
+
+// addOwnership assigns an owner to an element in a role. The id is derived from
+// (element, role), so a role holds one owner; replacing it is an update.
+func (b *builder) addOwnership(in ChangeInput) error {
+	if err := requirePatch(in); err != nil {
+		return err
+	}
+	o, err := model.ApplyOwnershipPatch(model.Ownership{Version: 1}, in.Patch)
+	if err != nil {
+		return err
+	}
+	o.ID = model.OwnershipID(o.ElementID, o.Role)
+	if in.TargetID != uuid.Nil && in.TargetID != o.ID {
+		return apperr.Invalid("ownership id must be derived from element_id and role (expected %s)", o.ID)
+	}
+	if err := b.validateOwnership(o); err != nil {
+		return err
+	}
+	if _, exists := b.st.Ownership(o.ID); exists {
+		el, _ := b.st.Element(o.ElementID)
+		return apperr.Conflict("%q already has an owner in role %s; change that assignment instead", el.Name, o.Role)
+	}
+	full, err := model.FieldsOf(o, model.OwnershipPatchFields)
+	if err != nil {
+		return err
+	}
+	return b.record(OpAdd, TargetOwnership, o.ID, full, nil)
+}
+
+// updateOwnership replaces the owner of an assignment; element and role are fixed.
+func (b *builder) updateOwnership(in ChangeInput) error {
+	if err := requireTarget(in); err != nil {
+		return err
+	}
+	if err := requirePatch(in); err != nil {
+		return err
+	}
+	cur, ok := b.st.Ownership(in.TargetID)
+	if !ok {
+		return apperr.NotFound("ownership %s not found", in.TargetID)
+	}
+	keys, err := model.PatchKeys(in.Patch)
+	if err != nil {
+		return err
+	}
+	if len(keys) != 1 || keys[0] != "owner_id" {
+		return apperr.Invalid("an ownership update may only change owner_id; delete and add to move it")
+	}
+	next, err := model.ApplyOwnershipPatch(cur, in.Patch)
+	if err != nil {
+		return err
+	}
+	if err := b.validateOwnership(next); err != nil {
+		return err
+	}
+	return b.recordUpdate(TargetOwnership, cur.ID, cur, in.Patch)
+}
+
+func (b *builder) deleteOwnershipByID(id uuid.UUID) error {
+	cur, ok := b.st.Ownership(id)
+	if !ok {
+		return apperr.NotFound("ownership %s not found", id)
+	}
+	before, err := json.Marshal(cur)
+	if err != nil {
+		return err
+	}
+	return b.record(OpDelete, TargetOwnership, id, nil, before)
+}
+
+func (b *builder) validateOwnership(o model.Ownership) error {
+	if err := o.Validate(); err != nil {
+		return err
+	}
+	if err := b.requireElement(o.ElementID, "element"); err != nil {
+		return err
+	}
+	if _, ok := b.st.Owner(o.OwnerID); !ok {
+		return apperr.Invalid("owner %s does not exist", o.OwnerID)
+	}
+	return nil
+}
+
+// recordUpdate records an update with the previous values of the patched fields.
+func (b *builder) recordUpdate(tt TargetType, id uuid.UUID, cur any, patch json.RawMessage) error {
+	keys, err := model.PatchKeys(patch)
+	if err != nil {
+		return err
+	}
+	before, err := model.FieldsOf(cur, keys)
+	if err != nil {
+		return err
+	}
+	return b.record(OpUpdate, tt, id, patch, before)
 }

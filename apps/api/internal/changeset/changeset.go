@@ -39,8 +39,10 @@ const (
 type TargetType string
 
 const (
-	TargetElement  TargetType = "element"
-	TargetRelation TargetType = "relation"
+	TargetElement   TargetType = "element"
+	TargetRelation  TargetType = "relation"
+	TargetOwner     TargetType = "owner"
+	TargetOwnership TargetType = "ownership"
 )
 
 type Changeset struct {
@@ -54,7 +56,18 @@ type Changeset struct {
 	MergedAt    *time.Time
 	ApprovedBy  *uuid.UUID
 	ApprovedAt  *time.Time
+	// Kind is KindDirect for an automatically merged direct edit of main (ADR-072).
+	Kind Kind
+	// Reverts is the direct edit this changeset undoes.
+	Reverts *uuid.UUID
 }
+
+type Kind string
+
+const (
+	KindDraft  Kind = "draft"
+	KindDirect Kind = "direct"
+)
 
 // Version is one merged model version (see model_versions / model_snapshots).
 type Version struct {
@@ -63,6 +76,8 @@ type Version struct {
 	MergedBy    uuid.UUID
 	MergedAt    time.Time
 	Summary     string
+	Kind        Kind
+	Reverts     *uuid.UUID
 }
 
 // Change is one recorded operation. Patch semantics:

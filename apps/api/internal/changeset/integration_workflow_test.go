@@ -14,7 +14,6 @@ import (
 	"archmap/api/internal/platform/apperr"
 	"archmap/api/internal/platform/authctx"
 	"archmap/api/internal/testdb"
-	usersqlc "archmap/api/internal/user/repository/sqlcgen"
 )
 
 // land submits as the author, approves and merges as the maintainer.
@@ -89,8 +88,8 @@ func TestIntegrationMergeFastForwardAndRebase(t *testing.T) {
 	}
 
 	got := it.mainNames(t)
-	want := []string{"Cache", "Customer", "Docker Host", "Job Worker", "Message Queue", "Nginx", "Payment Provider",
-		"Physical Host", "PostgreSQL", "Public API", "Shop", "Traefik", "Web Frontend"}
+	want := []string{"Cache", "Customer", "Docker Host", "Job Worker", "Message Queue", "Nginx", "Orders DB", "Payment Provider",
+		"Payments DB", "Physical Host", "PostgreSQL", "Public API", "Shop", "Traefik", "Web Frontend"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("main = %v\nwant   %v", got, want)
 	}
@@ -112,7 +111,7 @@ func TestIntegrationMergeFastForwardAndRebase(t *testing.T) {
 			t.Fatalf("v%d has Cache = %v, want %v", n, hasCache, wantCache)
 		}
 	}
-	if v1, _ := it.svc.ModelAt(it.as(authctx.RoleViewer), 1); len(v1.Elements) != 12 {
+	if v1, _ := it.svc.ModelAt(it.as(authctx.RoleViewer), 1); len(v1.Elements) != 14 {
 		t.Fatalf("v1 has %d elements", len(v1.Elements))
 	}
 	if _, err := it.svc.ModelAt(it.as(authctx.RoleViewer), 9); apperr.KindOf(err) != apperr.KindNotFound {
@@ -214,8 +213,8 @@ func TestIntegrationConcurrentMerges(t *testing.T) {
 	if len(seen) != n || !seen[2] || !seen[5] {
 		t.Fatalf("versions = %v, want 2..5", seen)
 	}
-	if got := len(it.mainNames(t)); got != 12+n {
-		t.Fatalf("main has %d elements, want %d", got, 12+n)
+	if got := len(it.mainNames(t)); got != 14+n {
+		t.Fatalf("main has %d elements, want %d", got, 14+n)
 	}
 }
 
@@ -224,16 +223,10 @@ func TestIntegrationProtectedElements(t *testing.T) {
 	api := it.mainElementByName(t, "API")
 
 	// A second maintainer, so one can author and another can review.
-	m2, err := usersqlc.New(it.pool).UpsertUser(context.Background(), usersqlc.UpsertUserParams{
-		Email: "maintainer2@test.local", Name: "m2", Role: usersqlc.UserRoleMaintainer, PasswordHash: "x",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	m2Ctx := authctx.With(context.Background(), authctx.Actor{ID: m2.ID, Email: m2.Email, Name: m2.Name, Role: authctx.RoleMaintainer})
+	m2Ctx := authctx.With(context.Background(), testdb.User(t, it.pool, "maintainer2@test.local", authctx.RoleMaintainer))
 
 	// Editors cannot protect elements; a maintainer draft can, merged by another maintainer.
-	_, err = it.svc.AddChanges(it.as(authctx.RoleEditor), it.draft(t, "x", updateEl(api.ID, obj{"name": "API"})).ID,
+	_, err := it.svc.AddChanges(it.as(authctx.RoleEditor), it.draft(t, "x", updateEl(api.ID, obj{"name": "API"})).ID,
 		[]changeset.ChangeInput{updateEl(api.ID, obj{"protected": true})})
 	if apperr.KindOf(err) != apperr.KindForbidden {
 		t.Fatalf("editor protecting err = %v", err)

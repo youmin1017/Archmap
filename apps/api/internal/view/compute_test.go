@@ -260,6 +260,7 @@ func TestKindScopeRules(t *testing.T) {
 		view.KindLandscape:  view.ScopeForbidden,
 		view.KindCustom:     view.ScopeForbidden,
 		view.KindLayers:     view.ScopeForbidden,
+		view.KindUnowned:    view.ScopeForbidden,
 		view.KindContext:    view.ScopeRequired,
 		view.KindContainer:  view.ScopeRequired,
 		view.KindComponent:  view.ScopeRequired,
@@ -272,5 +273,39 @@ func TestKindScopeRules(t *testing.T) {
 	}
 	if view.Kind("bogus").Valid() {
 		t.Error("bogus kind must be invalid")
+	}
+}
+
+func TestComputeUnowned(t *testing.T) {
+	snap := sample()
+	// Shop and Docker are owned (their descendants inherit it). Payments, Host and the
+	// orphan system have no owner; the customer (a person) is never listed.
+	snap.Owners = []model.Owner{{ID: id(200), Kind: model.OwnerTeam, Name: "Atlas"}}
+	snap.Ownerships = []model.Ownership{
+		{ID: model.OwnershipID(id(shop), model.RoleOwner), ElementID: id(shop), OwnerID: id(200), Role: model.RoleOwner},
+		{ID: model.OwnershipID(id(docker), model.RoleOwner), ElementID: id(docker), OwnerID: id(200), Role: model.RoleOwner},
+		// An on-call assignment alone does not make an element owned.
+		{ID: model.OwnershipID(id(host), model.RoleOncall), ElementID: id(host), OwnerID: id(200), Role: model.RoleOncall},
+	}
+	r := view.Compute(view.View{Kind: view.KindUnowned}, nil, snap)
+	// Host is unowned; Docker (owned) is excluded and so are Nginx/Traefik, which inherit its owner.
+	if got, want := names(r), "Host,Orphan,Payments"; got != want {
+		t.Fatalf("unowned = %s, want %s", got, want)
+	}
+	if got := rootNames(r, snap); got != "Host,Orphan,Payments" {
+		t.Fatalf("roots = %s", got)
+	}
+
+	// With no owners at all, children show under their unowned parents, which start expanded.
+	snap.Ownerships = nil
+	r = view.Compute(view.View{Kind: view.KindUnowned}, nil, snap)
+	if !strings.Contains(names(r), "Nginx") || rootNames(r, snap) != "Host,Orphan,Payments,Shop" {
+		t.Fatalf("all unowned: elements %s, roots %s", names(r), rootNames(r, snap))
+	}
+	if !slices.Contains(r.Expanded, id(host)) || !slices.Contains(r.Expanded, id(docker)) {
+		t.Fatalf("expanded = %v", r.Expanded)
+	}
+	if len(r.Effective) != len(snap.Elements) {
+		t.Fatalf("effective values for %d of %d elements", len(r.Effective), len(snap.Elements))
 	}
 }

@@ -95,10 +95,20 @@ func Merge3(base, mine, theirs model.Snapshot, resolutions map[ResolutionKey]Cho
 		func(r model.Relation) string { return string(r.Kind) + " relation" }, func(r model.Relation) uuid.UUID { return r.ID })
 	m.mineRels = indexRelations(mine.Relations)
 	m.theirRels = indexRelations(theirs.Relations)
+	m.mineOwners = indexByID(mine.Owners, func(o model.Owner) uuid.UUID { return o.ID })
+	m.theirOwners = indexByID(theirs.Owners, func(o model.Owner) uuid.UUID { return o.ID })
+	m.owners = mergeSet(m, TargetOwner,
+		indexByID(base.Owners, func(o model.Owner) uuid.UUID { return o.ID }), m.mineOwners, m.theirOwners,
+		model.Owner.FieldMap, model.ApplyOwnerPatch,
+		func(o model.Owner) string { return o.Name }, func(o model.Owner) uuid.UUID { return o.ID })
+	ownershipID := func(o model.Ownership) uuid.UUID { return o.ID }
+	m.ownerships = mergeSet(m, TargetOwnership,
+		indexByID(base.Ownerships, ownershipID), indexByID(mine.Ownerships, ownershipID), indexByID(theirs.Ownerships, ownershipID),
+		model.Ownership.FieldMap, model.ApplyOwnershipPatch, m.ownershipLabel, ownershipID)
 
 	m.fixReferences()
 
-	st := &State{elements: m.els, relations: m.rels}
+	st := &State{elements: m.els, relations: m.rels, owners: m.owners, ownerships: m.ownerships}
 	slices.SortFunc(m.conflicts, func(a, b Conflict) int {
 		if c := strings.Compare(string(a.TargetType), string(b.TargetType)); c != 0 {
 			return c
@@ -119,6 +129,10 @@ type merger struct {
 	els  map[uuid.UUID]model.Element
 	rels map[uuid.UUID]model.Relation
 
+	mineOwners, theirOwners map[uuid.UUID]model.Owner
+	owners                  map[uuid.UUID]model.Owner
+	ownerships              map[uuid.UUID]model.Ownership
+
 	conflicts     []Conflict
 	seenConflicts map[ResolutionKey]bool
 	inherit       map[uuid.UUID]Choice // choice carried to entities restored by a resolution
@@ -134,6 +148,27 @@ func (m *merger) conflict(c Conflict) {
 }
 
 func rawEqual(a, b json.RawMessage) bool { return bytes.Equal(a, b) }
+
+func indexByID[T any](vs []T, idOf func(T) uuid.UUID) map[uuid.UUID]T {
+	m := make(map[uuid.UUID]T, len(vs))
+	for _, v := range vs {
+		m[idOf(v)] = v
+	}
+	return m
+}
+
+// ownershipLabel names an assignment for conflict lists: "owner of Orders DB".
+func (m *merger) ownershipLabel(o model.Ownership) string {
+	name := o.ElementID.String()
+	if e, ok := m.els[o.ElementID]; ok {
+		name = e.Name
+	} else if e, ok := m.theirEls[o.ElementID]; ok {
+		name = e.Name
+	} else if e, ok := m.mineEls[o.ElementID]; ok {
+		name = e.Name
+	}
+	return string(o.Role) + " of " + name
+}
 
 func fieldMapsEqual(a, b map[string]json.RawMessage) bool {
 	if len(a) != len(b) {
@@ -188,7 +223,21 @@ func mergeSet[T any](
 		t, tok := theirs[id]
 
 		switch {
-		case !bok: // added on one side (or, impossibly, both: theirs wins)
+		case !bok && mok && tok && !fieldMapsEqual(fm(mv), fm(t)):
+			// Added on both sides with the same id (deterministic ids, e.g. an
+			// ownership of the same element and role): a field-level merge against
+			// an empty base, so different values conflict instead of one side
+			// silently winning (ADR-068).
+			merged, err := mergeFields(m, tt, id, label(t), map[string]json.RawMessage{}, fm(mv), fm(t))
+			if err == nil {
+				raw, _ := json.Marshal(merged)
+				if res, aerr := apply(t, raw); aerr == nil {
+					put(res)
+					break
+				}
+			}
+			put(t)
+		case !bok: // added on one side, or identically on both
 			if tok {
 				put(t)
 			} else if mok {
@@ -294,7 +343,7 @@ func mergeFields(m *merger, tt TargetType, id uuid.UUID, label string, b, mv, t 
 // alive on the chosen side it is restored from there, otherwise the dependent
 // entity is dropped (and anything depending on it, silently).
 func (m *merger) fixReferences() {
-	for range len(m.els) + len(m.rels) + 8 {
+	for range len(m.els) + len(m.rels) + len(m.ownerships) + 8 {
 		if !m.fixOnce() {
 			return
 		}
@@ -332,6 +381,20 @@ func (m *merger) fixOnce() bool {
 			break // the relation may be gone now; re-evaluate next pass
 		}
 	}
+	for _, id := range sortedIDs(m.ownerships) {
+		o, ok := m.ownerships[id]
+		if !ok {
+			continue
+		}
+		label := m.ownershipLabel(o)
+		if _, present := m.els[o.ElementID]; !present {
+			changed = m.handleDangling(TargetOwnership, o.ID, label, o.ElementID, "element") || changed
+			continue
+		}
+		if _, present := m.owners[o.OwnerID]; !present {
+			changed = m.handleDangling(TargetOwnership, o.ID, label, o.OwnerID, "owner") || changed
+		}
+	}
 	return changed
 }
 
@@ -347,9 +410,12 @@ func sortedIDs[T any](mp map[uuid.UUID]T) []uuid.UUID {
 // handleDangling returns true when it changed the result.
 func (m *merger) handleDangling(tt TargetType, id uuid.UUID, label string, missing uuid.UUID, what string) bool {
 	drop := func() bool {
-		if tt == TargetElement {
+		switch tt {
+		case TargetElement:
 			delete(m.els, id)
-		} else {
+		case TargetOwnership:
+			delete(m.ownerships, id)
+		default:
 			delete(m.rels, id)
 		}
 		m.dropped[id] = true
@@ -373,12 +439,17 @@ func (m *merger) handleDangling(tt TargetType, id uuid.UUID, label string, missi
 		return false
 	}
 
-	world := m.theirEls
+	world, owners := m.theirEls, m.theirOwners
 	if choice == ChoiceMine {
-		world = m.mineEls
+		world, owners = m.mineEls, m.mineOwners
 	}
 	if ref, alive := world[missing]; alive {
 		m.els[missing] = ref
+		m.inherit[missing] = choice
+		return true
+	}
+	if ref, alive := owners[missing]; alive {
+		m.owners[missing] = ref
 		m.inherit[missing] = choice
 		return true
 	}

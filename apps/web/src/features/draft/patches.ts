@@ -1,4 +1,4 @@
-import type { ChangeInput, Element, Relation } from "@archmap/api-client"
+import type { ChangeInput, Element, OwnerRole, Ownership, Relation } from "@archmap/api-client"
 
 import type { ElementFormValues } from "./ElementFields"
 import type { RelationFormValues } from "./RelationDialog"
@@ -16,6 +16,13 @@ export function addElementInput(id: string, v: ElementFormValues, canProtect: bo
     projects: v.projects,
     replicas: v.replicas,
     properties: v.properties,
+    type: v.type,
+    environment: v.environment,
+    lifecycle: v.lifecycle,
+    criticality: v.criticality,
+    runbook_url: v.runbookUrl,
+    docs_url: v.docsUrl,
+    last_reviewed_at: v.lastReviewedAt,
   }
   if (canProtect && v.protected) patch.protected = true
   return { op: "add", target_type: "element", target_id: id, patch }
@@ -41,6 +48,13 @@ export function elementPatch(existing: Element, v: ElementFormValues, canProtect
   if (!sameTags(v.projects, existing.projects)) patch.projects = v.projects
   if (v.replicas !== existing.replicas) patch.replicas = v.replicas
   if (!sameProps(v.properties, existing.properties)) patch.properties = v.properties
+  if (v.type !== existing.type) patch.type = v.type
+  if (v.environment !== existing.environment) patch.environment = v.environment
+  if (v.lifecycle !== existing.lifecycle) patch.lifecycle = v.lifecycle
+  if (v.criticality !== existing.criticality) patch.criticality = v.criticality
+  if (v.runbookUrl !== existing.runbook_url) patch.runbook_url = v.runbookUrl
+  if (v.docsUrl !== existing.docs_url) patch.docs_url = v.docsUrl
+  if (v.lastReviewedAt !== existing.last_reviewed_at) patch.last_reviewed_at = v.lastReviewedAt
   if (canProtect && v.protected !== existing.protected) patch.protected = v.protected
   if (Object.keys(patch).length === 0) return null
   return { op: "update", target_type: "element", target_id: existing.id, patch }
@@ -105,3 +119,28 @@ export const deleteRelationInput = (id: string): ChangeInput => ({
   target_type: "relation",
   target_id: id,
 })
+
+/**
+ * Changes that make an element's own owner per role match `wanted` ("" = no own
+ * assignment, so the role is inherited). Existing assignments are updated in place;
+ * new ones omit the id, which the API derives from element and role (ADR-063).
+ */
+export function ownershipInputs(
+  elementId: string,
+  own: readonly Ownership[],
+  wanted: Readonly<Record<OwnerRole, string>>
+): ChangeInput[] {
+  const out: ChangeInput[] = []
+  for (const role of Object.keys(wanted) as OwnerRole[]) {
+    const cur = own.find((o) => o.role === role)
+    const want = wanted[role]
+    if (!cur && want) {
+      out.push({ op: "add", target_type: "ownership", patch: { element_id: elementId, owner_id: want, role } })
+    } else if (cur && !want) {
+      out.push({ op: "delete", target_type: "ownership", target_id: cur.id })
+    } else if (cur && want && cur.owner_id !== want) {
+      out.push({ op: "update", target_type: "ownership", target_id: cur.id, patch: { owner_id: want } })
+    }
+  }
+  return out
+}

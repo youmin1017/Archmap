@@ -28,7 +28,40 @@ export const zMe = z.object({
     id: z.uuid(),
     email: z.string(),
     name: z.string(),
-    role: zRole
+    role: zRole,
+    provider: z.string(),
+    password_must_change: z.boolean()
+});
+
+export const zSession = z.object({
+    me: zMe,
+    csrf_token: z.string(),
+    expires_at: z.iso.datetime()
+});
+
+export const zAuthProviderKind = z.enum(['password', 'redirect']);
+
+export const zAuthProvider = z.object({
+    id: z.string(),
+    name: z.string(),
+    kind: zAuthProviderKind,
+    restricted: z.boolean(),
+    username_only: z.boolean()
+});
+
+export const zAuthProviderList = z.object({
+    providers: z.array(zAuthProvider)
+});
+
+export const zLoginRequest = z.object({
+    provider: z.string(),
+    username: z.string().min(1).max(320),
+    password: z.string().max(256).optional()
+});
+
+export const zChangePasswordRequest = z.object({
+    current_password: z.string().max(256),
+    new_password: z.string().max(256)
 });
 
 export const zUser = z.object({
@@ -36,7 +69,49 @@ export const zUser = z.object({
     email: z.string(),
     name: z.string(),
     role: zRole,
-    created_at: z.iso.datetime()
+    created_at: z.iso.datetime(),
+    disabled: z.boolean(),
+    last_login_at: z.iso.datetime().nullish(),
+    identity_count: z.int()
+});
+
+export const zCreateUserRequest = z.object({
+    name: z.string().min(1).max(200),
+    email: z.string().min(3).max(320),
+    role: zRole,
+    password: z.string().max(256).optional()
+});
+
+export const zCreatedUser = z.object({
+    user: zUser,
+    temporary_password: z.string().optional()
+});
+
+export const zPasswordResetRequest = z.object({
+    password: z.string().max(256).optional()
+});
+
+export const zPasswordResetResult = z.object({
+    temporary_password: z.string().optional()
+});
+
+export const zIdentity = z.object({
+    id: z.uuid(),
+    provider: z.string(),
+    issuer: z.string(),
+    subject: z.string(),
+    email: z.string(),
+    created_at: z.iso.datetime(),
+    last_login_at: z.iso.datetime().nullish()
+});
+
+export const zIdentityList = z.object({
+    identities: z.array(zIdentity)
+});
+
+export const zLinkIdentityRequest = z.object({
+    provider: z.string(),
+    subject: z.string().min(1).max(255)
 });
 
 export const zUserList = z.object({
@@ -47,14 +122,155 @@ export const zSetRoleRequest = z.object({
     role: zRole
 });
 
+/**
+ * `database` was retired in M10 (ADR-062): it is still accepted in change patches and
+ * normalized to a `container` of type `database`, but never returned.
+ *
+ */
 export const zElementKind = z.enum([
     'person',
     'system',
     'container',
     'component',
-    'node',
-    'database'
+    'node'
 ]);
+
+/**
+ * Refines the kind; datastore types are drawn as cylinders. Empty = none.
+ */
+export const zElementType = z.enum([
+    '',
+    'database-server',
+    'database',
+    'schema',
+    'cache',
+    'queue',
+    'proxy'
+]);
+
+/**
+ * Empty = inherited from the ancestors (see effective.environment).
+ */
+export const zEnvironment = z.enum([
+    '',
+    'prod',
+    'staging',
+    'dev'
+]);
+
+export const zLifecycle = z.enum([
+    'active',
+    'deprecated',
+    'planned'
+]);
+
+export const zCriticality = z.enum([
+    '',
+    'low',
+    'medium',
+    'high',
+    'critical'
+]);
+
+/**
+ * team / person are named owners without an account; user / group point at a login user or a group (principal_id).
+ */
+export const zOwnerKind = z.enum([
+    'team',
+    'person',
+    'user',
+    'group'
+]);
+
+export const zOwnerRole = z.enum([
+    'owner',
+    'maintainer',
+    'oncall',
+    'escalation'
+]);
+
+/**
+ * A team or person accountable for elements. Model data (changes go through drafts); not a login user.
+ */
+export const zOwner = z.object({
+    id: z.uuid(),
+    kind: zOwnerKind,
+    name: z.string().max(120),
+    contact: z.string().max(200),
+    oncall_url: z.string(),
+    principal_id: z.uuid().nullish(),
+    version: z.int()
+});
+
+/**
+ * Assigns an owner to an element in one role; at most one per (element, role). The id is
+ * derived from element_id and role (send no target_id when adding); updates may only change owner_id.
+ *
+ */
+export const zOwnership = z.object({
+    id: z.uuid(),
+    element_id: z.uuid(),
+    owner_id: z.uuid(),
+    role: zOwnerRole,
+    version: z.int()
+});
+
+export const zEffectiveOwner = z.object({
+    role: zOwnerRole,
+    owner_id: z.uuid(),
+    source_element_id: z.uuid()
+});
+
+/**
+ * Values inherited from the ancestors, computed by the server (read-only).
+ */
+export const zElementEffective = z.object({
+    environment: zEnvironment,
+    environment_source_id: z.uuid().nullable(),
+    owners: z.array(zEffectiveOwner),
+    deployed_via_id: z.uuid().nullable()
+});
+
+export const zDirectoryUser = z.object({
+    id: z.uuid(),
+    name: z.string(),
+    email: z.string(),
+    disabled: z.boolean()
+});
+
+export const zGroup = z.object({
+    id: z.uuid(),
+    name: z.string(),
+    description: z.string(),
+    members: z.array(z.uuid()),
+    created_at: z.iso.datetime()
+});
+
+export const zGroupList = z.object({
+    groups: z.array(zGroup)
+});
+
+export const zGroupInput = z.object({
+    name: z.string().min(1).max(120),
+    description: z.string().max(500).optional()
+});
+
+export const zGroupMembersInput = z.object({
+    user_ids: z.array(z.uuid())
+});
+
+/**
+ * Users and groups that can be picked as owners (no roles).
+ */
+export const zDirectory = z.object({
+    users: z.array(zDirectoryUser),
+    groups: z.array(zGroup)
+});
+
+export const zOwnerDirectory = z.object({
+    owners: z.array(zOwner),
+    ownerships: z.array(zOwnership)
+});
 
 export const zRelationKind = z.enum(['uses', 'deployed_on']);
 
@@ -71,6 +287,14 @@ export const zElement = z.object({
     projects: z.array(z.string().max(60)).max(20),
     replicas: z.int().gte(1).lte(100),
     properties: z.record(z.string(), z.string().max(200)),
+    type: zElementType,
+    environment: zEnvironment,
+    lifecycle: zLifecycle,
+    criticality: zCriticality,
+    runbook_url: z.string(),
+    docs_url: z.string(),
+    last_reviewed_at: z.iso.date().nullable(),
+    effective: zElementEffective.optional(),
     version: z.int(),
     created_at: z.iso.datetime(),
     updated_at: z.iso.datetime()
@@ -98,7 +322,9 @@ export const zRelationList = z.object({
 
 export const zModel = z.object({
     elements: z.array(zElement),
-    relations: z.array(zRelation)
+    relations: z.array(zRelation),
+    owners: z.array(zOwner),
+    ownerships: z.array(zOwnership)
 });
 
 export const zChangesetStatus = z.enum([
@@ -108,6 +334,11 @@ export const zChangesetStatus = z.enum([
     'rejected',
     'abandoned'
 ]);
+
+/**
+ * `direct`: an automatically merged edit of main (not listed with the drafts)
+ */
+export const zChangesetKind = z.enum(['draft', 'direct']);
 
 export const zChangeset = z.object({
     id: z.uuid(),
@@ -119,7 +350,34 @@ export const zChangeset = z.object({
     created_at: z.iso.datetime(),
     merged_at: z.iso.datetime().nullable(),
     approved_by: z.uuid().nullish(),
-    approved_at: z.iso.datetime().nullish()
+    approved_at: z.iso.datetime().nullish(),
+    kind: zChangesetKind,
+    reverts: z.uuid().nullable()
+});
+
+export const zReviewPolicy = z.enum(['required', 'direct']);
+
+export const zSettings = z.object({
+    review_policy: zReviewPolicy,
+    updated_by: z.uuid().nullable(),
+    updated_at: z.iso.datetime()
+});
+
+export const zSettingsInput = z.object({
+    review_policy: zReviewPolicy
+});
+
+export const zDirectOutcome = z.enum([
+    'merged',
+    'draft',
+    'in_review'
+]);
+
+export const zDirectResult = z.object({
+    outcome: zDirectOutcome,
+    changeset: zChangeset,
+    version: z.int(),
+    reason: z.string()
 });
 
 export const zChangesetList = z.object({
@@ -137,7 +395,12 @@ export const zChangeOp = z.enum([
     'delete'
 ]);
 
-export const zChangeTarget = z.enum(['element', 'relation']);
+export const zChangeTarget = z.enum([
+    'element',
+    'relation',
+    'owner',
+    'ownership'
+]);
 
 export const zChange = z.object({
     id: z.uuid(),
@@ -170,6 +433,11 @@ export const zChangeInput = z.object({
     cascade: z.boolean().optional()
 });
 
+export const zDirectChangesRequest = z.object({
+    summary: z.string().max(200).optional(),
+    changes: z.array(zChangeInput).min(1).max(500)
+});
+
 export const zAddChangesRequest = z.object({
     changes: z.array(zChangeInput).min(1).max(500)
 });
@@ -192,6 +460,18 @@ export const zRelationModification = z.object({
     fields: z.array(zFieldChange)
 });
 
+export const zOwnerModification = z.object({
+    before: zOwner,
+    after: zOwner,
+    fields: z.array(zFieldChange)
+});
+
+export const zOwnershipModification = z.object({
+    before: zOwnership,
+    after: zOwnership,
+    fields: z.array(zFieldChange)
+});
+
 export const zDiff = z.object({
     base_version: z.int(),
     main_version: z.int(),
@@ -205,6 +485,16 @@ export const zDiff = z.object({
         added: z.array(zRelation),
         removed: z.array(zRelation),
         modified: z.array(zRelationModification)
+    }),
+    owners: z.object({
+        added: z.array(zOwner),
+        removed: z.array(zOwner),
+        modified: z.array(zOwnerModification)
+    }),
+    ownerships: z.object({
+        added: z.array(zOwnership),
+        removed: z.array(zOwnership),
+        modified: z.array(zOwnershipModification)
     })
 });
 
@@ -269,7 +559,9 @@ export const zVersion = z.object({
     changeset_id: z.uuid(),
     merged_by: z.uuid(),
     merged_at: z.iso.datetime(),
-    summary: z.string()
+    summary: z.string(),
+    kind: zChangesetKind,
+    reverts: z.uuid().nullable()
 });
 
 export const zVersionList = z.object({
@@ -283,7 +575,8 @@ export const zViewKind = z.enum([
     'component',
     'deployment',
     'custom',
-    'layers'
+    'layers',
+    'unowned'
 ]);
 
 export const zView = z.object({
@@ -350,6 +643,8 @@ export const zViewModel = z.object({
 
 export const zId = z.uuid();
 
+export const zProvider = z.string();
+
 /**
  * Service is healthy
  */
@@ -360,10 +655,75 @@ export const zGetHealthResponse = zHealth;
  */
 export const zGetMeResponse = zMe;
 
+export const zChangeMyPasswordBody = zChangePasswordRequest;
+
+/**
+ * Password changed
+ */
+export const zChangeMyPasswordResponse = z.void();
+
+/**
+ * Providers
+ */
+export const zListAuthProvidersResponse = zAuthProviderList;
+
+export const zLoginBody = zLoginRequest;
+
+/**
+ * Signed in (sets the session cookie)
+ */
+export const zLoginResponse = zSession;
+
+export const zStartAuthRedirectPath = z.object({
+    provider: z.string()
+});
+
+export const zStartAuthRedirectQuery = z.object({
+    return_to: z.string().optional()
+});
+
+/**
+ * Error
+ */
+export const zStartAuthRedirectResponse = zProblem;
+
+export const zAuthCallbackPath = z.object({
+    provider: z.string()
+});
+
+export const zAuthCallbackQuery = z.object({
+    code: z.string().optional(),
+    state: z.string().optional(),
+    error: z.string().optional(),
+    error_description: z.string().optional()
+});
+
+/**
+ * Error
+ */
+export const zAuthCallbackResponse = zProblem;
+
+/**
+ * Signed out (also when there was no session)
+ */
+export const zLogoutResponse = z.void();
+
+/**
+ * Current session
+ */
+export const zGetSessionResponse = zSession;
+
 /**
  * Users
  */
 export const zListUsersResponse = zUserList;
+
+export const zCreateUserBody = zCreateUserRequest;
+
+/**
+ * The new user
+ */
+export const zCreateUserResponse = zCreatedUser;
 
 export const zSetUserRoleBody = zSetRoleRequest;
 
@@ -375,6 +735,113 @@ export const zSetUserRolePath = z.object({
  * The updated user
  */
 export const zSetUserRoleResponse = zUser;
+
+export const zDisableUserPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * The updated user
+ */
+export const zDisableUserResponse = zUser;
+
+export const zEnableUserPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * The updated user
+ */
+export const zEnableUserResponse = zUser;
+
+export const zResetUserPasswordBody = zPasswordResetRequest;
+
+export const zResetUserPasswordPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * Password reset
+ */
+export const zResetUserPasswordResponse = zPasswordResetResult;
+
+export const zListUserIdentitiesPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * Identities
+ */
+export const zListUserIdentitiesResponse = zIdentityList;
+
+export const zLinkUserIdentityBody = zLinkIdentityRequest;
+
+export const zLinkUserIdentityPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * The linked identity
+ */
+export const zLinkUserIdentityResponse = zIdentity;
+
+export const zUnlinkUserIdentityPath = z.object({
+    id: z.uuid(),
+    identityId: z.uuid()
+});
+
+/**
+ * Unlinked
+ */
+export const zUnlinkUserIdentityResponse = z.void();
+
+/**
+ * Directory
+ */
+export const zGetDirectoryResponse = zDirectory;
+
+/**
+ * Groups
+ */
+export const zListGroupsResponse = zGroupList;
+
+export const zCreateGroupBody = zGroupInput;
+
+/**
+ * The new group
+ */
+export const zCreateGroupResponse = zGroup;
+
+export const zDeleteGroupPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * Deleted
+ */
+export const zDeleteGroupResponse = z.void();
+
+export const zUpdateGroupBody = zGroupInput;
+
+export const zUpdateGroupPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * The updated group
+ */
+export const zUpdateGroupResponse = zGroup;
+
+export const zSetGroupMembersBody = zGroupMembersInput;
+
+export const zSetGroupMembersPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * The updated group
+ */
+export const zSetGroupMembersResponse = zGroup;
 
 export const zListElementsQuery = z.object({
     parent_id: z.uuid().optional(),
@@ -395,6 +862,11 @@ export const zGetElementPath = z.object({
  */
 export const zGetElementResponse = zElement;
 
+/**
+ * Owner directory of main
+ */
+export const zListOwnersResponse = zOwnerDirectory;
+
 export const zListRelationsQuery = z.object({
     source_id: z.uuid().optional(),
     target_id: z.uuid().optional()
@@ -413,6 +885,34 @@ export const zGetRelationPath = z.object({
  * The relation
  */
 export const zGetRelationResponse = zRelation;
+
+/**
+ * The settings
+ */
+export const zGetSettingsResponse = zSettings;
+
+export const zUpdateSettingsBody = zSettingsInput;
+
+/**
+ * The updated settings
+ */
+export const zUpdateSettingsResponse = zSettings;
+
+export const zApplyDirectBody = zDirectChangesRequest;
+
+/**
+ * What happened to the edit
+ */
+export const zApplyDirectResponse = zDirectResult;
+
+export const zRevertDirectPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * What happened to the undo
+ */
+export const zRevertDirectResponse = zDirectResult;
 
 export const zListChangesetsQuery = z.object({
     status: zChangesetStatus.optional(),

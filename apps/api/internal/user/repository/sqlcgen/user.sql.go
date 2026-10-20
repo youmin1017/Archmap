@@ -10,43 +10,270 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, name, role, created_at FROM users WHERE email = $1
+const addGroupMember = `-- name: AddGroupMember :exec
+INSERT INTO group_members (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
 `
 
-type GetUserByEmailRow struct {
-	ID        uuid.UUID
-	Email     string
-	Name      string
-	Role      UserRole
-	CreatedAt time.Time
+type AddGroupMemberParams struct {
+	GroupID uuid.UUID
+	UserID  uuid.UUID
 }
 
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
-	row := q.db.QueryRow(ctx, getUserByEmail, email)
-	var i GetUserByEmailRow
+func (q *Queries) AddGroupMember(ctx context.Context, arg AddGroupMemberParams) error {
+	_, err := q.db.Exec(ctx, addGroupMember, arg.GroupID, arg.UserID)
+	return err
+}
+
+const clearGroupMembers = `-- name: ClearGroupMembers :exec
+DELETE FROM group_members WHERE group_id = $1
+`
+
+func (q *Queries) ClearGroupMembers(ctx context.Context, groupID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, clearGroupMembers, groupID)
+	return err
+}
+
+const createExternalIdentity = `-- name: CreateExternalIdentity :one
+INSERT INTO user_identities (user_id, provider, issuer, subject)
+VALUES ($1, $2, $3, $4)
+RETURNING id, user_id, provider, issuer, subject, email, created_at, last_login_at
+`
+
+type CreateExternalIdentityParams struct {
+	UserID   uuid.UUID
+	Provider string
+	Issuer   string
+	Subject  string
+}
+
+type CreateExternalIdentityRow struct {
+	ID          uuid.UUID
+	UserID      uuid.UUID
+	Provider    string
+	Issuer      string
+	Subject     string
+	Email       pgtype.Text
+	CreatedAt   time.Time
+	LastLoginAt *time.Time
+}
+
+func (q *Queries) CreateExternalIdentity(ctx context.Context, arg CreateExternalIdentityParams) (CreateExternalIdentityRow, error) {
+	row := q.db.QueryRow(ctx, createExternalIdentity,
+		arg.UserID,
+		arg.Provider,
+		arg.Issuer,
+		arg.Subject,
+	)
+	var i CreateExternalIdentityRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Provider,
+		&i.Issuer,
+		&i.Subject,
+		&i.Email,
+		&i.CreatedAt,
+		&i.LastLoginAt,
+	)
+	return i, err
+}
+
+const createGroup = `-- name: CreateGroup :one
+INSERT INTO groups (name, description) VALUES ($1, $2) RETURNING id
+`
+
+type CreateGroupParams struct {
+	Name        string
+	Description string
+}
+
+func (q *Queries) CreateGroup(ctx context.Context, arg CreateGroupParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, createGroup, arg.Name, arg.Description)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createLocalIdentity = `-- name: CreateLocalIdentity :one
+INSERT INTO user_identities (user_id, provider, issuer, subject, email, password_hash, password_must_change)
+VALUES ($1, 'local', 'urn:archmap:local', $2, $3, $4, $5)
+RETURNING id
+`
+
+type CreateLocalIdentityParams struct {
+	UserID             uuid.UUID
+	Subject            string
+	Email              pgtype.Text
+	PasswordHash       pgtype.Text
+	PasswordMustChange bool
+}
+
+func (q *Queries) CreateLocalIdentity(ctx context.Context, arg CreateLocalIdentityParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, createLocalIdentity,
+		arg.UserID,
+		arg.Subject,
+		arg.Email,
+		arg.PasswordHash,
+		arg.PasswordMustChange,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createUser = `-- name: CreateUser :one
+INSERT INTO users (email, name, role)
+VALUES ($3, $1, $2)
+RETURNING id
+`
+
+type CreateUserParams struct {
+	Name  string
+	Role  UserRole
+	Email pgtype.Text
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, createUser, arg.Name, arg.Role, arg.Email)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const deleteIdentity = `-- name: DeleteIdentity :exec
+DELETE FROM user_identities WHERE id = $1
+`
+
+func (q *Queries) DeleteIdentity(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteIdentity, id)
+	return err
+}
+
+const deleteUserSessions = `-- name: DeleteUserSessions :exec
+DELETE FROM sessions WHERE user_id = $1
+`
+
+func (q *Queries) DeleteUserSessions(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteUserSessions, userID)
+	return err
+}
+
+const getGroupForUpdate = `-- name: GetGroupForUpdate :one
+SELECT id, name, description FROM groups WHERE id = $1 AND deleted_at IS NULL FOR UPDATE
+`
+
+type GetGroupForUpdateRow struct {
+	ID          uuid.UUID
+	Name        string
+	Description string
+}
+
+func (q *Queries) GetGroupForUpdate(ctx context.Context, id uuid.UUID) (GetGroupForUpdateRow, error) {
+	row := q.db.QueryRow(ctx, getGroupForUpdate, id)
+	var i GetGroupForUpdateRow
+	err := row.Scan(&i.ID, &i.Name, &i.Description)
+	return i, err
+}
+
+const getIdentityForUpdate = `-- name: GetIdentityForUpdate :one
+SELECT id, user_id, issuer FROM user_identities WHERE id = $1 AND user_id = $2 FOR UPDATE
+`
+
+type GetIdentityForUpdateParams struct {
+	ID     uuid.UUID
+	UserID uuid.UUID
+}
+
+type GetIdentityForUpdateRow struct {
+	ID     uuid.UUID
+	UserID uuid.UUID
+	Issuer string
+}
+
+func (q *Queries) GetIdentityForUpdate(ctx context.Context, arg GetIdentityForUpdateParams) (GetIdentityForUpdateRow, error) {
+	row := q.db.QueryRow(ctx, getIdentityForUpdate, arg.ID, arg.UserID)
+	var i GetIdentityForUpdateRow
+	err := row.Scan(&i.ID, &i.UserID, &i.Issuer)
+	return i, err
+}
+
+const getLocalIdentity = `-- name: GetLocalIdentity :one
+SELECT id FROM user_identities
+WHERE user_id = $1 AND issuer = 'urn:archmap:local'
+`
+
+func (q *Queries) GetLocalIdentity(ctx context.Context, userID uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getLocalIdentity, userID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getLocalIdentityBySubject = `-- name: GetLocalIdentityBySubject :one
+SELECT id, user_id FROM user_identities
+WHERE issuer = 'urn:archmap:local' AND subject = $1
+`
+
+type GetLocalIdentityBySubjectRow struct {
+	ID     uuid.UUID
+	UserID uuid.UUID
+}
+
+func (q *Queries) GetLocalIdentityBySubject(ctx context.Context, subject string) (GetLocalIdentityBySubjectRow, error) {
+	row := q.db.QueryRow(ctx, getLocalIdentityBySubject, subject)
+	var i GetLocalIdentityBySubjectRow
+	err := row.Scan(&i.ID, &i.UserID)
+	return i, err
+}
+
+const getUser = `-- name: GetUser :one
+SELECT u.id, u.email, u.name, u.role, u.created_at, u.disabled_at,
+       u.last_login_at, count(i.id)::integer AS identity_count
+FROM users u
+LEFT JOIN user_identities i ON i.user_id = u.id
+WHERE u.id = $1
+GROUP BY u.id
+`
+
+type GetUserRow struct {
+	ID            uuid.UUID
+	Email         pgtype.Text
+	Name          string
+	Role          UserRole
+	CreatedAt     time.Time
+	DisabledAt    *time.Time
+	LastLoginAt   *time.Time
+	IdentityCount int32
+}
+
+func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (GetUserRow, error) {
+	row := q.db.QueryRow(ctx, getUser, id)
+	var i GetUserRow
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
 		&i.Name,
 		&i.Role,
 		&i.CreatedAt,
+		&i.DisabledAt,
+		&i.LastLoginAt,
+		&i.IdentityCount,
 	)
 	return i, err
 }
 
 const getUserForUpdate = `-- name: GetUserForUpdate :one
-SELECT id, email, name, role, created_at FROM users WHERE id = $1 FOR UPDATE
+SELECT id, email, role, disabled_at FROM users WHERE id = $1 FOR UPDATE
 `
 
 type GetUserForUpdateRow struct {
-	ID        uuid.UUID
-	Email     string
-	Name      string
-	Role      UserRole
-	CreatedAt time.Time
+	ID         uuid.UUID
+	Email      pgtype.Text
+	Role       UserRole
+	DisabledAt *time.Time
 }
 
 func (q *Queries) GetUserForUpdate(ctx context.Context, id uuid.UUID) (GetUserForUpdateRow, error) {
@@ -55,23 +282,223 @@ func (q *Queries) GetUserForUpdate(ctx context.Context, id uuid.UUID) (GetUserFo
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
-		&i.Name,
 		&i.Role,
-		&i.CreatedAt,
+		&i.DisabledAt,
 	)
 	return i, err
 }
 
+const listDirectoryUsers = `-- name: ListDirectoryUsers :many
+SELECT id, name, email, (disabled_at IS NOT NULL)::boolean AS disabled FROM users ORDER BY lower(name), id
+`
+
+type ListDirectoryUsersRow struct {
+	ID       uuid.UUID
+	Name     string
+	Email    pgtype.Text
+	Disabled bool
+}
+
+func (q *Queries) ListDirectoryUsers(ctx context.Context) ([]ListDirectoryUsersRow, error) {
+	rows, err := q.db.Query(ctx, listDirectoryUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDirectoryUsersRow
+	for rows.Next() {
+		var i ListDirectoryUsersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Email,
+			&i.Disabled,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGroupMembers = `-- name: ListGroupMembers :many
+SELECT m.group_id, m.user_id
+FROM group_members m
+JOIN groups g ON g.id = m.group_id
+WHERE g.deleted_at IS NULL
+ORDER BY m.group_id, m.user_id
+`
+
+func (q *Queries) ListGroupMembers(ctx context.Context) ([]GroupMember, error) {
+	rows, err := q.db.Query(ctx, listGroupMembers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GroupMember
+	for rows.Next() {
+		var i GroupMember
+		if err := rows.Scan(&i.GroupID, &i.UserID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGroups = `-- name: ListGroups :many
+SELECT g.id, g.name, g.description, g.created_at, count(m.user_id)::integer AS member_count
+FROM groups g
+LEFT JOIN group_members m ON m.group_id = g.id
+WHERE g.deleted_at IS NULL
+GROUP BY g.id
+ORDER BY lower(g.name), g.id
+`
+
+type ListGroupsRow struct {
+	ID          uuid.UUID
+	Name        string
+	Description string
+	CreatedAt   time.Time
+	MemberCount int32
+}
+
+func (q *Queries) ListGroups(ctx context.Context) ([]ListGroupsRow, error) {
+	rows, err := q.db.Query(ctx, listGroups)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGroupsRow
+	for rows.Next() {
+		var i ListGroupsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.CreatedAt,
+			&i.MemberCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listIdentities = `-- name: ListIdentities :many
+SELECT id, user_id, provider, issuer, subject, email, created_at, last_login_at
+FROM user_identities
+WHERE user_id = $1
+ORDER BY created_at, id
+`
+
+type ListIdentitiesRow struct {
+	ID          uuid.UUID
+	UserID      uuid.UUID
+	Provider    string
+	Issuer      string
+	Subject     string
+	Email       pgtype.Text
+	CreatedAt   time.Time
+	LastLoginAt *time.Time
+}
+
+func (q *Queries) ListIdentities(ctx context.Context, userID uuid.UUID) ([]ListIdentitiesRow, error) {
+	rows, err := q.db.Query(ctx, listIdentities, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListIdentitiesRow
+	for rows.Next() {
+		var i ListIdentitiesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Provider,
+			&i.Issuer,
+			&i.Subject,
+			&i.Email,
+			&i.CreatedAt,
+			&i.LastLoginAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPrincipals = `-- name: ListPrincipals :many
+SELECT id, 'user'::text AS kind, name, (disabled_at IS NOT NULL)::boolean AS inactive FROM users
+UNION ALL
+SELECT id, 'group'::text AS kind, name, (deleted_at IS NOT NULL)::boolean AS inactive FROM groups
+`
+
+type ListPrincipalsRow struct {
+	ID       uuid.UUID
+	Kind     string
+	Name     string
+	Inactive bool
+}
+
+// Every user and group (deleted groups included) for owner links (ADR-069).
+func (q *Queries) ListPrincipals(ctx context.Context) ([]ListPrincipalsRow, error) {
+	rows, err := q.db.Query(ctx, listPrincipals)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPrincipalsRow
+	for rows.Next() {
+		var i ListPrincipalsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.Name,
+			&i.Inactive,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUsers = `-- name: ListUsers :many
-SELECT id, email, name, role, created_at FROM users ORDER BY email
+SELECT u.id, u.email, u.name, u.role, u.created_at, u.disabled_at,
+       u.last_login_at, count(i.id)::integer AS identity_count
+FROM users u
+LEFT JOIN user_identities i ON i.user_id = u.id
+GROUP BY u.id
+ORDER BY lower(u.name), u.id
 `
 
 type ListUsersRow struct {
-	ID        uuid.UUID
-	Email     string
-	Name      string
-	Role      UserRole
-	CreatedAt time.Time
+	ID            uuid.UUID
+	Email         pgtype.Text
+	Name          string
+	Role          UserRole
+	CreatedAt     time.Time
+	DisabledAt    *time.Time
+	LastLoginAt   *time.Time
+	IdentityCount int32
 }
 
 func (q *Queries) ListUsers(ctx context.Context) ([]ListUsersRow, error) {
@@ -89,6 +516,9 @@ func (q *Queries) ListUsers(ctx context.Context) ([]ListUsersRow, error) {
 			&i.Name,
 			&i.Role,
 			&i.CreatedAt,
+			&i.DisabledAt,
+			&i.LastLoginAt,
+			&i.IdentityCount,
 		); err != nil {
 			return nil, err
 		}
@@ -101,22 +531,36 @@ func (q *Queries) ListUsers(ctx context.Context) ([]ListUsersRow, error) {
 }
 
 const lockMaintainers = `-- name: LockMaintainers :many
-SELECT id FROM users WHERE role = 'maintainer' ORDER BY id FOR UPDATE
+SELECT u.id, (u.disabled_at IS NULL)::boolean AS enabled,
+       EXISTS (SELECT 1 FROM user_identities i
+               WHERE i.user_id = u.id AND i.issuer = 'urn:archmap:local')::boolean AS has_local
+FROM users u
+WHERE u.role = 'maintainer'
+ORDER BY u.id
+FOR UPDATE OF u
 `
 
-func (q *Queries) LockMaintainers(ctx context.Context) ([]uuid.UUID, error) {
+type LockMaintainersRow struct {
+	ID       uuid.UUID
+	Enabled  bool
+	HasLocal bool
+}
+
+// Every operation that can remove maintainer power locks these rows first, so
+// the break-glass invariant (ADR-059) is checked against a stable set.
+func (q *Queries) LockMaintainers(ctx context.Context) ([]LockMaintainersRow, error) {
 	rows, err := q.db.Query(ctx, lockMaintainers)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []uuid.UUID
+	var items []LockMaintainersRow
 	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
+		var i LockMaintainersRow
+		if err := rows.Scan(&i.ID, &i.Enabled, &i.HasLocal); err != nil {
 			return nil, err
 		}
-		items = append(items, id)
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -124,9 +568,51 @@ func (q *Queries) LockMaintainers(ctx context.Context) ([]uuid.UUID, error) {
 	return items, nil
 }
 
-const setUserRole = `-- name: SetUserRole :one
+const setLocalPassword = `-- name: SetLocalPassword :exec
+UPDATE user_identities SET password_hash = $2, password_must_change = $3 WHERE id = $1
+`
+
+type SetLocalPasswordParams struct {
+	ID                 uuid.UUID
+	PasswordHash       pgtype.Text
+	PasswordMustChange bool
+}
+
+func (q *Queries) SetLocalPassword(ctx context.Context, arg SetLocalPasswordParams) error {
+	_, err := q.db.Exec(ctx, setLocalPassword, arg.ID, arg.PasswordHash, arg.PasswordMustChange)
+	return err
+}
+
+const setUserDisabled = `-- name: SetUserDisabled :exec
+UPDATE users SET disabled_at = $2 WHERE id = $1
+`
+
+type SetUserDisabledParams struct {
+	ID         uuid.UUID
+	DisabledAt *time.Time
+}
+
+func (q *Queries) SetUserDisabled(ctx context.Context, arg SetUserDisabledParams) error {
+	_, err := q.db.Exec(ctx, setUserDisabled, arg.ID, arg.DisabledAt)
+	return err
+}
+
+const setUserName = `-- name: SetUserName :exec
+UPDATE users SET name = $2 WHERE id = $1
+`
+
+type SetUserNameParams struct {
+	ID   uuid.UUID
+	Name string
+}
+
+func (q *Queries) SetUserName(ctx context.Context, arg SetUserNameParams) error {
+	_, err := q.db.Exec(ctx, setUserName, arg.ID, arg.Name)
+	return err
+}
+
+const setUserRole = `-- name: SetUserRole :exec
 UPDATE users SET role = $2 WHERE id = $1
-RETURNING id, email, name, role, created_at
 `
 
 type SetUserRoleParams struct {
@@ -134,64 +620,31 @@ type SetUserRoleParams struct {
 	Role UserRole
 }
 
-type SetUserRoleRow struct {
-	ID        uuid.UUID
-	Email     string
-	Name      string
-	Role      UserRole
-	CreatedAt time.Time
+func (q *Queries) SetUserRole(ctx context.Context, arg SetUserRoleParams) error {
+	_, err := q.db.Exec(ctx, setUserRole, arg.ID, arg.Role)
+	return err
 }
 
-func (q *Queries) SetUserRole(ctx context.Context, arg SetUserRoleParams) (SetUserRoleRow, error) {
-	row := q.db.QueryRow(ctx, setUserRole, arg.ID, arg.Role)
-	var i SetUserRoleRow
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.Name,
-		&i.Role,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const upsertUser = `-- name: UpsertUser :one
-INSERT INTO users (email, name, role, password_hash)
-VALUES ($1, $2, $3, $4)
-ON CONFLICT (email) DO UPDATE
-SET name = EXCLUDED.name, role = EXCLUDED.role, password_hash = EXCLUDED.password_hash
-RETURNING id, email, name, role, created_at
+const softDeleteGroup = `-- name: SoftDeleteGroup :exec
+UPDATE groups SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL
 `
 
-type UpsertUserParams struct {
-	Email        string
-	Name         string
-	Role         UserRole
-	PasswordHash string
+func (q *Queries) SoftDeleteGroup(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, softDeleteGroup, id)
+	return err
 }
 
-type UpsertUserRow struct {
-	ID        uuid.UUID
-	Email     string
-	Name      string
-	Role      UserRole
-	CreatedAt time.Time
+const updateGroup = `-- name: UpdateGroup :exec
+UPDATE groups SET name = $2, description = $3 WHERE id = $1 AND deleted_at IS NULL
+`
+
+type UpdateGroupParams struct {
+	ID          uuid.UUID
+	Name        string
+	Description string
 }
 
-func (q *Queries) UpsertUser(ctx context.Context, arg UpsertUserParams) (UpsertUserRow, error) {
-	row := q.db.QueryRow(ctx, upsertUser,
-		arg.Email,
-		arg.Name,
-		arg.Role,
-		arg.PasswordHash,
-	)
-	var i UpsertUserRow
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.Name,
-		&i.Role,
-		&i.CreatedAt,
-	)
-	return i, err
+func (q *Queries) UpdateGroup(ctx context.Context, arg UpdateGroupParams) error {
+	_, err := q.db.Exec(ctx, updateGroup, arg.ID, arg.Name, arg.Description)
+	return err
 }

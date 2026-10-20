@@ -1,5 +1,5 @@
-import ELK from "elkjs/lib/elk.bundled.js"
-import type { ElkExtendedEdge, ElkNode } from "elkjs/lib/elk-api"
+import type { ELK, ElkExtendedEdge, ElkNode } from "elkjs/lib/elk-api"
+import elkWorkerUrl from "elkjs/lib/elk-worker.min.js?url"
 
 import { childrenOf, type AggregatedEdge, type ElementTree } from "./graph"
 
@@ -12,7 +12,37 @@ const PADDING = 16
 /** Position relative to the parent node (React Flow's convention for nested nodes) and size. */
 export type Box = { x: number; y: number; width: number; height: number }
 
-const elk = new ELK()
+// ELK runs in a web worker so large layouts do not block the page (ADR-071). Where there
+// is no Worker (tests, server render) or the worker fails, the bundled build runs inline.
+let workerElk: Promise<ELK | null> | null = null
+let inlineElk: Promise<ELK> | null = null
+
+function getWorkerElk(): Promise<ELK | null> {
+  workerElk ??= (async () => {
+    if (typeof Worker === "undefined") return null
+    const { default: ElkApi } = await import("elkjs/lib/elk-api.js")
+    return new ElkApi({ workerFactory: () => new Worker(elkWorkerUrl) })
+  })().catch(() => null)
+  return workerElk
+}
+
+function getInlineElk(): Promise<ELK> {
+  inlineElk ??= import("elkjs/lib/elk.bundled.js").then(({ default: Elk }) => new Elk())
+  return inlineElk
+}
+
+async function runLayout(graph: ElkNode): Promise<ElkNode> {
+  const worker = await getWorkerElk()
+  if (worker) {
+    try {
+      return await worker.layout(graph)
+    } catch (err) {
+      console.warn("ELK worker failed, laying out on the main thread", err)
+      workerElk = Promise.resolve(null)
+    }
+  }
+  return (await getInlineElk()).layout(graph)
+}
 
 const rootOptions = {
   "elk.algorithm": "layered",
@@ -52,7 +82,7 @@ export async function computeLayout(
     edges: edges.map((e): ElkExtendedEdge => ({ id: e.id, sources: [e.source], targets: [e.target] })),
   }
 
-  const laid = await elk.layout(graph)
+  const laid = await runLayout(graph)
 
   const boxes = new Map<string, Box>()
   const collect = (n: ElkNode) => {

@@ -1,4 +1,4 @@
-import type { Element, ElementKind, Relation, RelationKind } from "@archmap/api-client"
+import type { Element, ElementKind, Environment, Lifecycle, Relation, RelationKind } from "@archmap/api-client"
 
 /** Read-only index of the element hierarchy. */
 export type ElementTree = {
@@ -74,6 +74,41 @@ export function nearestVisible(tree: ElementTree, id: string, visible: ReadonlyS
   return null
 }
 
+/**
+ * nearestVisible for many ids at once: each element's answer is computed once and
+ * shared with its descendants, so large models do not walk every ancestor chain per relation.
+ */
+function nearestVisibleIndex(tree: ElementTree, visible: ReadonlySet<string>) {
+  const memo = new Map<string, string | null>()
+  const resolve = (id: string): string | null => {
+    const known = memo.get(id)
+    if (known !== undefined) return known
+    // Walk up until a visible or already resolved element, then fill the chain.
+    const chain: string[] = []
+    const seen = new Set<string>()
+    let cur: string | undefined = id
+    let answer: string | null = null
+    while (cur !== undefined && !seen.has(cur)) {
+      if (visible.has(cur)) {
+        answer = cur
+        break
+      }
+      const m = memo.get(cur)
+      if (m !== undefined) {
+        answer = m
+        break
+      }
+      chain.push(cur)
+      seen.add(cur)
+      const parent: string | null | undefined = tree.byId.get(cur)?.parent_id
+      cur = parent && tree.byId.has(parent) ? parent : undefined
+    }
+    for (const c of chain) memo.set(c, answer)
+    return answer
+  }
+  return resolve
+}
+
 export type AggregatedEdge = {
   id: string
   source: string
@@ -95,11 +130,18 @@ export function aggregateEdges(
   visible: ReadonlySet<string>
 ): AggregatedEdge[] {
   const edges = new Map<string, AggregatedEdge>()
+  const nearest = nearestVisibleIndex(tree, visible)
+  const ancestors = new Map<string, ReadonlySet<string>>()
+  const ancestorsOf = (id: string) => {
+    let a = ancestors.get(id)
+    if (!a) ancestors.set(id, (a = new Set(ancestorIds(tree, id))))
+    return a
+  }
   for (const r of relations) {
-    const source = nearestVisible(tree, r.source_id, visible)
-    const target = nearestVisible(tree, r.target_id, visible)
+    const source = nearest(r.source_id)
+    const target = nearest(r.target_id)
     if (!source || !target || source === target) continue
-    if (ancestorIds(tree, source).includes(target) || ancestorIds(tree, target).includes(source)) continue
+    if (ancestorsOf(source).has(target) || ancestorsOf(target).has(source)) continue
 
     const id = `${source}->${target}`
     let edge = edges.get(id)
@@ -120,12 +162,36 @@ export type ElementFilter = {
   tags: readonly string[]
   /** Highlight the elements of one project (others are dimmed); null = all. */
   project: string | null
+  /** Effective owner id (role owner), UNOWNED for elements without one; null = all. */
+  owner: string | null
+  /** Effective environment; null = all. */
+  environment: Exclude<Environment, ""> | null
+  lifecycle: Lifecycle | null
 }
 
-export const emptyFilter: ElementFilter = { query: "", kinds: [], tags: [], project: null }
+/** Owner filter value for elements without an effective owner. */
+export const UNOWNED = "__unowned__"
+
+export const emptyFilter: ElementFilter = {
+  query: "",
+  kinds: [],
+  tags: [],
+  project: null,
+  owner: null,
+  environment: null,
+  lifecycle: null,
+}
 
 export function isFilterActive(f: ElementFilter): boolean {
-  return f.query.trim() !== "" || f.kinds.length > 0 || f.tags.length > 0 || f.project !== null
+  return (
+    f.query.trim() !== "" ||
+    f.kinds.length > 0 ||
+    f.tags.length > 0 ||
+    f.project !== null ||
+    f.owner !== null ||
+    f.environment !== null ||
+    f.lifecycle !== null
+  )
 }
 
 export function matchesFilter(e: Element, f: ElementFilter): boolean {
@@ -134,7 +200,20 @@ export function matchesFilter(e: Element, f: ElementFilter): boolean {
   if (f.kinds.length > 0 && !f.kinds.includes(e.kind)) return false
   if (f.tags.length > 0 && !f.tags.some((t) => e.tags.includes(t))) return false
   if (f.project !== null && !inProject(e, f.project)) return false
+  if (f.owner !== null) {
+    const owner = e.effective?.owners.find((o) => o.role === "owner")?.owner_id ?? null
+    if (f.owner === UNOWNED ? owner !== null || e.kind === "person" : owner !== f.owner) return false
+  }
+  if (f.environment !== null && e.effective?.environment !== f.environment) return false
+  if (f.lifecycle !== null && e.lifecycle !== f.lifecycle) return false
   return true
+}
+
+/** Owner ids that are someone's effective owner, for the owner filter. */
+export function usedOwners(elements: readonly Element[]): Set<string> {
+  const out = new Set<string>()
+  for (const e of elements) for (const o of e.effective?.owners ?? []) if (o.role === "owner") out.add(o.owner_id)
+  return out
 }
 
 export const inProject = (e: Element, project: string) =>
@@ -166,4 +245,78 @@ export function allProjects(elements: readonly Element[]): string[] {
 /** Ids of elements that have children (the only ones that can expand). */
 export function expandableIds(tree: ElementTree): string[] {
   return [...tree.children.keys()]
+}
+
+/** Ids of an element and all its descendants. */
+export function subtreeIds(tree: ElementTree, id: string): Set<string> {
+  const out = new Set<string>()
+  const walk = (cur: string) => {
+    if (out.has(cur)) return
+    out.add(cur)
+    for (const c of childrenOf(tree, cur)) walk(c.id)
+  }
+  walk(id)
+  return out
+}
+
+export type FocusScope = {
+  /** The focused element and its descendants. */
+  inside: ReadonlySet<string>
+  /** Outside elements related to the inside, each lifted to its highest ancestor that does not contain the focus. */
+  context: ReadonlySet<string>
+}
+
+/**
+ * What a canvas focused on one element shows (ADR-071): the element's subtree plus
+ * the outside elements it is related to (uses and deployed_on). Like a container view
+ * on the server (view.Compute), the other end of a relation is lifted to its highest
+ * ancestor that does not contain the focus, so context stays at the level of systems.
+ */
+export function focusScope(tree: ElementTree, relations: readonly Relation[], focusId: string): FocusScope {
+  const inside = subtreeIds(tree, focusId)
+  const focusAncestors = new Set(ancestorIds(tree, focusId))
+  const context = new Set<string>()
+  for (const r of relations) {
+    const s = inside.has(r.source_id)
+    const t = inside.has(r.target_id)
+    if (s === t) continue
+    const other = s ? r.target_id : r.source_id
+    if (!tree.byId.has(other) || focusAncestors.has(other)) continue
+    let best = other
+    for (const a of ancestorIds(tree, other)) {
+      if (focusAncestors.has(a)) break
+      best = a
+    }
+    context.add(best)
+  }
+  return { inside, context }
+}
+
+/**
+ * The tree a focused canvas lays out: the focused element and the context elements
+ * are the roots; only the focused subtree keeps its children (context cards cannot
+ * expand). `byId` stays complete so relations deep inside a context element still
+ * route to it.
+ */
+export function focusTree(tree: ElementTree, scope: FocusScope, focusId: string): ElementTree {
+  const children = new Map<string, readonly Element[]>()
+  for (const id of scope.inside) {
+    const kids = tree.children.get(id)
+    if (kids) children.set(id, kids)
+  }
+  const focus = tree.byId.get(focusId)
+  const context = [...scope.context]
+    .map((id) => tree.byId.get(id))
+    .filter((e): e is Element => e !== undefined)
+    .sort(byName)
+  return { byId: tree.byId, children, roots: focus ? [focus, ...context] : context }
+}
+
+/** Path from the top level down to an element (for the focus breadcrumb). */
+export function pathTo(tree: ElementTree, id: string): Element[] {
+  return [...ancestorIds(tree, id)]
+    .reverse()
+    .concat(id)
+    .map((a) => tree.byId.get(a))
+    .filter((e): e is Element => e !== undefined)
 }

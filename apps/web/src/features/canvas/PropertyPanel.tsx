@@ -1,16 +1,40 @@
 import { useMemo } from "react"
-import { ArrowRight, FolderPlus, Lock, MousePointerClick, Pencil, Server, Trash2, TriangleAlert } from "lucide-react"
+import {
+  ArrowRight,
+  Focus,
+  FolderPlus,
+  Lock,
+  MousePointerClick,
+  Pencil,
+  Server,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react"
 import type { Element, Relation } from "@archmap/api-client"
 
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { TechIcon } from "@/components/tech-icon/tech-icon"
 import { canBeDeployed, hostedIds, hostIds } from "./deployment"
+import {
+  criticalities,
+  daysSinceReview,
+  effectiveOwner,
+  environments,
+  labelOf,
+  lifecycles,
+  ownerRoles,
+  REVIEW_MAX_DAYS,
+  typeMeta,
+} from "./element"
+import { useOwnerIndex } from "./owners"
 import { ancestorIds, type ElementTree } from "./graph"
 import { kindMeta } from "./kind"
 import { useCanvasStore } from "./store"
+import { useFocusAction } from "./focusAction"
 
 /** Draft-only actions; omitted on main (read-only). */
 export type PanelActions = {
@@ -133,6 +157,14 @@ export function PropertyPanel({
   const editing = actions?.editingId === element.id
   const deployedOn = hostIds(relations, element.id)
   const hosted = element.kind === "node" ? hostedIds(relations, element.id) : []
+  const owners = useOwnerIndex()
+  const eff = element.effective
+  const deployedVia = eff?.deployed_via_id && eff.deployed_via_id !== element.id ? eff.deployed_via_id : null
+  const envSource =
+    eff?.environment_source_id && eff.environment_source_id !== element.id ? eff.environment_source_id : null
+  const reviewAge = daysSinceReview(element.last_reviewed_at)
+  const type = typeMeta(element.type)
+  const focus = useFocusAction()
 
   return (
     <div className="flex flex-col gap-4 p-4" aria-label="Element details">
@@ -158,6 +190,18 @@ export function PropertyPanel({
           <Badge variant="outline" className="shrink-0">
             <Lock data-icon="inline-start" aria-hidden /> Protected
           </Badge>
+        )}
+        {focus && tree.children.has(element.id) && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className="shrink-0 text-muted-foreground"
+            aria-label={`Focus ${element.name}`}
+            title="Focus (F)"
+            onClick={() => focus(element.id)}
+          >
+            <Focus aria-hidden />
+          </Button>
         )}
       </header>
       {actions && !editing && (
@@ -227,10 +271,98 @@ export function PropertyPanel({
               )}
             </Prop>
           </dl>
+          <div className="flex flex-col gap-1.5">
+            <SectionTitle>Operations</SectionTitle>
+            <dl className="grid grid-cols-[6.5rem_minmax(0,1fr)] text-sm">
+              {type && <Prop label="Type">{type.label}</Prop>}
+              <Prop label="Environment">
+                {eff?.environment ? (
+                  <span className="flex flex-wrap items-baseline gap-x-1.5">
+                    {labelOf(environments, eff.environment)}
+                    {envSource && (
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                        onClick={() => goto(envSource)}
+                      >
+                        from {nameOf(envSource)}
+                      </button>
+                    )}
+                  </span>
+                ) : (
+                  none
+                )}
+              </Prop>
+              <Prop label="Lifecycle">{labelOf(lifecycles, element.lifecycle)}</Prop>
+              <Prop label="Criticality">{labelOf(criticalities, element.criticality) || none}</Prop>
+              <Prop label="Runbook">{element.runbook_url ? <ExternalLink href={element.runbook_url} /> : none}</Prop>
+              <Prop label="Docs">{element.docs_url ? <ExternalLink href={element.docs_url} /> : none}</Prop>
+              <Prop label="Reviewed">
+                {element.last_reviewed_at ? (
+                  <span className="flex flex-col">
+                    <span className="tabular-nums">{element.last_reviewed_at}</span>
+                    {reviewAge !== null && reviewAge > REVIEW_MAX_DAYS && (
+                      <span className="text-xs text-amber-600 dark:text-amber-400">{reviewAge} days ago</span>
+                    )}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground/70">Never</span>
+                )}
+              </Prop>
+            </dl>
+          </div>
+          {element.kind !== "person" && (
+            <div className="flex flex-col gap-1.5">
+              <SectionTitle>Ownership</SectionTitle>
+              <dl className="grid grid-cols-[6.5rem_minmax(0,1fr)] text-sm">
+                {ownerRoles.map((r) => {
+                  const o = effectiveOwner(eff, element.id, r.value)
+                  const owner = o ? owners.get(o.ownerId) : undefined
+                  return (
+                    <Prop key={r.value} label={r.label}>
+                      {o ? (
+                        <span className="flex flex-col">
+                          <span
+                            className={cn("truncate", owner?.inactive && "text-muted-foreground line-through")}
+                            title={owner?.contact || undefined}
+                          >
+                            {owner?.name ?? "Unknown owner"}
+                          </span>
+                          {owner?.inactive && (
+                            <span className="text-xs text-amber-600 dark:text-amber-400">
+                              {owner.kind === "group" ? "Deleted group" : "Disabled user"}
+                            </span>
+                          )}
+                          {o.inherited && (
+                            <button
+                              type="button"
+                              className="self-start text-xs text-muted-foreground underline-offset-2 hover:underline"
+                              onClick={() => goto(o.sourceId)}
+                            >
+                              inherited from {nameOf(o.sourceId)}
+                            </button>
+                          )}
+                        </span>
+                      ) : r.value === "owner" ? (
+                        <span className="text-muted-foreground/70">Unowned</span>
+                      ) : (
+                        none
+                      )}
+                    </Prop>
+                  )
+                })}
+              </dl>
+            </div>
+          )}
           {canBeDeployed(element.kind) && (
             <div className="flex flex-col gap-1.5">
               <SectionTitle>Deployed on</SectionTitle>
-              {deployedOn.length === 0 ? (
+              {deployedOn.length === 0 && deployedVia ? (
+                <span className="flex flex-wrap items-center gap-1.5 text-sm">
+                  <span className="text-muted-foreground">Through</span>
+                  <NodeLink name={nameOf(deployedVia)} onClick={() => goto(deployedVia)} />
+                </span>
+              ) : deployedOn.length === 0 ? (
                 <span className="flex items-center gap-1.5 text-sm text-amber-600 dark:text-amber-400">
                   <TriangleAlert className="size-3.5" aria-hidden /> Not deployed on any node
                 </span>
@@ -378,5 +510,25 @@ function NodeLink({ name, onClick }: { name: string; onClick: () => void }) {
       <Server className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
       <span className="truncate">{name}</span>
     </button>
+  )
+}
+
+/** An external link (runbook, docs): opens in a new tab and shows the host. */
+function ExternalLink({ href }: { href: string }) {
+  let host = href
+  try {
+    host = new URL(href).host
+  } catch {
+    // keep the raw text
+  }
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      className="truncate text-primary underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+    >
+      {host}
+    </a>
   )
 }

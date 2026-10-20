@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import { ancestorIds, type ElementTree } from "../canvas/graph"
 import { useCanvasStore } from "../canvas/store"
+import { useOwnerIndex } from "../canvas/owners"
 import { describeBatches, formatValue } from "./decor"
 
 type Props = {
@@ -97,14 +98,20 @@ function LintTab({ lint, tree, relations }: Props) {
   return (
     <ul className="flex flex-col gap-1.5" aria-label="Lint findings">
       {lint.findings.map((f, i) => {
-        const target = f.target_type === "element" ? f.target_id : (relById.get(f.target_id)?.source_id ?? "")
+        const target =
+          f.target_type === "element"
+            ? f.target_id
+            : f.target_type === "relation"
+              ? (relById.get(f.target_id)?.source_id ?? null)
+              : null // owners and ownerships are not on the canvas
         const Icon = f.severity === "error" ? CircleAlert : TriangleAlert
         return (
           <li key={`${f.rule}-${f.target_id}-${i}`}>
             <button
               type="button"
-              onClick={() => goto(target)}
-              className="flex w-full items-start gap-2 rounded-lg border bg-card px-2.5 py-2 text-left text-sm transition-colors hover:border-ring/50 hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              disabled={target === null}
+              onClick={() => target && goto(target)}
+              className="flex w-full items-start gap-2 rounded-lg border bg-card px-2.5 py-2 text-left text-sm transition-colors hover:border-ring/50 hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:hover:border-border disabled:hover:bg-card"
             >
               <Icon
                 className={cn("mt-0.5 size-4 shrink-0", f.severity === "error" ? "text-destructive" : "text-amber-500")}
@@ -146,18 +153,36 @@ export function DiffView({
   showStale?: boolean
 }) {
   const goto = useReveal(tree)
+  const known = useOwnerIndex()
   if (!diff) return <p className="text-sm text-muted-foreground">Computing…</p>
-  const { elements, relations } = diff
+  const { elements, relations, owners, ownerships } = diff
   const total =
     elements.added.length +
     elements.removed.length +
     elements.modified.length +
     relations.added.length +
     relations.removed.length +
-    relations.modified.length
+    relations.modified.length +
+    owners.added.length +
+    owners.removed.length +
+    owners.modified.length +
+    ownerships.added.length +
+    ownerships.removed.length +
+    ownerships.modified.length
   const name = (id: string) => tree.byId.get(id)?.name ?? "unknown"
-  // Reference fields (parent_id, ...) hold element ids: show the element's name instead.
-  const show = (v: unknown) => (typeof v === "string" && tree.byId.has(v) ? name(v) : formatValue(v))
+  // Owners named by the diff itself (added / removed ones may not be in the current model).
+  const ownerNames = new Map([...known.values()].map((o) => [o.id, o.name]))
+  for (const o of [...owners.added, ...owners.removed, ...owners.modified.map((m) => m.after)])
+    ownerNames.set(o.id, o.name)
+  const ownerName = (id: string) => ownerNames.get(id) ?? "unknown owner"
+  // Reference fields (parent_id, owner_id, ...) hold ids: show the name instead.
+  const show = (v: unknown) =>
+    typeof v === "string" && tree.byId.has(v)
+      ? name(v)
+      : typeof v === "string" && ownerNames.has(v)
+        ? ownerName(v)
+        : formatValue(v)
+  const assignment = (o: { element_id: string; owner_id: string }) => `${name(o.element_id)}: ${ownerName(o.owner_id)}`
 
   return (
     <div className="flex flex-col gap-4">
@@ -209,6 +234,46 @@ export function DiffView({
             status="modified"
             label={`${name(m.after.source_id)} → ${name(m.after.target_id)}`}
             meta={m.after.kind}
+          >
+            <FieldChanges fields={m.fields} show={show} />
+          </DiffRow>
+        ))}
+      </DiffSection>
+      <DiffSection title="Owners added" status="added" count={owners.added.length}>
+        {owners.added.map((o) => (
+          <DiffRow key={o.id} status="added" label={o.name} meta={o.kind} />
+        ))}
+      </DiffSection>
+      <DiffSection title="Owners removed" status="removed" count={owners.removed.length}>
+        {owners.removed.map((o) => (
+          <DiffRow key={o.id} status="removed" label={o.name} meta={o.kind} />
+        ))}
+      </DiffSection>
+      <DiffSection title="Owners modified" status="modified" count={owners.modified.length}>
+        {owners.modified.map((m) => (
+          <DiffRow key={m.after.id} status="modified" label={m.after.name} meta={m.after.kind}>
+            <FieldChanges fields={m.fields} show={show} />
+          </DiffRow>
+        ))}
+      </DiffSection>
+      <DiffSection title="Ownership added" status="added" count={ownerships.added.length}>
+        {ownerships.added.map((o) => (
+          <DiffRow key={o.id} status="added" label={assignment(o)} meta={o.role} onClick={() => goto(o.element_id)} />
+        ))}
+      </DiffSection>
+      <DiffSection title="Ownership removed" status="removed" count={ownerships.removed.length}>
+        {ownerships.removed.map((o) => (
+          <DiffRow key={o.id} status="removed" label={assignment(o)} meta={o.role} />
+        ))}
+      </DiffSection>
+      <DiffSection title="Ownership modified" status="modified" count={ownerships.modified.length}>
+        {ownerships.modified.map((m) => (
+          <DiffRow
+            key={m.after.id}
+            status="modified"
+            label={name(m.after.element_id)}
+            meta={m.after.role}
+            onClick={() => goto(m.after.element_id)}
           >
             <FieldChanges fields={m.fields} show={show} />
           </DiffRow>

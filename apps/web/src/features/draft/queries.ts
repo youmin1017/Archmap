@@ -3,6 +3,8 @@ import { toast } from "sonner"
 import {
   abandonChangeset,
   addChanges,
+  applyDirect,
+  revertDirect,
   approveChangeset,
   createChangeset,
   createView,
@@ -18,6 +20,7 @@ import {
   getViewModel,
   listChangesets,
   listElements,
+  listOwners,
   listRelations,
   listVersions,
   listViews,
@@ -30,6 +33,7 @@ import {
   undoChange,
   updateView,
   type ChangeInput,
+  type DirectResult,
   type LayerRule,
   type ChangesetStatus,
   type Model,
@@ -85,11 +89,17 @@ export const useMainModel = () =>
   useQuery({
     queryKey: keys.main,
     queryFn: async (): Promise<Model> => {
-      const [els, rels] = await Promise.all([
+      const [els, rels, owners] = await Promise.all([
         listElements({ throwOnError: true }),
         listRelations({ throwOnError: true }),
+        listOwners({ throwOnError: true }),
       ])
-      return { elements: els.data.elements, relations: rels.data.relations }
+      return {
+        elements: els.data.elements,
+        relations: rels.data.relations,
+        owners: owners.data.owners,
+        ownerships: owners.data.ownerships,
+      }
     },
   })
 
@@ -171,6 +181,64 @@ export function useAddChanges(id: string) {
       toast.error(errMessage(e))
     },
     onSettled: () => invalidateDraft(qc, id),
+  })
+}
+
+/** After a direct edit: main, its views and the version list are refetched. */
+function invalidateMain(qc: QueryClient) {
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: keys.main }),
+    qc.invalidateQueries({ queryKey: keys.versions }),
+    qc.invalidateQueries({ queryKey: ["changesets"] }),
+  ])
+}
+
+/** Tells the user when a direct edit was not merged (lint errors or protected elements). */
+function reportDirect(r: DirectResult, openDraft: (id: string) => void) {
+  if (r.outcome === "merged") return
+  toast.warning(r.outcome === "in_review" ? "Needs review" : "Saved as a draft", {
+    description: r.reason,
+    action: { label: "Open", onClick: () => openDraft(r.changeset.id) },
+    duration: 10_000,
+  })
+}
+
+/**
+ * Edits main directly (review policy "direct", ADR-072): one batch is one new version.
+ * Main is patched optimistically; a rejection restores it.
+ */
+export function useApplyDirect(openDraft: (id: string) => void) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { inputs: ChangeInput[]; summary?: string }) =>
+      (await applyDirect({ body: { changes: v.inputs, summary: v.summary }, throwOnError: true })).data,
+    onMutate: async ({ inputs }) => {
+      await qc.cancelQueries({ queryKey: keys.main, exact: true })
+      const previous = qc.getQueryData<Model>(keys.main)
+      if (previous) qc.setQueryData<Model>(keys.main, applyInputs(previous, inputs))
+      return { previous }
+    },
+    onSuccess: (r) => reportDirect(r, openDraft),
+    onError: (e, _v, ctx) => {
+      if (ctx?.previous) qc.setQueryData(keys.main, ctx.previous)
+      toast.error(errMessage(e))
+    },
+    onSettled: () => invalidateMain(qc),
+  })
+}
+
+/** Undoes a direct edit (a new version that reverses it). */
+export function useRevertDirect(openDraft: (id: string) => void) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (changesetId: string) =>
+      (await revertDirect({ path: { id: changesetId }, throwOnError: true })).data,
+    onSuccess: (r) => {
+      if (r.outcome === "merged") toast.success("Undone")
+      else reportDirect(r, openDraft)
+    },
+    onError: (e) => toast.error(errMessage(e)),
+    onSettled: () => invalidateMain(qc),
   })
 }
 

@@ -2,30 +2,40 @@ package testdb
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"archmap/api/internal/platform/authctx"
-	"archmap/api/internal/user/repository/sqlcgen"
+	"archmap/api/internal/user"
+	userrepo "archmap/api/internal/user/repository"
 )
+
+// Password is the local password of every fixture user.
+const Password = "test-password-123"
 
 // Actors inserts one user per role and returns them as request actors.
 func Actors(t testing.TB, pool *pgxpool.Pool) map[authctx.Role]authctx.Actor {
 	t.Helper()
-	q := sqlcgen.New(pool)
 	out := map[authctx.Role]authctx.Actor{}
 	for _, role := range []authctx.Role{authctx.RoleViewer, authctx.RoleEditor, authctx.RoleMaintainer} {
-		email := string(role) + "@test.local"
-		u, err := q.UpsertUser(context.Background(), sqlcgen.UpsertUserParams{
-			Email: email, Name: string(role), Role: sqlcgen.UserRole(role), PasswordHash: "x",
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		out[role] = authctx.Actor{ID: u.ID, Email: u.Email, Name: u.Name, Role: role}
+		out[role] = User(t, pool, string(role)+"@test.local", role)
 	}
 	return out
+}
+
+// User creates (or updates) an enabled account with a local password (Password) and returns it as an actor.
+func User(t testing.TB, pool *pgxpool.Pool, email string, role authctx.Role) authctx.Actor {
+	t.Helper()
+	name, _, _ := strings.Cut(email, "@")
+	id, err := user.NewService(userrepo.New(pool)).EnsureLocal(context.Background(), user.LocalAccount{
+		Email: email, Name: name, Role: role, Password: Password,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return authctx.Actor{ID: id, Email: email, Name: name, Role: role}
 }
 
 // MainDump returns a deterministic JSON dump of every main-model table

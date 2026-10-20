@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"archmap/api/internal/lint"
 	"archmap/api/internal/model"
 	"archmap/api/internal/platform/apperr"
 	"archmap/api/internal/platform/authctx"
@@ -47,6 +48,12 @@ type Repository interface {
 	MaterializeChanges(ctx context.Context, changes []Change) error
 	RecordVersion(ctx context.Context, number int, changesetID, mergedBy uuid.UUID, summary string, snapshot model.Snapshot) error
 	MarkMerged(ctx context.Context, changesetID uuid.UUID) error
+	// MarkDirect flags a changeset as an automatically merged direct edit.
+	MarkDirect(ctx context.Context, changesetID uuid.UUID) error
+	// VersionOf returns the version a merged changeset created (NotFound if none).
+	VersionOf(ctx context.Context, changesetID uuid.UUID) (int, error)
+	// IsReverted reports whether a merged changeset undoes the given one.
+	IsReverted(ctx context.Context, changesetID uuid.UUID) (bool, error)
 
 	ApproveChangeset(ctx context.Context, id, by uuid.UUID) (Changeset, error)
 	SetStatus(ctx context.Context, id uuid.UUID, status Status) (Changeset, error)
@@ -63,6 +70,36 @@ type Service struct {
 	repo           Repository
 	allowSelfMerge bool
 	layerRules     LayerRuleSource // nil = no layer rules
+	lint           lint.Options
+	principals     PrincipalSource // nil = no users / groups can be owners
+	policy         PolicySource    // nil = direct edits are never allowed
+}
+
+// PrincipalSource lists the users and groups owners can point at (ADR-069).
+type PrincipalSource interface {
+	Principals(ctx context.Context) (model.Principals, error)
+}
+
+// WithPrincipals lets owners point at users and groups and feeds the owner-inactive lint rule.
+func WithPrincipals(src PrincipalSource) Option { return func(s *Service) { s.principals = src } }
+
+// loadPrincipals returns the directory, or nil when no source is configured.
+func (s *Service) loadPrincipals(ctx context.Context) (model.Principals, error) {
+	if s.principals == nil {
+		return nil, nil
+	}
+	return s.principals.Principals(ctx)
+}
+
+// lintRules returns the rule set with the current directory of principals.
+func (s *Service) lintRules(ctx context.Context) ([]lint.Rule, error) {
+	o := s.lint
+	p, err := s.loadPrincipals(ctx)
+	if err != nil {
+		return nil, err
+	}
+	o.Principals = p
+	return lint.Rules(o), nil
 }
 
 type Option func(*Service)
@@ -73,6 +110,9 @@ func WithSelfMerge(allow bool) Option { return func(s *Service) { s.allowSelfMer
 
 // WithLayerRules enforces the given layer rules when elements are added or their layer changes.
 func WithLayerRules(src LayerRuleSource) Option { return func(s *Service) { s.layerRules = src } }
+
+// WithLintOptions configures the time-dependent lint rules (clock, review age).
+func WithLintOptions(o lint.Options) Option { return func(s *Service) { s.lint = o } }
 
 func NewService(repo Repository, opts ...Option) *Service {
 	s := &Service{repo: repo}
@@ -185,15 +225,9 @@ func (s *Service) AddChanges(ctx context.Context, id uuid.UUID, inputs []ChangeI
 		if err != nil {
 			return err
 		}
-		batch, err := uuid.NewV7()
+		b, err := s.newBuilder(ctx, st)
 		if err != nil {
 			return err
-		}
-		b := &builder{st: st, batch: batch, now: time.Now().UTC()}
-		if s.layerRules != nil {
-			if b.rules, err = s.layerRules.LayerRules(ctx); err != nil {
-				return err
-			}
 		}
 		for i, in := range inputs {
 			if err := b.apply(in); err != nil {

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  emptyFilter,
+  UNOWNED,
+  usedOwners,
   aggregateEdges,
   allProjects,
   allTags,
@@ -128,20 +131,29 @@ describe("aggregateEdges", () => {
 
 describe("filters", () => {
   it("matches by text, kind and tag, and keeps ancestors of matches", () => {
-    const { matches, keep } = filterMatches(tree, { query: "nginx", kinds: [], tags: [], project: null })
+    const { matches, keep } = filterMatches(tree, {
+      ...emptyFilter,
+      query: "nginx",
+      kinds: [],
+      tags: [],
+      project: null,
+    })
     expect([...matches]).toEqual([ids.nginx])
     expect(keep).toEqual(new Set([ids.nginx, ids.docker, ids.host]))
 
-    expect(filterMatches(tree, { query: "", kinds: ["person"], tags: [], project: null }).matches).toEqual(
-      new Set([ids.customer])
-    )
-    expect(filterMatches(tree, { query: "", kinds: [], tags: ["backend"], project: null }).matches).toEqual(
-      new Set([ids.api, ids.worker])
-    )
     expect(
-      filterMatches(tree, { query: "go", kinds: ["container"], tags: ["backend"], project: null }).matches
+      filterMatches(tree, { ...emptyFilter, query: "", kinds: ["person"], tags: [], project: null }).matches
+    ).toEqual(new Set([ids.customer]))
+    expect(
+      filterMatches(tree, { ...emptyFilter, query: "", kinds: [], tags: ["backend"], project: null }).matches
     ).toEqual(new Set([ids.api, ids.worker]))
-    expect(filterMatches(tree, { query: "zzz", kinds: [], tags: [], project: null }).matches.size).toBe(0)
+    expect(
+      filterMatches(tree, { ...emptyFilter, query: "go", kinds: ["container"], tags: ["backend"], project: null })
+        .matches
+    ).toEqual(new Set([ids.api, ids.worker]))
+    expect(filterMatches(tree, { ...emptyFilter, query: "zzz", kinds: [], tags: [], project: null }).matches.size).toBe(
+      0
+    )
   })
 
   it("highlights a project (case-insensitive) and lists projects", () => {
@@ -150,15 +162,46 @@ describe("filters", () => {
       projects: e.id === ids.api ? ["Shop", "Payments"] : e.id === ids.worker ? ["payments"] : [],
     }))
     const t = buildTree(els)
-    const f = { query: "", kinds: [], tags: [], project: "PAYMENTS" }
+    const f = { ...emptyFilter, query: "", kinds: [], tags: [], project: "PAYMENTS" }
     expect(filterMatches(t, f).matches).toEqual(new Set([ids.api, ids.worker]))
     expect(isFilterActive(f)).toBe(true)
     expect(allProjects(els)).toEqual(["Payments", "Shop"])
   })
 
   it("knows when a filter is active and lists tags", () => {
-    expect(isFilterActive({ query: "  ", kinds: [], tags: [], project: null })).toBe(false)
-    expect(isFilterActive({ query: "a", kinds: [], tags: [], project: null })).toBe(true)
+    expect(isFilterActive({ ...emptyFilter, query: "  ", kinds: [], tags: [], project: null })).toBe(false)
+    expect(isFilterActive({ ...emptyFilter, query: "a", kinds: [], tags: [], project: null })).toBe(true)
     expect(allTags(sampleElements)).toEqual(["backend", "database", "external", "frontend"])
+  })
+})
+
+describe("ownership, environment and lifecycle filters", () => {
+  const owned = (ownerId: string, source: string) => ({
+    environment: "prod" as const,
+    environment_source_id: ids.shop,
+    owners: [{ role: "owner" as const, owner_id: ownerId, source_element_id: source }],
+    deployed_via_id: null,
+  })
+  const els = sampleElements.map((e) =>
+    e.id === ids.api
+      ? { ...e, effective: owned("team-a", ids.shop) }
+      : e.id === ids.worker
+        ? { ...e, effective: owned("team-b", ids.worker), lifecycle: "deprecated" as const }
+        : {
+            ...e,
+            effective: { environment: "" as const, environment_source_id: null, owners: [], deployed_via_id: null },
+          }
+  )
+  const t = buildTree(els)
+
+  it("filters by effective owner, unowned (never people), environment and lifecycle", () => {
+    expect(filterMatches(t, { ...emptyFilter, owner: "team-a" }).matches).toEqual(new Set([ids.api]))
+    const unowned = filterMatches(t, { ...emptyFilter, owner: UNOWNED }).matches
+    expect(unowned.has(ids.api) || unowned.has(ids.worker) || unowned.has(ids.customer)).toBe(false)
+    expect(unowned.has(ids.nginx)).toBe(true)
+    expect(filterMatches(t, { ...emptyFilter, environment: "prod" }).matches).toEqual(new Set([ids.api, ids.worker]))
+    expect(filterMatches(t, { ...emptyFilter, lifecycle: "deprecated" }).matches).toEqual(new Set([ids.worker]))
+    expect(isFilterActive({ ...emptyFilter, lifecycle: "planned" })).toBe(true)
+    expect(usedOwners(els)).toEqual(new Set(["team-a", "team-b"]))
   })
 })

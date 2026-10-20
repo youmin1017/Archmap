@@ -12,6 +12,8 @@ import {
   DiffMark,
   endpointOf,
   HostBadge,
+  MetaBadge,
+  OwnerBadge,
   KindTile,
   ReplicaBackdrop,
   ReplicaBadge,
@@ -19,6 +21,8 @@ import {
 } from "./shapes"
 import type { DiffStatus, LintSeverity } from "./decor"
 import { useCanvasStore } from "./store"
+import { effectiveOwner, isDatastore, labelOf, lifecycles, typeMeta } from "./element"
+import { useOwnerIndex } from "./owners"
 
 export type ElementNodeData = {
   element: Element
@@ -32,6 +36,10 @@ export type ElementNodeData = {
   lint?: LintSeverity
   /** Names of the nodes the element is deployed on. */
   hosts: readonly string[]
+  /** Name of the ancestor the effective owner is inherited from (undefined when owned directly or unowned). */
+  ownerFrom?: string
+  /** Shown as context of a focused canvas: an outside element related to the focus (ADR-071). */
+  context?: boolean
   editable: boolean
   [key: string]: unknown
 }
@@ -60,10 +68,13 @@ function ExpandButton({ element, childCount, expanded }: { element: Element; chi
 }
 
 function ElementNodeImpl({ data, selected }: NodeProps<ElementFlowNode>) {
-  const { element, childCount, expanded, dimmed, diff, lint, hosts, editable } = data
+  const { element, childCount, expanded, dimmed, diff, lint, hosts, ownerFrom, editable, context } = data
+  const owners = useOwnerIndex()
+  const owner = effectiveOwner(element.effective, element.id)
+  const ownerView = owner ? owners.get(owner.ownerId) : undefined
   const { icon: KindIcon, label } = kindMeta[element.kind]
   const isContainer = expanded && childCount > 0
-  const db = element.kind === "database"
+  const db = isDatastore(element)
   const tone: ShapeTone = selected ? "selected" : (diff ?? "default")
   const endpoint = endpointOf(element.properties)
 
@@ -82,13 +93,15 @@ function ElementNodeImpl({ data, selected }: NodeProps<ElementFlowNode>) {
       <Handle type="source" position={Position.Right} isConnectable={editable} className={handleClass} />
       <div
         role="group"
-        aria-label={`${label} ${element.name}${diff ? ` (${diff})` : ""}`}
+        aria-label={`${label} ${element.name}${context ? " (external)" : ""}${diff ? ` (${diff})` : ""}`}
         style={{ "--kind": kindColor(element.kind) } as React.CSSProperties}
         className={cn(
           "relative h-full w-full overflow-hidden text-card-foreground duration-200",
           !db && cardClass(tone),
           // An expanded container is a quiet frame around its children.
           isContainer && "bg-muted/25 shadow-none dark:bg-card/40",
+          // Context of a focused canvas: quieter than the focused elements, never colored.
+          context && "bg-muted/40 shadow-none",
           db && diff === "removed" && "opacity-60",
           dimmed && "opacity-30"
         )}
@@ -127,7 +140,12 @@ function ElementNodeImpl({ data, selected }: NodeProps<ElementFlowNode>) {
               <span className="truncate font-heading text-sm font-semibold">{element.name}</span>
               {element.protected && <Lock className="size-3 shrink-0 text-muted-foreground" aria-label="Protected" />}
               <DiffMark diff={diff} />
-              {childCount > 0 && (
+              {context && (
+                <span className="ml-auto shrink-0 rounded bg-muted px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground">
+                  External
+                </span>
+              )}
+              {childCount > 0 && !context && (
                 <span className="ml-auto">
                   <ExpandButton element={element} childCount={childCount} expanded={false} />
                 </span>
@@ -138,8 +156,10 @@ function ElementNodeImpl({ data, selected }: NodeProps<ElementFlowNode>) {
               <TechBadge technology={element.technology} />
               <ReplicaBadge replicas={element.replicas} />
               <HostBadge hosts={hosts} />
+              {ownerView && <OwnerBadge owner={ownerView} from={ownerFrom} />}
+              <ElementFacts element={element} />
               {endpoint && <span className="truncate font-mono text-[11px] text-muted-foreground">{endpoint}</span>}
-              {element.tags.slice(0, hosts.length > 0 ? 1 : 2).map((t) => (
+              {element.tags.slice(0, hosts.length > 0 || ownerView ? 0 : 2).map((t) => (
                 <span
                   key={t}
                   className="truncate rounded bg-muted px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground"
@@ -152,6 +172,20 @@ function ElementNodeImpl({ data, selected }: NodeProps<ElementFlowNode>) {
         )}
       </div>
     </div>
+  )
+}
+
+/** Type (non-datastore), environment (where set on the element) and lifecycle (when not active). */
+export function ElementFacts({ element }: { element: Element }) {
+  const type = typeMeta(element.type)
+  return (
+    <>
+      {type && !isDatastore(element) && <MetaBadge>{type.label}</MetaBadge>}
+      {element.environment && <MetaBadge title="Environment">{element.environment}</MetaBadge>}
+      {element.lifecycle !== "active" && (
+        <MetaBadge title="Lifecycle">{labelOf(lifecycles, element.lifecycle)}</MetaBadge>
+      )}
+    </>
   )
 }
 
