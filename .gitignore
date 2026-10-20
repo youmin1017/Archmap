@@ -7,3 +7,5 @@ dist/
 tmp/
 *.log
 .DS_Store
+# Go binaries built on Windows (go build without -o)
+*.exe
